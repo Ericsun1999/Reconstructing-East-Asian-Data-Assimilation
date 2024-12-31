@@ -17,7 +17,7 @@ The directory `get_data` contains instructions and code to download and aggregat
 
 ### Needed data to plot Figures  
 
-Figures 1-2. (REACHES)
+The code `Code/Figure1&2.R` uses the REACHES data to produce Figures 1-2. 
 
 Figure 3.  (LME)
 
