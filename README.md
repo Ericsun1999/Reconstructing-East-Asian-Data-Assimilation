@@ -31,6 +31,8 @@ Figure 10-12. (REACHES, LME)
 
 Figure 13-15. (REACHES, LME, GHCN)
 
+The R scripts used in main manuscript may be found in the directory `scripts`.
+
 ### simulation-results  
 
 Contains the results from running the code in the simulation-code folder as described above. 
