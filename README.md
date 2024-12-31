@@ -4,6 +4,17 @@ Code to reproduce figures from the paper "Reconstructing East Asian Temperatures
 
 ## Organization
 
+### Data
+
+REACHES data can be downloaded on https://www.ncei.noaa.gov/access/paleo-search/study/37720.
+
+LME data can be download on https://www.cesm.ucar.edu/community-projects/lme, before download the data, please register the account on Climate Data Gateway.
+
+GHCN data can be download on https://www.ncei.noaa.gov/pub/data/ghcn/v4/.
+
+The directory `get_data` contains instructions and code to download and aggregate the data used for the analysis. See detailed instructions in `get_data/readme.md`. For convenience, the final aggregated datasets are already provided in the `data` folder.
+
+
 ### simulation-code  
 
 naive_type1.R produces the results displayed in Figures 1-2. 
