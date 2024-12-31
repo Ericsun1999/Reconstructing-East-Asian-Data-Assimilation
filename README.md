@@ -15,17 +15,21 @@ GHCN data can be download on https://www.ncei.noaa.gov/pub/data/ghcn/v4/.
 The directory `get_data` contains instructions and code to download and aggregate the data used for the analysis. See detailed instructions in `get_data/readme.md`. For convenience, the final aggregated datasets are already provided in the `data` folder.
 
 
-### simulation-code  
+### Needed data to plot Figures  
 
-naive_type1.R produces the results displayed in Figures 1-2. 
+Figures 1-2. (REACHES)
 
-Running our_type1.R with this.sim.id between 1-6 produces the results displayed  in Figure 4.  
+Figure 3.  (LME)
 
-Running cond_power.R with this.sim.id between 1-3 produces the results displayed  in Figure 5.
+Figure 4. (REACHES)
 
-Running our_type1_est.R with this.sim.id between 1-4 produces the results displayed in Figure S1.
+Figure 5-6. (REACHES)
 
-Running power.R with this.sim.id between 1-9 produces the results displayed  in Figures S2-S3. 
+Figures 7-9. (REACHES, LME)
+
+Figure 10-12. (REACHES, LME)
+
+Figure 13-15. (REACHES, LME, GHCN)
 
 ### simulation-results  
 
