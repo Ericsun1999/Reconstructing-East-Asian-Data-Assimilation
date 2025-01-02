@@ -12,7 +12,7 @@ LME data can be download on https://www.cesm.ucar.edu/community-projects/lme, be
 
 GHCN data can be download on https://www.ncei.noaa.gov/pub/data/ghcn/v4/.
 
-The directory `get_data` contains instructions and code to download and aggregate the data used for the analysis. See detailed instructions in `get_data/readme.md`. For convenience, the final aggregated datasets are already provided in the `data` folder.
+The directory `Getdata` contains instructions and code to download and aggregate the data used for the analysis. See detailed instructions in `Getdata/readme.md`. For convenience, the final aggregated datasets are already provided in the `Data` folder.
 
 
 ### Needed data to plot Figures  
