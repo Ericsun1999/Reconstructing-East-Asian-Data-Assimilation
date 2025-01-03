@@ -19,7 +19,7 @@ The directory `Getdata` contains instructions and code to download and aggregate
 
 The code `Code/Figure1&2.R` uses the REACHES data to produce Figures 1-2. 
 
-Figure 3.  (LME)
+The code `Code/Figure3.R` uses the LME data to produce Figure 3.  (LME)
 
 Figure 4. (REACHES)
 
