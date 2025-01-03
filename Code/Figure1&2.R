@@ -7,9 +7,6 @@ colnames(temperature)<-c("level","year","long","lat")
 library(ggplot2)
 
 #Annual counts of temperature records in the REACHES dataset from 1368 to 1911, Figure 1(a)
-ggplot(temperature, aes(x=year)) +
-    geom_histogram(binwidth = 1,color ="red",fill="red") +
-    theme(text = element_text(size=15))
 
 jpeg("./anntemp.png",width=4,height=2.5 , res = 300, units = "in")
     print(
@@ -20,9 +17,6 @@ jpeg("./anntemp.png",width=4,height=2.5 , res = 300, units = "in")
     dev.off()
 
 #Frequency of each temperature category in the REACHES dataset, Figure 1(b)
-ggplot(temperature,aes(x=level)) +
-    geom_histogram(bins=9) +
-    theme(text = element_text(size=15))
 
 jpeg("./temphisto.png",width=4,height=2.5 , res = 300, units = "in")
     print(
