@@ -8,7 +8,6 @@ Data2 <- read.csv("./a2.csv", row.names=1)
 Data3 <- read.csv("./a3.csv", row.names=1)
 
 
-
 #Beijing
 Data<-Data3 #Plot Shanghai or hong kong just change it to Data2 or Data1
 
@@ -56,7 +55,9 @@ dfp<-data.frame(
   Year=c(1350:1949)
 )
 
-#Figure3(a) (This show Bejing, for Shanghai and Hong Kong, edit line 80-82)
+#Yearly temperature time series data from 13 LME simulations, Figure3(a) 
+#(This show Bejing, for Shanghai and Hong Kong, edit line 80-82)
+
 jpeg("~/Downloads/lmetime63.png",width=6,height=3, res=300, units = "in")
       print(
       ggplot(data=dfp[19:562,], aes(x=Year)) +
