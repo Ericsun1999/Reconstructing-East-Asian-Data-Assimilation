@@ -8,17 +8,6 @@ ghcnn<-read_excel("./GHCNv4.xlsx",col_type = c("skip","numeric","skip","numeric"
 ghcn<-ghcnn[1:161,]
 ghcn<-ghcn[-c(103,104),]
 
-
-#Shanghai
-#443-503 1847
-#ghcn<-ghcnn[443:503, ]
-
-
-#Hong Kong
-#839-895 1853
-#ghcn<-ghcnn[839:895, ]
-
-
 ghcnave<-array(0,dim = nrow(ghcn))
 
 for (i in 1:nrow(ghcn)) {
