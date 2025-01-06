@@ -146,5 +146,5 @@ calc_c_Y <- function(s0, locations) {
 #Write csv
   names(sk.all)[-c(1,2)] <- year2
 #The point of Hong Kong, Shanghai, Beijing
-  write_excel_csv(sk.all[c(456,1425,2316),],"tempe_all_v3.csv")
+  write_excel_csv(sk.all[c(456,1425,2316),],"tempe_all.csv")
   
