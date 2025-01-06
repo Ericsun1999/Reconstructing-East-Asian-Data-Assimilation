@@ -29,7 +29,7 @@ The code `Code/Figure7-9.R` uses the REACHES data and the LME data to produce Fi
 
 The code `Code/Figure10&11.R` uses the LME data to produce Figure 10-11.
 
-Figure 12. (REACHES, LME)
+The code `Code/Figure12.R` uses the REACHES data and the LME data to produce Figure 12.
 
 Figure 13-15. (REACHES, LME, GHCN)
 
