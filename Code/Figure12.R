@@ -22,14 +22,13 @@ kt<-array(0,525)
 jt<-array(0,525)
 e<-array(0,525)
 
-a[1]=mu[19]
-b[1]=mu[20]
-c[1]=rt[19]
+a[1]=df2c$value[19]
+b[1]=df2c$value[20]
+c[1]=df3c$rt[19]
 
-
-mumu <- mu[year3-1367]
-mtmt <- mt[year3-1368]
-rtrt <- rt[year3-1367]
+mumu <- df2c$value[year3-1367]
+mtmt <- dfc$value[year3-1368]
+rtrt <- df3c$rt[year3-1367]
 
 for (i in 1:522) {
   b[i+1] = mumu[i+1] - mtmt[i]*mumu[i] + mtmt[i]*a[i]
