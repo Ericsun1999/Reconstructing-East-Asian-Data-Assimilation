@@ -25,6 +25,8 @@ The directory `Data/Get_data` contains instructions and code to download and agg
 
 ### Code 
 
+Detail are described in `Code/README.md`.
+
 The code `Code/Figure1&2.R` uses the REACHES data to produce Figures 1-2. 
 
 The code `Code/Figure3.R` uses the LME data to produce Figure 3.
