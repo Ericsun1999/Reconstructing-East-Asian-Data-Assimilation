@@ -63,7 +63,7 @@ for (z in 1:100) {
 
   for (k in 1:543) {
     for (i in 1:13) {
-      yv[13*(k)+i,1] = (haaa[i,k+20]-mt[k]*haa[i,k+19])/sqrt(rt[k+20])
+      yv[13*(k)+i,1] = (haa[i,k+20]-mt[k]*haa[i,k+19])/sqrt(rt[k+20])
       xv[13*(k)+i,k] = -mt[k]/sqrt(rt[k+20])
       xv[13*(k)+i,k+1] = 1/sqrt(rt[k+20])      
     }
