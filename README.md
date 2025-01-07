@@ -10,7 +10,7 @@ REACHES data can be downloaded on https://www.ncei.noaa.gov/access/paleo-search/
 
 LME data can be download on https://www.cesm.ucar.edu/community-projects/lme, before download the data, please register the account on Climate Data Gateway.
 
-GHCN data can be download on https://www.ncei.noaa.gov/pub/data/ghcn/v4/.
+GHCN data can be download on https://www.ncei.noaa.gov/pub/data/ghcn/v4/, please click ghcnm.tavg.latest.qcf.tar.gz for downlad.
 
 The directory `Getdata` contains instructions and code to download and aggregate the data used for the analysis. See detailed instructions in `Getdata/readme.md`. For convenience, the final aggregated datasets are already provided in the `Data` folder.
 
