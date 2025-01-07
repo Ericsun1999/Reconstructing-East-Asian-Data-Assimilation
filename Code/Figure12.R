@@ -1,4 +1,4 @@
-#Run this after run Figures7-9.R and Figures10&11.R
+#Run this after run Figures7-9.R
 
 fz <-  dnorm(z.mean, z.mean, z.sd)
 fw <-  dsnorm(y.snorm$par[1], mean = y.snorm$par[1],
@@ -6,12 +6,16 @@ fw <-  dsnorm(y.snorm$par[1], mean = y.snorm$par[1],
 
 fwfz<- (fz/fw)^2
 
+#For Shanghai and Hong kong change to mtS, muS, rtS & mtH, muH, rtH
+  dfc <- read.csv("~/Downloads/DA1/mtB.csv")
+  df2c <- read.csv("~/Downloads/DA1/muB.csv")
+  df3c <- read.csv("~/Downloads/DA1/rtB.csv")
+
   sigma2<-array(0,524)
 
-  #Bstd BstdS BstdH
-  sigma2<- read.csv("~/Downloads/DA/BstdS.csv")
-
-    
+#For Shanghai and Hong kong change to BstdS & BstdH
+  sigma2<- read.csv("~/Downloads/DA/Bstd.csv")
+ 
   sigma3 = sigma2^2 *fwfz
 
 a<-array(0,523)
