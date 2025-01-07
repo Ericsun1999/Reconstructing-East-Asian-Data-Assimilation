@@ -25,11 +25,11 @@ The directory `Data/Get_data` contains instructions and code to download and agg
 
 ### Code 
 
-Detail are described in `Code/README.md`.
+Detailed descriptions of the code and usage instructions are available in `Code/README.md`.
 
 
 ### Figure  
 
-Produces Figures 1-15 in the paper.
+The provided code generates Figures 1–15 as presented in the paper.
 
 
