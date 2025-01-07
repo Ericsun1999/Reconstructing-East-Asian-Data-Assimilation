@@ -38,7 +38,7 @@ The code `Code/Figure14.R` uses the REACHES data,the LME data and the GHCN data 
 The code `Code/Figure15.R` uses the REACHES data,the LME data and the GHCN data to produce Figure 15.
 
 
-### figures  
+### Figure  
 
 Produces Figures 1-15 in the paper.
 
