@@ -38,9 +38,7 @@ for (i in 1:600) {
   haave[i]=colMeans(haa)[i]
 }
 
-haave1<-array(haa,dim=600*13)
-
-#QM Beijing
+#QM (The figures 7 & 8 here adjust to plot Beijing, but the code still can run for Shanghai & Hong Kong)
 library(EnvStats)
 library(fGarch)
 library(ggplot2)
@@ -53,6 +51,7 @@ y.snorm<-snormFit(c(haave))
 
 dsnorm.fit <- data.frame(temper=c(haave))
 
+#Figure8 (b)
 #jpeg("~/Downloads/snormpdfhist.png",width=6,height=3.5 , res = 300, units = "in")
       print(
 ggplot(data = dsnorm.fit, aes(x=temper)) +
@@ -64,11 +63,12 @@ ggplot(data = dsnorm.fit, aes(x=temper)) +
   xlab("temperature")
   )
 # dev.off()
-#Figure8 (b)
+
 
 df111<-data.frame(reach=as.numeric(tempe_use[,-c(1,2)]), 
                   year =  c(year3))
 
+#Figure8 (a)
 #jpeg("~/Downloads/Reachtemp.png",width=6,height=3.5 , res = 300, units = "in")
       print(
 ggplot(data = df111, aes(x=reach)) +
@@ -79,8 +79,8 @@ ggplot(data = df111, aes(x=reach)) +
   xlab("temperature")
   )
 # dev.off()
-#Figure8 (a)
 
+#Figure7 (a)
  #jpeg("~/Downloads/reachtime.png",width=6,height=4 , res = 300, units = "in")
       print(
       ggplot(data = df111, aes(x = year, y = reach)) +
@@ -90,7 +90,7 @@ ggplot(data = df111, aes(x=reach)) +
   ylab("level") 
       )
 #   dev.off()
-#Figure7 (a)
+
 
 z<-pnorm(as.numeric(tempe_use[,-c(1,2)]), z.mean,z.sd)
 
@@ -99,6 +99,7 @@ y1<-qsnorm(z,y1.snorm$par[1],y1.snorm$par[2],y1.snorm$par[3])
 
 df<-data.frame(z=as.numeric(tempe_use[,-c(1,2)]),y=y)
 
+#Figure7 (b)
 #jpeg("~/Downloads/fyinverse.png",width=6,height=4 , res = 300, units = "in")
       print(
       ggplot(data = df,aes(x=z,y=y)) +
@@ -109,13 +110,14 @@ df<-data.frame(z=as.numeric(tempe_use[,-c(1,2)]),y=y)
   theme(text=element_text(size=19),legend.position="right",legend.key.height=unit(1.5,"cm"),plot.title = element_text(hjust = 0.5)) 
       )
 #    dev.off()
-#Figure7 (b)
+
 
 df7<-data.frame(YEAR=c(year3),y=y)
 df7<-cbind(df7,t(as.vector("REACH")))
 colnames(df7)<-c("YEAR","temperature","type")
 dsnorm.fit1 <- data.frame(temper=c(haave)[(year3-1350)], year = c(year3))
 
+#Figure9 (Edit line 130-132 for Shanghai and Hong Kong)
 #jpeg("~/Downloads/time reach lme63.png",width=6,height=3, res=300, units = "in")
       print(
       ggplot() +
@@ -132,4 +134,4 @@ dsnorm.fit1 <- data.frame(temper=c(haave)[(year3-1350)], year = c(year3))
       )
 #    dev.off()  
     
-#Figure9
+
