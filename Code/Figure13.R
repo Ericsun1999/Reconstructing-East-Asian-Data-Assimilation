@@ -1,3 +1,5 @@
+#Run this after run Figures12.R
+
 #Get GHCN temperature data
 library(ggplot2)
 library(readxl)
