@@ -1,12 +1,21 @@
-The code `Figure1&2.R` uses the REACHES data to produce Figures 1-2. 
+## Code Descriptions
 
-The code `Figure3.R` uses the LME data to produce Figure 3.
+### 1. `Figure1&2.R`
+Uses the REACHES data to produce Figures 1 and 2.
 
-The code `Figure4.R` uses the REACHES data to produce Figure 4.
+### 2. `Figure3.R`
+Uses the LME data to produce Figure 3.
 
-The code `Figure5&6.R` uses the REACHES data to produce Figure 5-6.
+### 3. `Figure4.R`
+Uses the REACHES data to produce Figure 4.
 
-The code `Get_tempe_all_data.R` uses the REACHES data to produce the kriged REACHES data. (It can be skip for reproducing the Figures due to time issues)
+### 4. `Figure5&6.R`
+Uses the REACHES data to produce Figure 5 and 6.
+
+### 5. `Get_tempe_all_data.R`
+Uses the REACHES data to produce the kriged REACHES data.
+(This step can be skipped when reproducing the figures due to time constraints.)
+
 
 The code `Figure7-9.R` uses the kriged REACHES data and the LME data to produce Figures 7-9.
 
