@@ -106,8 +106,6 @@ for (ii in 1:7) {
   }
 }
 
-tte <- array(runif(13 * 7 * 7 * 7), dim = c(13, 7, 7, 7))
-
 # Calculate the mean along the first dimension
 mean_array <- apply(tte, c(2, 3, 4), mean)
 
