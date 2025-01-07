@@ -16,7 +16,7 @@ The code `Fused.R` uses the LME data to estimate the parameters in section 4.1, 
 
 The code `Figure10&11.R` uses the estimated Parameters for Beijing (LME data) to produce Figure 10-11.
 
-The code `Figure12.R` uses the kriged REACHES data and the LME data to produce Figure 12.
+The code `Figure12.R` uses the Mean-Square Prediction Error of Kriged REACHES Data, the kriged REACHES data and the estimated Parameters for Beijing (LME data) to produce Figure 12. ()
 
 The code `Figure13.R` uses the kriged REACHES data, the LME data and the GHCN data to produce Figure 13.
 
