@@ -58,7 +58,7 @@ dfp<-data.frame(
 #Yearly temperature time series data from 13 LME simulations, Figure3(a) 
 #(This show Bejing, for Shanghai and Hong Kong, edit line 80-82)
 
-jpeg("~/Downloads/lmetime63.png",width=6,height=3, res=300, units = "in")
+#jpeg("~/Downloads/lmetime63.png",width=6,height=3, res=300, units = "in")
       print(
       ggplot(data=dfp[19:562,], aes(x=Year)) +
   geom_line(aes(y=data1,col="data1"))+
@@ -84,4 +84,4 @@ jpeg("~/Downloads/lmetime63.png",width=6,height=3, res=300, units = "in")
 # ylim(21.5,25) + #Hong Kong
   theme(text=element_text(size=12), plot.title = element_text(hjust = 0.5), legend.title = element_text(),legend.position = "none")
       )
-   dev.off()
+ #  dev.off()
