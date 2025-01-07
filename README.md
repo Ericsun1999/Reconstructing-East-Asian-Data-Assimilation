@@ -15,7 +15,7 @@ GHCN data can be download on https://www.ncei.noaa.gov/pub/data/ghcn/v4/, please
 The directory `Data/Get_data` contains instructions and code to download and aggregate the data used for the analysis. See detailed instructions in `Data/Get_data/README.md`. For convenience, the final aggregated datasets are already provided in the `Data` folder.
 
 
-### Needed data to plot Figures  
+### Code 
 
 The code `Code/Figure1&2.R` uses the REACHES data to produce Figures 1-2. 
 
