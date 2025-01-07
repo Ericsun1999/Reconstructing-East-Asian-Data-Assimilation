@@ -1,4 +1,4 @@
-#Run this after run Figures12.R
+#This code should be executed after running Figures12.R
 
 #Get GHCN temperature data, Figure15
 
