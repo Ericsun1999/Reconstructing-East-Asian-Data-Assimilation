@@ -1,6 +1,6 @@
 
 library(readxl)
-temperature<- read_excel("~/Downloads/DA/temperature index value.v1.xlsx",col_type = c("skip","skip","numeric","numeric","skip","skip","skip","skip","skip","numeric","numeric","skip","skip"))
+temperature<- read_excel("./temperature index value.v1.xlsx",col_type = c("skip","skip","numeric","numeric","skip","skip","skip","skip","skip","numeric","numeric","skip","skip"))
 colnames(temperature)<-c("level","year","long","lat")
 
 # Take mode for events at duplicated locations and rearrange the data by year
@@ -69,7 +69,6 @@ arr.pred <- arr.std <- array(NA, c(53, 49, length(year2)))
 loc <- expand.grid(long = seq(98.25, 124.25, by = 0.5), lat = seq(18.25, 42.25, by = 0.5))
 coordinates(loc) <- ~ long + lat
 proj4string(loc) <- CRS('+proj=longlat +datum=WGS84')
-```
 
 #predicted
 
