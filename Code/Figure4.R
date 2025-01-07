@@ -78,7 +78,8 @@ for (i in 1:n) {
 df <- data.frame(vary = vary, varz = varz)
 
 #Figure4(a), calibration functions for model parameters
-jpeg("~/Downloads/varf1.png",width=6,height=6, res = 300, units = "in")
+
+#jpeg("~/Downloads/varf1.png",width=6,height=6, res = 300, units = "in")
       print(
       ggplot(df, aes(x=vary, y=varz)) +
   #geom_point(cex=1) +
@@ -93,7 +94,7 @@ jpeg("~/Downloads/varf1.png",width=6,height=6, res = 300, units = "in")
   geom_abline(intercept = 0.761, slope = 0, linetype = "longdash", color = "red")+
   geom_smooth(method = 'gam', formula = y ~ s(x), se = F, size=0.7,color="firebrick", linetype = "solid")
       )
-  dev.off()
+#  dev.off()
 
 
 #True Var(\epsilon) v.s. Round Var(\epsilon)
@@ -130,11 +131,11 @@ for (i in 1:n) {
   
 }
 
-
 df1 <- data.frame(sigmaepsilon = sigmaepsilon, sigmaepsilon1 = sigmaepsilon1)
 
 #Figure4(b), calibration functions for model parameters
-jpeg("~/Downloads/varf2.png",width=6,height=6, res = 300, units = "in")
+
+#jpeg("~/Downloads/varf2.png",width=6,height=6, res = 300, units = "in")
       print(
       ggplot(df1, aes(x=sigmaepsilon, y=sigmaepsilon1)) +
   #geom_point(cex=1) +
@@ -150,7 +151,7 @@ jpeg("~/Downloads/varf2.png",width=6,height=6, res = 300, units = "in")
   geom_abline(intercept = 0.196, slope = 0, linetype = "longdash", color = "red")+
   geom_smooth(method = 'gam', formula = y ~ s(x), se = F, size=0.7,color="firebrick", linetype = "solid")
       )
-  dev.off() 
+#  dev.off() 
 
 #Calculate \alpha
 
@@ -247,7 +248,7 @@ for (i in 0:n) {
 df2 <- data.frame(alphastar = alphastar, alpha2 = alpha2)
 
 #Figure4(c), calibration functions for model parameters
-jpeg("~/Downloads/varf3.png",width=5,height=6, res = 300, units = "in")
+#jpeg("~/Downloads/varf3.png",width=5,height=6, res = 300, units = "in")
       print(
       ggplot(df2, aes(x= alpha2, y= alphastar)) +
   #geom_point(cex=1) +
@@ -261,5 +262,5 @@ jpeg("~/Downloads/varf3.png",width=5,height=6, res = 300, units = "in")
   geom_abline(intercept = 426.66, slope = 0, linetype = "longdash", color = "red")+
   geom_smooth(method = 'gam', formula = y ~ s(x), se = F, size=0.7,color="firebrick", linetype = "solid")
       )
-  dev.off() 
+ # dev.off() 
       
