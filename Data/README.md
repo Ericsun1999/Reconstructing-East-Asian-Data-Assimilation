@@ -4,6 +4,6 @@ The kriged REACHES data provides in `tempe_all.csv`.
 
 The GHCN data provides in `GHCNv4.xlsx`.
 
-The LME data in Hong Kong is provides in `LME data/a1.csv`.
-The LME data in Shanghai is provides in `LME data/a2.csv`.
-The LME data in Beijing is provides in `LME data/a3.csv`.
+The LME data in Hong Kong provides in `LME data/a1.csv`.
+The LME data in Shanghai provides in `LME data/a2.csv`.
+The LME data in Beijing provides in `LME data/a3.csv`.
