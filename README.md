@@ -6,19 +6,22 @@ Code to reproduce figures from the paper "Reconstructing East Asian Temperatures
 
 ### Data
 
-We have three different datasets:
+#### REACHES Data:
 
-REACHES Data: This dataset is reconstructed based on historical document records. It includes information on location (longitude, latitude), levels, and times (years).
+Reconstructed from historical document records, this dataset includes information on location (longitude, latitude), levels, and time (years).
+Download Link: [NOAA Paleo Search - Study 37720](https://www.ncei.noaa.gov/access/paleo-search/study/37720.)
 
-LME Data: This is a simulated dataset containing location (longitude, latitude), temperatures, and times (months).
+#### LME Data:
 
-GHCN Data: This dataset consists of the earliest instrumental records, including location (longitude, lati- tude), temperatures, and times (months).
+A simulated dataset containing information on location (longitude, latitude), temperatures, and time (months).
+Download Link: [CESM Community Projects - LME](https://www.cesm.ucar.edu/community-projects/lme)
+(Note: You need to register for an account on the Climate Data Gateway before downloading.)
 
-REACHES data can be downloaded on https://www.ncei.noaa.gov/access/paleo-search/study/37720.
+#### GHCN Data: 
 
-LME data can be download on https://www.cesm.ucar.edu/community-projects/lme, before download the data, please register the account on Climate Data Gateway.
-
-GHCN data can be download on https://www.ncei.noaa.gov/pub/data/ghcn/v4/, please click ghcnm.tavg.latest.qcf.tar.gz for downlad.
+Composed of the earliest instrumental records, this dataset includes location (longitude, latitude), temperatures, and time (months).
+Download Link:[ NOAA GHCN v4](https://www.ncei.noaa.gov/pub/data/ghcn/v4/)
+(Click on ghcnm.tavg.latest.qcf.tar.gz to download.)
 
 The directory `Data/Get_data` contains instructions and code to download and aggregate the data used for the analysis. See detailed instructions in `Data/Get_data/README.md`. For convenience, the final aggregated datasets are already provided in the `Data` folder.
 
