@@ -1,5 +1,4 @@
-#Run this after run Figures 7-9.R
-
+#This code should be run after Figure7-9.R
 
 library(penalized)
 library(tidyverse)
