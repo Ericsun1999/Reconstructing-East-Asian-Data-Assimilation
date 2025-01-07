@@ -31,24 +31,15 @@ The code `Code/Figure10&11.R` uses the LME data to produce Figure 10-11.
 
 The code `Code/Figure12.R` uses the REACHES data and the LME data to produce Figure 12.
 
-Figure 13-15. (REACHES, LME, GHCN)
+The code `Code/Figure13.R` uses the REACHES data,the LME data and the GHCN data to produce Figure 13.
 
-The R scripts used in main manuscript may be found in the directory `scripts`.
+The code `Code/Figure14.R` uses the REACHES data,the LME data and the GHCN data to produce Figure 14.
 
-### simulation-results  
+The code `Code/Figure15.R` uses the REACHES data,the LME data and the GHCN data to produce Figure 15.
 
-Contains the results from running the code in the simulation-code folder as described above. 
 
 ### figures  
 
-Produces Figures 1-6 in the paper and Figures S1-S3 in the supplement. All figures except Figures 3 and 6 depend on the simulation-results folder. 
+Produces Figures 1-15 in the paper.
 
-### figures-code  
 
-Contains the results from calling the code in the figures-code folder.
-
-### real-data-code  
-
-The code to run the real data analysis in Section 6.1 is in penguins.R. Instructions on how to download the data can be found [here](https://allisonhorst.github.io/palmerpenguins/articles/download.html). 
-
-The code to run the real data analysis in Section 6.2 is in zheng.R. The T-cell data can be downloaded [here](https://support.10xgenomics.com/single-cell-gene-expression/datasets/1.1.0/memory_t), the B-cell data can be downloaded [here](https://support.10xgenomics.com/single-cell-gene-expression/datasets/1.1.0/b_cells) and the monocyte data can be downloaded [here](https://support.10xgenomics.com/single-cell-gene-expression/datasets/1.1.0/cd14_monocytes).  You'll need to put the three resulting folders in the raw directory inside real-data-code and rename the three folders to 'filtered_matrices_mex_memory', 'filtered_matrices_mex_bcell', and 'filtered_matrices_mex_mono'. 
