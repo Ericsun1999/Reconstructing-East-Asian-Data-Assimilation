@@ -6,13 +6,13 @@ The code `Figure4.R` uses the REACHES data to produce Figure 4.
 
 The code `Figure5&6.R` uses the REACHES data to produce Figure 5-6.
 
-The code `Get_tempe_all_data.R` uses the REACHES data to produce the kriged REACHES data. 
+The code `Get_tempe_all_data.R` uses the REACHES data to produce the kriged REACHES data. (It can be skip for reproducing the Figures due to time issues)
 
 The code `Figure7-9.R` uses the kriged REACHES data and the LME data to produce Figures 7-9.
 
-The code `Choosetuning.R` uses the LME data to estimate the tuning parameters in section 4.1.
+The code `Choosetuning.R` uses the LME data to estimate the tuning parameters in section 4.1. (It can be skip for reproducing the Figures due to time issues)
 
-The code `Fused.R` uses the LME data to estimate the parameters in section 4.1, the result of parameters have been saved in `Data\par`.
+The code `Fused.R` uses the LME data to estimate the parameters in section 4.1, the result of parameters have been saved in `Data\par`. (It can be skip for reproducing the Figures due to time issues)
 
 The code `Figure10&11.R` uses the estimated Parameters for Beijing (LME data) to produce Figure 10-11.
 
