@@ -1,6 +1,6 @@
 REACHES data provides in `temperature index value.v1.xlsx`.
 
-The kriged REACHES data provides in `tempe_all.csv`. (It contains Beijing, Shanghai, Hong Kong)
+The kriged REACHES data provides in `tempe_all.csv`.
 
 The GHCN data provides in `GHCNv4.xlsx`.
 
