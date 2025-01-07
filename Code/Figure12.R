@@ -1,4 +1,4 @@
-#Run this after run Figures7-9.R
+#This code should be executed after running Figures7-9.R
 
 fz <-  dnorm(z.mean, z.mean, z.sd)
 fw <-  dsnorm(y.snorm$par[1], mean = y.snorm$par[1],
