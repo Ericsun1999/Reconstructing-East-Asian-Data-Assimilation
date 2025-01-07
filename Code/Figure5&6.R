@@ -68,7 +68,7 @@ proj4string(loc) <- CRS('+proj=longlat +datum=WGS84')
 library(RColorBrewer)
   for(i in 1:length(year2)) {
     temp.dat <- as.data.frame(y2[y2$year==year2[i],])
-    jpeg(paste(getwd(),"/data-temp-",i,".jpg",sep=""),width=5,height=4, res=300, units = "in")
+    #jpeg(paste(getwd(),"/data-temp-",i,".jpg",sep=""),width=5,height=4, res=300, units = "in")
      print(
      ggplot(temp.dat,aes(long,lat)) +
       geom_point(aes(colour=level),cex=2) +
@@ -80,7 +80,7 @@ library(RColorBrewer)
       theme(text=element_text(size=15),legend.title=element_blank(),
         legend.position="right",legend.key.height=unit(2.2,"cm"),legend.spacing.y = unit(-3,"cm"))
      )
-     dev.off()
+     #dev.off()
   }
 
 
@@ -156,7 +156,7 @@ calc_Sigma_zz <- function(locations) {
     arr.pred[,,i] <- matrix(temp15,53,49)
     arr.std[,,i] <- matrix(temp16,53,49)
     temp.dat1 <- cbind(as.data.frame(loc@coords)[,1:2],mu=c(arr.pred[,,i]))
-     jpeg(paste(getwd(),"/krige-temp-",i,".jpg",sep=""),width=5,height=4, res=300, units = "in")
+    # jpeg(paste(getwd(),"/krige-temp-",i,".jpg",sep=""),width=5,height=4, res=300, units = "in")
     print(
       ggplot(temp.dat1,aes(long,lat)) +
       geom_point(aes(colour=mu),cex=9) +
@@ -168,7 +168,7 @@ calc_Sigma_zz <- function(locations) {
       theme(text=element_text(size=15),legend.title=element_blank(),
         legend.position="right",legend.key.height=unit(2.2,"cm"),legend.spacing.y = unit(-3,"cm"))
     )
-    dev.off()
+    #dev.off()
 
   }
 
