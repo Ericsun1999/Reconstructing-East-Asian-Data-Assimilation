@@ -6,6 +6,14 @@ Code to reproduce figures from the paper "Reconstructing East Asian Temperatures
 
 ### Data
 
+We have three different datasets:
+
+REACHES Data: This dataset is reconstructed based on historical document records. It includes information on location (longitude, latitude), levels, and times (years).
+
+LME Data: This is a simulated dataset containing location (longitude, latitude), temperatures, and times (months).
+
+GHCN Data: This dataset consists of the earliest instrumental records, including location (longitude, lati- tude), temperatures, and times (months).
+
 REACHES data can be downloaded on https://www.ncei.noaa.gov/access/paleo-search/study/37720.
 
 LME data can be download on https://www.cesm.ucar.edu/community-projects/lme, before download the data, please register the account on Climate Data Gateway.
