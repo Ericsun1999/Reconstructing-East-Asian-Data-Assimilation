@@ -14,7 +14,7 @@ The code `Choosetuning.R` uses the LME data to estimate the tuning parameters in
 
 The code `Fused.R` uses the LME data to estimate the parameters in section 4.1, the result of parameters have been saved in `Data\par`.
 
-The code `Figure10&11.R` uses the LME data to produce Figure 10-11.
+The code `Figure10&11.R` uses the estimated Parameters for Beijing (LME data) to produce Figure 10-11.
 
 The code `Figure12.R` uses the kriged REACHES data and the LME data to produce Figure 12.
 
