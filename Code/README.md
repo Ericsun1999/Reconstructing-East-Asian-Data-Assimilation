@@ -27,13 +27,13 @@ Uses the kriged REACHES data (`Data/tempe_all.csv`) and the LME data (`Data/LME 
 Uses the LME data (`Data/LME data`) to estimate the tuning parameters described in Section 4.1. (This step can be skipped when reproducing the figures due to time constraints. It should be executed after running `Figure7-9.R`.)
 
 ### 8. `Fused.R`
-Uses the LME data (`Data/LME data`) to estimate the parameters described in Section 4.1. The resulting parameters are saved in `Data\par`. (This step can be skipped when reproducing the figures due to time constraints. It should be executed after running `Figure7-9.R`.)
+Uses the LME data (`Data/LME data`) to estimate the parameters described in Section 4.1. The resulting parameters are saved in `Data/par`. (This step can be skipped when reproducing the figures due to time constraints. It should be executed after running `Figure7-9.R`.)
 
 ### 9. `Figure10&11.R`
-Uses the estimated parameters for Beijing (`Data\par`) to produce Figures 10 and 11.
+Uses the estimated parameters for Beijing (`Data/par`) to produce Figures 10 and 11.
 
 ### 10. `Figure12.R`
-Uses the Mean-Square Prediction Error of the kriged REACHES data (`Data\std`), the kriged REACHES data itself (`Data/tempe_all.csv`), and the estimated parameters for Beijing (`Data\par`) to produce Figure 12. (It should be executed after running `Figure7-9.R`)
+Uses the Mean-Square Prediction Error of the kriged REACHES data (`Data/std`), the kriged REACHES data itself (`Data/tempe_all.csv`), and the estimated parameters for Beijing (`Data/par`) to produce Figure 12. (It should be executed after running `Figure7-9.R`)
 
 ### 11. `Figure13.R`
 Uses the kriged REACHES data (`Data/tempe_all.csv`), the LME data (`Data/LME data`), and the GHCN data (`Data/GHCNv4.xlsx`) to produce Figure 13. (It should be executed after running `Figure12.R`)
