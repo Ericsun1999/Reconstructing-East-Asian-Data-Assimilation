@@ -10,6 +10,8 @@ Detailed descriptions of the code and usage instructions are available in `Code/
 
 ### Data
 
+Detailed descriptions of the data and usage instructions are available in `Data/README.md`.
+
 #### REACHES Data:
 
 Reconstructed from historical document records, this dataset includes information on location (longitude, latitude), levels, and time (years).
