@@ -4,6 +4,10 @@ Code to reproduce figures from the paper "Reconstructing East Asian Temperatures
 
 ## Organization
 
+### Code 
+
+Detailed descriptions of the code and usage instructions are available in `Code/README.md`.
+
 ### Data
 
 #### REACHES Data:
@@ -24,11 +28,6 @@ Download Link:[ NOAA GHCN v4](https://www.ncei.noaa.gov/pub/data/ghcn/v4/)
 (Click on ghcnm.tavg.latest.qcf.tar.gz to download.)
 
 The directory `Data/Get_data` contains instructions and code to download and aggregate the data used for the analysis. See detailed instructions in `Data/Get_data/README.md`. For convenience, the final aggregated datasets are already provided in the `Data` folder.
-
-
-### Code 
-
-Detailed descriptions of the code and usage instructions are available in `Code/README.md`.
 
 
 ### Figure  
