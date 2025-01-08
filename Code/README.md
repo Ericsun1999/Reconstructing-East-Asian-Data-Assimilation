@@ -1,8 +1,8 @@
 ## Code Descriptions
 
-Before running the code, you can download data on `Data`, and the description in `Data/README.md`.
+Before running the code, download the required data from the `Data` folder, and refer to the description in `Data/README.md`.
 
-You can follow the order below to run the code for this paper. However, If you want to just reproduce the figure in the paper, you should skip the code `Get_tempe_all_data.R`, `Choosetuning.R`, `Fused.R`, the expected running times would be cut to less than 1 hour.
+Follow the steps below to run the code for this paper. However, if you only wish to reproduce the figure presented in the paper, you can skip the following scripts: `Get_tempe_all_data.R`, `Choosetuning.R`, and `Fused.R` By doing so, the expected running time will be reduced to less than one hour.
 
 ### 1. `Figure1&2.R`
 Uses the REACHES data (`Data/temperature index value.va.xlsx`) to produce Figures 1 and 2.
