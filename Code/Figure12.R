@@ -6,15 +6,15 @@ fw <-  dsnorm(y.snorm$par[1], mean = y.snorm$par[1],
 
 fwfz<- (fz/fw)^2
 
-#For Shanghai and Hong kong change to mtS, muS, rtS & mtH, muH, rtH
-  dfc <- read.csv("~/Downloads/DA1/mtB.csv")
-  df2c <- read.csv("~/Downloads/DA1/muB.csv")
-  df3c <- read.csv("~/Downloads/DA1/rtB.csv")
+#For Shanghai and Hong kong change mtB, muB, rtB to mtS, muS, rtS & mtH, muH, rtH
+  dfc <- read.csv("./mtB.csv")
+  df2c <- read.csv("./muB.csv")
+  df3c <- read.csv("./rtB.csv")
 
   sigma2<-array(0,524)
 
-#For Shanghai and Hong kong change to BstdS & BstdH
-  sigma2<- read.csv("~/Downloads/DA/Bstd.csv")
+#For Shanghai and Hong kong change Bstd to BstdS & BstdH
+  sigma2<- read.csv("./Bstd.csv")
  
   sigma3 = sigma2^2 *fwfz
 
