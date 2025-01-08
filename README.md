@@ -12,20 +12,20 @@ Detailed descriptions of the code and usage instructions are available in `Code/
 
 Detailed descriptions of the data and usage instructions are available in `Data/README.md`.
 
-#### REACHES Data:
+#### 1. REACHES Data:
 
 Reconstructed from historical document records, this dataset includes information on location (longitude, latitude), levels, and time (years).
 
 Download Link: [NOAA Paleo Search - Study 37720](https://www.ncei.noaa.gov/access/paleo-search/study/37720.)
 
-#### LME Data:
+#### 2. LME Data:
 
 A simulated dataset containing information on location (longitude, latitude), temperatures, and time (months).
 
 Download Link: [CESM Community Projects - LME](https://www.cesm.ucar.edu/community-projects/lme)
 (Note: You need to register for an account on the Climate Data Gateway before downloading.)
 
-#### GHCN Data: 
+#### 3. GHCN Data: 
 
 Composed of the earliest instrumental records, this dataset includes location (longitude, latitude), temperatures, and time (months).
 
