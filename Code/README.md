@@ -5,19 +5,19 @@ Before running the code, download the required data from the `Data` folder, and 
 Follow the steps below to run the code for this paper. However, if you only wish to reproduce the figure presented in the paper, you can skip the following scripts: `Get_tempe_all_data.R`, `Choosetuning.R`, and `Fused.R`. By doing so, the expected running time will be reduced to less than one hour.
 
 ### 1. `Figure1&2.R`
-Uses the REACHES data (`Data/temperature index value.va.xlsx`) to produce Figures 1 and 2.
+Uses the REACHES data (`Data/temperature index value.v1.xlsx`) to produce Figures 1 and 2.
 
 ### 2. `Figure3.R`
 Uses the LME data (`Data/LME data`) to produce Figure 3.
 
 ### 3. `Figure4.R`
-Uses the REACHES data (`Data/temperature index value.va.xlsx`) to produce Figure 4.
+Uses the REACHES data (`Data/temperature index value.v1.xlsx`) to produce Figure 4.
 
 ### 4. `Figure5&6.R`
-Uses the REACHES data (`Data/temperature index value.va.xlsx`) to produce Figure 5 and 6.
+Uses the REACHES data (`Data/temperature index value.v1.xlsx`) to produce Figure 5 and 6.
 
 ### 5. `Get_tempe_all_data.R`
-Uses the REACHES data (`Data/temperature index value.va.xlsx`) to produce the kriged REACHES data.
+Uses the REACHES data (`Data/temperature index value.v1.xlsx`) to produce the kriged REACHES data.
 (This step can be skipped when reproducing the figures due to time constraints.)
 
 ### 6. `Figure7-9.R`
