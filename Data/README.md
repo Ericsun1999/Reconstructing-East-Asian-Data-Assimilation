@@ -4,17 +4,17 @@ The following datasets are available for analysis:
 
 The temperature index values are provided in `temperature index value.v1.xlsx`.
 
-### 2. GHCN Data:
-
-Data is provided in `GHCNv4.xlsx`.
-
-### 3. LME Data:
+### 2. LME Data:
 
 Hong Kong: `LME data/a1.csv`.
 
 Shanghai: `LME data/a2.csv`.
 
 Beijing: `LME data/a3.csv`.
+
+### 3. GHCN Data:
+
+Data is provided in `GHCNv4.xlsx`.
 
 ### 4. Kriged REACHES Data (Section 3.1):
 
