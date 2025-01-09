@@ -18,19 +18,19 @@ Data is provided in `GHCNv4.xlsx`.
 
 ### 4. Kriged REACHES Data (Section 3.1):
 
-Data is provided in `tempe_all.csv`. Uses `Code/Get_tempe_all.data.R` to produce.
+Data is provided in `tempe_all.csv`.
 
 ### 5. Mean-Square Prediction Error of Kriged REACHES Data (Section 3.1):
 
-Beijing: `std/Bstd.csv`. Uses `Code/Get_tempe_all.data.R` to produce.
+Beijing: `std/Bstd.csv`.
 
-Shanghai: `std/BstdS.csv`. Uses `Code/Get_tempe_all.data.R` to produce.
+Shanghai: `std/BstdS.csv`.
 
-Hong Kong: `std/BstdH.csv`. Uses `Code/Get_tempe_all.data.R` to produce.
+Hong Kong: `std/BstdH.csv`.
 
 ### 6. Estimated Parameters for Beijing (Section 4.1):
 
-Parameter mt: `par\mtB.csv`. Uses `Code/Fused.R` to produce.
+Parameter mt: `par\mtB.csv`. 
 
 Parameter mu: `par\muB.csv`.
 
