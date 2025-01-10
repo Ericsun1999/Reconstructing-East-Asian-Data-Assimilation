@@ -1,6 +1,6 @@
 ## Code Descriptions
 
-Before running the code, download the required data from the `Data` folder, and refer to the description in `Data/README.md`.
+Before running the code, download the required data from the Data folder, and refer to the descriptions in `Data/README.md`.
 
 Follow below code to produce figures for this paper. 
 
@@ -24,7 +24,7 @@ Follow below code to produce figures for this paper.
 
 10. `Figure15.R` uses the kriged REACHES data (`Data/tempe_all.csv`), the LME data (`Data/LME data`), and the GHCN data (`Data/GHCNv4.xlsx`) to produce Figure 15. (It should be executed after running `Figure12.R`)
 
-If you only wish to reproduce the figure presented in the paper, you can skip the following scripts: `Get_tempe_all_data.R`, `Choosetuning.R`, and `Fused.R`. By doing so, the expected running time will be reduced to less than one hour.
+The following code are not essential for reproducing the figures presented in the paper. Skipping these will reduce the total runtime to less than one hour.
 
 `Get_tempe_all_data.R` uses the REACHES data (`Data/temperature index value.v1.xlsx`) to produce the kriged REACHES data.
 (This step can be skipped when reproducing the figures due to time constraints.)
