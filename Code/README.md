@@ -2,7 +2,7 @@
 
 Before running the code, download the required data from the `Data` folder, and refer to the description in `Data/README.md`.
 
-Follow below to run the code for this paper. 
+Follow below code to produce figures for this paper. 
 
 1. `Figure1&2.R` uses the REACHES data (`Data/temperature index value.v1.xlsx`) to produce Figures 1 and 2.
 
