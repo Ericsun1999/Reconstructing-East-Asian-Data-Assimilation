@@ -34,18 +34,18 @@ Hong Kong: `std/BstdH.csv`.
 
 ### 6. Estimated Parameters for Beijing (Section 4.1):
 
-Parameter mt: `par\mtB.csv`. 
+Parameter mt: `par/mtB.csv`. 
 
-Parameter mu: `par\muB.csv`.
+Parameter mu: `par/muB.csv`.
 
-Parameter rt: `par\rtB.csv`.
+Parameter rt: `par/rtB.csv`.
 
 ### 7. Estimated Parameters for Shanghai & Hong Kong (Section 4.1):
 
 These follow the same naming convention as the Beijing parameters, with the last character indicating the location:
 
-For Shanghai, replace the last character with "S" (e.g., `par\mtS.csv`).
+For Shanghai, replace the last character with "S" (e.g., `par/mtS.csv`).
 
-For Hong Kong, replace the last character with "H" (e.g., `par\mtH.csv`).
+For Hong Kong, replace the last character with "H" (e.g., `par/mtH.csv`).
 
 
