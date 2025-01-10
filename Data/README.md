@@ -1,6 +1,6 @@
 ### Data Aggregation
 
-The directory `Data/Get_data` contains instructions and code to download and aggregate the data used for the analysis. See detailed instructions in `Data/Get_data/README.md`. 
+The directory `Data/Get_data` contains instructions and code to download and aggregate the data used for the analysis. For detailed instructions, refer to `Data/Get_data/README.md`. 
 
 For convenience, the following final aggregated datasets datasets are available for analysis:
 
