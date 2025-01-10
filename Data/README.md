@@ -1,4 +1,8 @@
-The following aggregated datasets datasets are available for analysis:
+#### Data Aggregation
+
+The directory `Data/Get_data` contains instructions and code to download and aggregate the data used for the analysis. See detailed instructions in `Data/Get_data/README.md`. 
+
+For convenience, the following final aggregated datasets datasets are available for analysis:
 
 ### 1. REACHES Data:
 
