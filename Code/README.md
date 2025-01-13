@@ -28,6 +28,6 @@ The following code is not essential for reproducing the figures presented in the
 
 `Get_tempe_all_data.R` uses the REACHES data (`Data/temperature index value.v1.xlsx`) to produce the kriged REACHES data.
 
-`Choosetuning.R` uses the LME data (`Data/LME data`) to estimate the tuning parameters described in Section 4.1. (It should be executed after running `Figure7-9.R`.)
+`Choosetuning.R` uses the LME data (`Data/LME data`) to estimate the tuning parameters described in Section 4.1. (It should be executed after running `Figure7-9.R`)
 
-`Fused.R` uses the LME data (`Data/LME data`) to estimate the parameters described in Section 4.1. The resulting parameters are saved in `Data/par`. (It should be executed after running `Figure7-9.R`.)
+`Fused.R` uses the LME data (`Data/LME data`) to estimate the parameters described in Section 4.1. The resulting parameters are saved in `Data/par`. (It should be executed after running `Figure7-9.R`)
