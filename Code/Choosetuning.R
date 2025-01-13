@@ -117,7 +117,7 @@ min_indices <- which(mean_array == min_value, arr.ind = TRUE)
 
 min_indices
 
-#lam1 = 1e-2
+#lam1 = 3e-2
 #lam2 = 1e1
 #lam3 = 1e1
 
