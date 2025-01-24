@@ -1,6 +1,6 @@
-#This code should be executed after running Figures12.R
+#This code should be executed after running Figures13.R
 
-#Get GHCN temperature data, Figure15
+#Get GHCN temperature data, Figure16
 
 library(ggplot2)
 library(readxl)
@@ -29,7 +29,7 @@ fitt1<-lm(df94$temperature~df94$predicted)
 fitt2<-lm(df94$temperature~df94$REACHES)
 fitt3<-lm(df94$temperature~df94$LME)
 
-#Figure15 
+#Figure16 
 #jpeg("~/Downloads/scpregh.png",width=6,height=6, res = 300, units = "in")
       print(
       ggplot(df94, aes(x=predicted, y= temperature))+
