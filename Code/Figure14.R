@@ -1,4 +1,4 @@
-#This code should be executed after running Figures12.R
+#This code should be executed after running Figures13.R
 
 #Get GHCN temperature data
 library(ggplot2)
@@ -32,7 +32,7 @@ fitt1<-lm(df94$temperature~df94$predicted)
 fitt2<-lm(df94$temperature~df94$REACHES)
 fitt3<-lm(df94$temperature~df94$LME)
 
-#Valid Beijing, Figure13
+#Valid Beijing, Figure14
                     
 #jpeg("~/Downloads/scpregh.png",width=6,height=6, res = 300, units = "in")
       print(
