@@ -54,6 +54,7 @@ year4<- year3[1:523]
 
 df87<-data.frame(year = c(year4), predicted = pred, sigma = c[1:523], REACHES = y[1:523], LME = haave[year4-1350])
 
+#Figure13, Predicted temperatures in Beijing from 1368 to 1911
 #jpeg("~/Downloads/Predicted.png",width=6,height=3, res=300, units = "in")
       print(
       ggplot(data = df87, aes(x = year, y = predicted)) +
