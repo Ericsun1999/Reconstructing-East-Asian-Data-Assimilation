@@ -5,7 +5,8 @@ df7<-cbind(df7,t(as.vector("REACH")))
 colnames(df7)<-c("YEAR","temperature","type")
 dsnorm.fit1 <- data.frame(temper=c(haave)[(year3-1350)], year = c(year3))
 
-#Figure10 (Edit line 130-132 for Shanghai and Hong Kong)
+#Figure10, Time series plots of Celsius-scaled REACHES data from 1368 to 1911
+# (Edit line 19-21 for Shanghai and Hong Kong)
 #jpeg("~/Downloads/time reach lme63.png",width=6,height=3, res=300, units = "in")
       print(
       ggplot() +
