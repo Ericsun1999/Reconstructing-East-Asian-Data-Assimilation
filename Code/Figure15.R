@@ -50,7 +50,7 @@ fitt3<-lm(df94$temperature~df94$LME)
       )
 #  dev.off() 
     
-    
+#Figure15, Scatter plots between GHCN temperatures and estimates in Shanghai from 1857 to 1911    
 #jpeg("~/Downloads/screagh.png",width=6,height=6, res = 300, units = "in")
     print(
       ggplot(df94, aes(x=REACHES, y= temperature))+
