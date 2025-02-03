@@ -32,7 +32,7 @@ fitt1<-lm(df94$temperature~df94$predicted)
 fitt2<-lm(df94$temperature~df94$REACHES)
 fitt3<-lm(df94$temperature~df94$LME)
 
-#Valid Beijing, Figure14
+#Figure14, Scatter plots between GHCN temperatures and estimates in Beijing from 1861 to 1911
                     
 #jpeg("~/Downloads/scpregh.png",width=6,height=6, res = 300, units = "in")
       print(
