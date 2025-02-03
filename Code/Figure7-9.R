@@ -51,7 +51,7 @@ y.snorm<-snormFit(c(haave))
 
 dsnorm.fit <- data.frame(temper=c(haave))
 
-#Figure8 (b)
+#Figure8 (b), Histogram of Beijing temperature data and the LME data with estimated skew normal PDF
 #jpeg("~/Downloads/snormpdfhist.png",width=6,height=3.5 , res = 300, units = "in")
       print(
 ggplot(data = dsnorm.fit, aes(x=temper)) +
@@ -68,7 +68,7 @@ ggplot(data = dsnorm.fit, aes(x=temper)) +
 df111<-data.frame(reach=as.numeric(tempe_use[,-c(1,2)]), 
                   year =  c(year3))
 
-#Figure8 (a)
+#Figure8 (a), Histogram of Beijing temperature data and the REACHES data with estimated normal PDF
 #jpeg("~/Downloads/Reachtemp.png",width=6,height=3.5 , res = 300, units = "in")
       print(
 ggplot(data = df111, aes(x=reach)) +
@@ -80,7 +80,7 @@ ggplot(data = df111, aes(x=reach)) +
   )
 # dev.off()
 
-#Figure7 (a)
+#Figure7(a), Annual temperature time series for Beijing based on kriged REACHES data
  #jpeg("~/Downloads/reachtime.png",width=6,height=4 , res = 300, units = "in")
       print(
       ggplot(data = df111, aes(x = year, y = reach)) +
@@ -99,7 +99,7 @@ y1<-qsnorm(z,y1.snorm$par[1],y1.snorm$par[2],y1.snorm$par[3])
 
 df<-data.frame(z=as.numeric(tempe_use[,-c(1,2)]),y=y)
 
-#Figure7 (b)
+#Figure7(b), Estimated calibration function transforming REACHES temperature indices in Beijing to the Celsius scale
 #jpeg("~/Downloads/fyinverse.png",width=6,height=4 , res = 300, units = "in")
       print(
       ggplot(data = df,aes(x=z,y=y)) +
