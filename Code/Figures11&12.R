@@ -1,7 +1,7 @@
 dfc <- read.csv("./mtB.csv")
 df2c <- read.csv("./muB.csv")
 
-#Figure11
+#Figure11, Time series plot of the estimated parameter M_t from years 1368 to 1911
  #jpeg("~/Downloads/mt.png",width=6,height=4, res=300, units = "in")
       print(
       ggplot(data = dfc,aes(x=year, y=value)) +
@@ -16,7 +16,7 @@ df2c <- read.csv("./muB.csv")
       )
     #dev.off() 
 
-#Figure12
+#Figure12, Time series plot of the estimated parameter µ_t from years 1368 to 1911
  #jpeg("~/Downloads/mu1.png",width=6,height=4, res=300, units = "in")
       print(
       ggplot(data = df2c,aes(x=year, y=value)) +
