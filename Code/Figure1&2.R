@@ -6,7 +6,7 @@ colnames(temperature)<-c("level","year","long","lat")
 
 library(ggplot2)
 
-#Annual counts of temperature records in the REACHES dataset from 1368 to 1911, Figure 1(a)
+#Figure 1(a), Annual counts of temperature records in the REACHES dataset from 1368 to 1911
 
 #jpeg("./anntemp.png",width=4,height=2.5 , res = 300, units = "in")
     print(
@@ -16,7 +16,7 @@ library(ggplot2)
     )
 #    dev.off()
 
-#Frequency of each temperature category in the REACHES dataset, Figure 1(b)
+#Figure 1(b), Frequency of each temperature category in the REACHES dataset
 
 #jpeg("./temphisto.png",width=4,height=2.5 , res = 300, units = "in")
     print(
@@ -34,7 +34,7 @@ temp2 <-temperature%>%
     group_by(year,long,lat) %>%  
     summarise(level = mean(level))
 
-# A map of temperature event levels, Figure2
+#Figure2, A map of temperature event levels
 
   #jpeg("~/Downloads/recordstem1.png",width=6,height=5.5, res=300, units = "in")
       print(
