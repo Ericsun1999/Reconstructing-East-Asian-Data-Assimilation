@@ -63,7 +63,7 @@ coordinates(loc) <- ~ long + lat
 proj4string(loc) <- CRS('+proj=longlat +datum=WGS84')
 
 
-#Plot Figure5(a),6(a)
+#Plot Figure5(a), 6(a)
 
 library(RColorBrewer)
   for(i in 1:length(year2)) {
@@ -132,7 +132,7 @@ calc_Sigma_zz <- function(locations) {
   return(Sigma_zz)
 }
 
-#Plot Figure5(b),6(b)
+#Plot Figure5(b), 6(b)
 
   for(i in 1:length(year2)) {
     temp14 <- y2[y2$year==year2[i],]
@@ -172,4 +172,4 @@ calc_Sigma_zz <- function(locations) {
 
   }
 
-```
+
