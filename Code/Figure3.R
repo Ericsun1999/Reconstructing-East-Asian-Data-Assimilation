@@ -55,7 +55,7 @@ dfp<-data.frame(
   Year=c(1350:1949)
 )
 
-#Yearly temperature time series data from 13 LME simulations, Figure3(a) 
+#Figure3(a), Yearly temperature time series data from 13 LME simulations 
 #(This show Bejing, for Shanghai and Hong Kong, edit line 82-84)
 
 #jpeg("~/Downloads/lmetime63.png",width=6,height=3, res=300, units = "in")
