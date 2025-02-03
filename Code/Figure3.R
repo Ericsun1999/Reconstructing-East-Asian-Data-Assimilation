@@ -9,7 +9,7 @@ Data3 <- read.csv("./a3.csv", row.names=1)
 
 
 #Beijing
-Data<-Data3 #Plot Shanghai or hong kong just change it to Data2 or Data1
+Data <- Data3 #Plot Shanghai or hong kong just change it to Data2 or Data1
 
 temp1=array(0,dim = 12)
 
