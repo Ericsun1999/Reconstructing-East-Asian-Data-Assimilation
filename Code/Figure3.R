@@ -18,19 +18,19 @@ haa <- matrix(0, nrow = 13, ncol = 600)
 for (k in 1:13) {
   for (i in 1:600) {
     for (j in 1:12) {
-      temp1[j]=Data[k,-10+12*i+j]-273
+      temp1[j] = Data[k,-10+12*i+j]-273
     } 
-  haa[k,i]=mean(temp1)
+  haa[k,i] = mean(temp1)
   }
 }
 
-haave<-array(0,dim=600)
+haave <- array(0,dim=600)
 
 for (i in 1:600) {
-  haave[i]=colMeans(haa)[i]
+  haave[i] = colMeans(haa)[i]
 }
 
-haave1<-array(haa,dim=600*13)
+haave1 <- array(haa,dim=600*13)
 
 
 #ggplot LME 
@@ -56,7 +56,7 @@ dfp<-data.frame(
 )
 
 #Yearly temperature time series data from 13 LME simulations, Figure3(a) 
-#(This show Bejing, for Shanghai and Hong Kong, edit line 80-82)
+#(This show Bejing, for Shanghai and Hong Kong, edit line 82-84)
 
 #jpeg("~/Downloads/lmetime63.png",width=6,height=3, res=300, units = "in")
       print(
