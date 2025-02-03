@@ -29,7 +29,7 @@ fitt1<-lm(df94$temperature~df94$predicted)
 fitt2<-lm(df94$temperature~df94$REACHES)
 fitt3<-lm(df94$temperature~df94$LME)
 
-#Figure16 
+#Figure16, Scatter plots between GHCN temperatures and estimates in Hong Kong from 1853 to 1911
 #jpeg("~/Downloads/scpregh.png",width=6,height=6, res = 300, units = "in")
       print(
       ggplot(df94, aes(x=predicted, y= temperature))+
