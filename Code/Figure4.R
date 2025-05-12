@@ -162,11 +162,9 @@ alphastar <- array(0,dim = n+1)
 
 # Generate the grid points
 a<-array(0,dim = c(2,2))
-
 cz<- array(0,dim = c(241,121))
 
 var=0.739
-
 
 for (aaa in 1:121) {
     aa = 95 + 5*aaa  #Different alpha setting
