@@ -11,26 +11,17 @@ Data3 <- read.csv("./a3.csv", row.names=1)
 #Beijing
 Data <- Data3 #Plot Shanghai or hong kong just change it to Data2 or Data1
 
-temp1 <- array(0,dim = 12)
-
 haa <- matrix(0, nrow = 13, ncol = 600)
 
 for (k in 1:13) {
   for (i in 1:600) {
-    for (j in 1:12) {
-      temp1[j] = Data[k,-10+12*i+j]-273
-    } 
-  haa[k,i] = mean(temp1)
+    idx <- (-9):(2) + 12 * i
+    haa[k, i] <- rowMeans(Data[k, idx] - 273)
   }
 }
 
-haave <- array(0,dim=600)
-
-for (i in 1:600) {
-  haave[i] = colMeans(haa)[i]
-}
-
-haave1 <- array(haa,dim=600*13)
+haave <- colMeans(haa)
+haave1 <- as.vector(haa)
 
 
 #ggplot LME 
