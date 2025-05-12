@@ -92,7 +92,7 @@ library(mvtnorm)
 
 # Define parameters
 sigma2 <- vario.fit2$psill[2] - vario.fit2$psill[1]  
-alpha <- vario.fit2$range[2]/80  
+alpha <- vario.fit2$range[2]/100  
 sigma2_epsilon <- vario.fit2$psill[1]  
 
 # Define cov 
