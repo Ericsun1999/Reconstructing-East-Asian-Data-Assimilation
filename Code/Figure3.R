@@ -47,7 +47,7 @@ dfp<-data.frame(
 )
 
 #Figure3(a), Yearly temperature time series data from 13 LME simulations 
-#(This show Bejing, for Shanghai and Hong Kong, edit line 82-84)
+#(This show Bejing, for Shanghai and Hong Kong, edit line 73-75)
 
 #jpeg("~/Downloads/lmetime63.png",width=6,height=3, res=300, units = "in")
       print(
