@@ -19,24 +19,16 @@ Data3 <- read.csv("~/Downloads/DA1/a3.csv", row.names=1)
 tempe_use<-tempe_all[3,] # Shanghai or hong kong just change 3 to 2 or 1
 Data<-Data3 #Shanghai or hong kong just change it to Data2 or Data1
 
-temp1=array(0,dim = 12)
-
-haa<-matrix(0, nrow = 13, ncol = 600)
+haa <- matrix(0, nrow = 13, ncol = 600)
 
 for (k in 1:13) {
   for (i in 1:600) {
-    for (j in 1:12) {
-      temp1[j]=Data[k,-10+12*i+j]-273
-    } 
-  haa[k,i]=mean(temp1)
+    idx <- (-9):(2) + 12 * i
+    haa[k, i] <- rowMeans(Data[k, idx] - 273)
   }
 }
 
-haave<-array(0,dim=600)
-
-for (i in 1:600) {
-  haave[i]=colMeans(haa)[i]
-}
+haave <- colMeans(haa)
 
 #QM (The figures 7 & 8 here adjust to plot Beijing, but the code still can run for Shanghai & Hong Kong)
 library(EnvStats)
