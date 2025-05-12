@@ -34,18 +34,31 @@ temp2 <-temperature%>%
     group_by(year,long,lat) %>%  
     summarise(level = mean(level))
 
-#Figure2, A map of temperature event levels
+plot_originREACHES_map <- function(data, text_size = 17, legend_height_cm = 3.5, legend_spacing_cm = -3) {
+  ggplot(data, aes(long, lat)) +
+    borders(database = "world", xlim = c(95, 126), ylim = c(19, 45), fill = NA, colour = "grey30") +
+    geom_point(aes(colour = level), cex = 1) +
+    coord_map(xlim = c(98, 124.5), ylim = c(19, 42.5)) +
+    scale_colour_gradientn(
+      colours = rev(brewer.pal(n = 9, name = 'RdBu')),
+      limits = c(-2, 2),
+      na.value = "transparent",
+      guide = "colourbar"
+    ) +
+    theme(
+      text = element_text(size = text_size),
+      legend.position = "right",
+      legend.title = element_blank(),
+      legend.key.height = unit(legend_height_cm, "cm"),
+      legend.spacing.y = unit(legend_spacing_cm, "cm")
+    )
+}
 
-  #jpeg("~/Downloads/recordstem1.png",width=6,height=5.5, res=300, units = "in")
+#Figure2, A map of temperature event levels
+  
+#  jpeg("~/Downloads/recordstem1.png",width=6,height=5.5, res=300, units = "in")
       print(
-      ggplot(temp2,aes(long,lat)) +
-    borders(database="world",xlim=c(95,126),ylim=c(19,45),fill=NA,colour="grey30") +
-    geom_point(aes(colour=level),cex=1) +
-    coord_map(xlim=c(98,124.5),ylim=c(19,42.5)) + 
-    scale_colour_gradientn(colours=rev(brewer.pal(n=9,name='RdBu')),
-                             limits=c(-2,2),na.value="transparent",
-                             guide="colourbar") +
-    theme(text=element_text(size=17),legend.position="right",legend.title=element_blank(),legend.key.height=unit(3.5,"cm"),legend.spacing.y = unit(-3,"cm"))
+      plot_originREACHES_map(temp2)
       )
-   # dev.off() 
+#    dev.off() 
 
