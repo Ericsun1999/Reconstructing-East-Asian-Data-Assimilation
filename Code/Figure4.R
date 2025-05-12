@@ -82,9 +82,7 @@ df <- data.frame(vary = vary, varz = varz)
 #jpeg("~/Downloads/varf1.png",width=6,height=6, res = 300, units = "in")
       print(
       ggplot(df, aes(x=vary, y=varz)) +
-  #geom_point(cex=1) +
   geom_point(aes(x=0.885, y=0.761), colour="red", cex=3) +
-  #ggtitle(expression(Var(Y + epsilon) ~ "vs" ~ Var(Z))) +
   theme(plot.title = element_text(hjust = 0.5), text=element_text(size=25)) +
   xlab(expression(sigma[Y]^2 + sigma[epsilon]^2)) +
   ylab(expression(f[1]~"("~sigma[Y]^2 + sigma[epsilon]^2~")")) +
@@ -138,10 +136,7 @@ df1 <- data.frame(sigmaepsilon = sigmaepsilon, sigmaepsilon1 = sigmaepsilon1)
 #jpeg("~/Downloads/varf2.png",width=6,height=6, res = 300, units = "in")
       print(
       ggplot(df1, aes(x=sigmaepsilon, y=sigmaepsilon1)) +
-  #geom_point(cex=1) +
-  #geom_point( aes(x = vary , y= varz), colour = "red", cex=1.2) +
   geom_point(aes(x=0.146, y=0.196), colour="red", cex=3) +
-  #ggtitle(expression(True~sigma[epsilon]^2 ~ "vs" ~ Round~sigma[epsilon]^2)) +
   theme(plot.title = element_text(hjust = 0.5), text=element_text(size=25)) +
   xlab(expression(sigma[epsilon]^2)) +
   ylab(expression(f[2]~"("~sigma[epsilon]^2~")")) +
@@ -167,9 +162,6 @@ alphastar <- array(0,dim = n+1)
 
 # Generate the grid points
 a<-array(0,dim = c(2,2))
-#a
-#a[1,]<-seq(0,1490, by = 10)
-#plot(a[1,],a[2,],xlim=c(0,2000),ylim=c(0,2000),cex=0.8)
 
 cz<- array(0,dim = c(241,121))
 
@@ -251,7 +243,6 @@ df2 <- data.frame(alphastar = alphastar, alpha2 = alpha2)
 #jpeg("~/Downloads/varf3.png",width=5,height=6, res = 300, units = "in")
       print(
       ggplot(df2, aes(x= alpha2, y= alphastar)) +
-  #geom_point(cex=1) +
   geom_point(aes(x=299.099, y=426.66), colour="red", cex=3) +
   theme(plot.title = element_text(hjust = 0.5), text=element_text(size=27)) +
   xlab(expression(alpha)) +
