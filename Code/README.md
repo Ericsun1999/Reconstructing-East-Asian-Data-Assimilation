@@ -12,13 +12,13 @@ Follow the code below to produce figures for this paper.
 
 4. `Figure5&6.R` uses the REACHES data (`Data/temperature index value.v1.xlsx`) to produce Figures 5 and 6.
 
-5. `Figure7-9.R` uses the kriged REACHES data (`Data/tempe_all.csv`) and the LME data (`Data/LME data`) to produce Figures 7, 8, and 9.
+5. `Figure7-8.R` uses the kriged REACHES data (`Data/tempe_all.csv`) and the LME data (`Data/LME data`) to produce Figures 7 and 8.
 
-6. `Figure10.R` uses the kriged REACHES data (`Data/tempe_all.csv`) and the LME data (`Data/LME data`) to produce Figure 10. (It should be executed after running `Figure7-9.R`)
+6. `Figure10.R` uses the kriged REACHES data (`Data/tempe_all.csv`) and the LME data (`Data/LME data`) to produce Figure 10. (It should be executed after running `Figure7-8.R`)
 
 7. `Figure11&12.R` uses the estimated parameters for Beijing (`Data/par`) to produce Figures 11 and 12.
 
-8. `Figure13.R` uses the Mean-Square Prediction Error of the kriged REACHES data (`Data/std`), the kriged REACHES data itself (`Data/tempe_all.csv`), and the estimated parameters for Beijing (`Data/par`) to produce Figure 13. (It should be executed after running `Figure7-9.R`)
+8. `Figure13.R` uses the Mean-Square Prediction Error of the kriged REACHES data (`Data/std`), the kriged REACHES data itself (`Data/tempe_all.csv`), and the estimated parameters for Beijing (`Data/par`) to produce Figure 13. (It should be executed after running `Figure7-8.R`)
    
 9. `Figure14.R` uses the kriged REACHES data (`Data/tempe_all.csv`), the LME data (`Data/LME data`), and the GHCN data (`Data/GHCNv4.xlsx`) to produce Figure 14. (It should be executed after running `Figure13.R`)
 
@@ -30,6 +30,6 @@ The following code is not essential for reproducing the figures presented in the
 
 `Get_tempe_all_data.R` uses the REACHES data (`Data/temperature index value.v1.xlsx`) to produce the kriged REACHES data.
 
-`Choosetuning.R` uses the LME data (`Data/LME data`) to estimate the tuning parameters described in Section 4.1. (It should be executed after running `Figure7-9.R`)
+`Choosetuning.R` uses the LME data (`Data/LME data`) to estimate the tuning parameters described in Section 4.1. (It should be executed after running `Figure7-8.R`)
 
-`Fused.R` uses the LME data (`Data/LME data`) to estimate the parameters described in Section 4.1. The resulting parameters are saved in `Data/par`. (It should be executed after running `Figure7-9.R`)
+`Fused.R` uses the LME data (`Data/LME data`) to estimate the parameters described in Section 4.1. The resulting parameters are saved in `Data/par`. (It should be executed after running `Figure7-8.R`)
