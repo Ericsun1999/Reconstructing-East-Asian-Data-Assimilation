@@ -11,20 +11,13 @@ fwfz<- (fz/fw)^2
   df2c <- read.csv("./muB.csv")
   df3c <- read.csv("./rtB.csv")
 
-  sigma2<-array(0,524)
-
 #For Shanghai and Hong kong change Bstd to BstdS & BstdH
   sigma2<- read.csv("./Bstd.csv")
  
   sigma3 = sigma2^2 *fwfz
 
 a<-array(0,523)
-b<-array(0,525)
-c<-array(0,525)
-d<-array(0,525)
-kt<-array(0,525)
-jt<-array(0,525)
-e<-array(0,525)
+b<- c<- d<- kt<- jt<- e<- array(0,525)
 
 a[1]=df2c$value[19]
 b[1]=df2c$value[20]
