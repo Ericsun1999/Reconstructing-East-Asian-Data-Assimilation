@@ -1,10 +1,8 @@
-This page is not complete, I will edit this page as soon as possible.
-
 #### 1. REACHES Data
 
 Reconstructed from historical document records, this dataset includes information on location (longitude, latitude), levels, and time (years).
 
-Download Link: [NOAA Paleo Search - Study 37720](https://www.ncei.noaa.gov/access/paleo-search/study/37720.)
+Download Link: [NOAA Paleo Search - Study 37720](https://www.ncei.noaa.gov/access/paleo-search/study/37720.) .
 
 #### 2. LME Data:
 
