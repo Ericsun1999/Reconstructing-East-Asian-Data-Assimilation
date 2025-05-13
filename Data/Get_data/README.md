@@ -13,7 +13,7 @@ A simulated dataset containing information on location (longitude, latitude), te
 Download Link: [CESM Community Projects - LME](https://www.cesm.ucar.edu/community-projects/lme)
 (Note: You need to register for an account on the Climate Data Gateway before downloading.)
 
-Use GetLME.R to 
+Use GetLME.R to aggregate the data used for the analysis.
 
 #### 3. GHCN Data: 
 
