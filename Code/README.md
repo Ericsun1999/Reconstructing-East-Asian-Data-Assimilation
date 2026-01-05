@@ -14,7 +14,7 @@ Follow the code below to produce figures for this paper.
 
 5. `Figure6-7.R` uses the kriged REACHES data (`Data/tempe_all_v3.csv`) and the LME data (`Data/LME data`) to produce Figures 6(a-d) and 7(a-d).
 
-6. `Figure9.R` uses the REACHES data (`Data/temperature index value.v1.xlsx`) and the LME data (`Data/LME data/Figure9`) to produce Figure 9.
+6. `Figure6e.R` uses the REACHES data (`Data/temperature index value.v1.xlsx`) and the LME data (`Data/LME data/Figure9`) to produce Figure 6(e).
 
 7. `Figure10.R` uses the kriged REACHES data (`Data/tempe_all_v3.csv`) and the LME data (`Data/LME data`) to produce Figure 10. (It should be executed after running `Figure7-8.R`)
 
