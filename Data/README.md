@@ -28,11 +28,7 @@ Data is provided in `tempe_all_v3.csv`.
 
 ### 5. Mean-Square Prediction Error of Kriged REACHES Data (Section 3.1):
 
-Beijing: `std/Bstd.csv`.
-
-Shanghai: `std/BstdS.csv`.
-
-Hong Kong: `std/BstdH.csv`.
+Data is provided in `tempe_all_std.csv`.
 
 ### 6. Estimated Parameters for Beijing (Section 4.1):
 
