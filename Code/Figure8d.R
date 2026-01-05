@@ -1,7 +1,5 @@
-#Figure8d
-
-
 #Kriged REACHES
+
 tempe_all_data <- read.csv("~/Downloads/DA3/tempe_all_v3.csv", header=FALSE)
 year3<- as.integer(tempe_all_data[1,-c(1,2)]) 
 tempe_all<-tempe_all_data[c(2:4),]
