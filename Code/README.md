@@ -4,7 +4,7 @@ Before running the code, download the required data from the Data folder, and re
 
 Follow the code below to produce figures for this paper. 
 
-1. `Figure2.R` uses the REACHES data (`Data/temperature index value.v1.xlsx`) to produce Figures 1 and 2.
+1. `Figure2.R` uses the REACHES data (`Data/temperature index value.v1.xlsx`) to produce Figures 2.
 
 2. `Figure3.R` uses the LME data (`Data/LME data`) to produce Figure 3.
 
