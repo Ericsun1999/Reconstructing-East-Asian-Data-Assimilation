@@ -272,20 +272,113 @@ nu_reaches <- sk.all1
 nu_reaches1 <- nu_reaches[(tempe_all$in_china_tw_hk_mo_coast == "TRUE"),]
 
 #Load LME data
-Data1 <- read.csv("./a1.csv", row.names=1)
-Data2 <- read.csv("./a2.csv", row.names=1)
-Data3 <- read.csv("./a3.csv", row.names=1)
-Data4 <- read.csv("./a4.csv", row.names=1)
-Data5 <- read.csv("./a5.csv", row.names=1)
-Data6 <- read.csv("./a6.csv", row.names=1)
-Data7 <- read.csv("./a7.csv", row.names=1)
-Data8 <- read.csv("./a8.csv", row.names=1)
-Data9 <- read.csv("./a9.csv", row.names=1)
-Data10 <- read.csv("./a10.csv", row.names=1)
-Data11 <- read.csv("./a11.csv", row.names=1)
-Data12 <- read.csv("./a12.csv", row.names=1)
-Data13 <- read.csv("./a13.csv", row.names=1)
+lme_df <- read.csv("~/Downloads/DA3/b0.csv", row.names=1)
 
+#QM 
+library(np)
+library(dplyr)
+library(ggplot2)
+library(maps)
+
+n_loc <- 121
+n_rep <- 13
+
+get_block <- function(df, r){
+  df[((r-1)*n_loc + 1):(r*n_loc), ]
+}
+
+get_xs_all_years <- function(lme_df, s){
+  # s in 1:n_loc
+  xs_list <- lapply(1:n_rep, function(r){
+    blk <- get_block(lme_df, r)
+    as.numeric(blk[s, -(1:2)])  # 年份欄
+  })
+  xs_kelvin <- unlist(xs_list)
+  xs_kelvin - 273.15
+}
+
+build_Fx_inv_local <- function(x_s){
+  x_s <- as.numeric(x_s)
+  x_s <- x_s[is.finite(x_s)]
+
+  bw <- npudistbw(dat = x_s)
+
+  Fx_hat <- function(q){
+    fit <- npudist(bws = bw, edat = data.frame(x = q))
+    as.numeric(fitted(fit))
+  }
+
+  Fx_inv <- function(u){
+    u <- pmin(pmax(u, 1e-8), 1 - 1e-8)
+    xmin <- min(x_s) - 5*sd(x_s)
+    xmax <- max(x_s) + 5*sd(x_s)
+    sapply(u, function(uu){
+      uniroot(function(q) Fx_hat(q) - uu,
+              interval = c(xmin, xmax), tol = 1e-6)$root
+    })
+  }
+
+  Fx_inv
+}
+
+# ---- F_Y,s(0) ----
+FY_hat_1loc <- function(y, yhat, nu){
+  yhat <- as.numeric(yhat)
+  nu <- pmax(as.numeric(nu), 1e-8)
+  stopifnot(length(yhat) == length(nu))
+  mean(pnorm((y - yhat) / nu))
+}
+
+lme_base <- get_block(lme_df, 1) %>%
+  transmute(lat = lati, lon = long)
+
+reaches_base <- tempe_all1 %>%
+  transmute(lon = long, lat = lat)
+
+coord_key_lme <- lme_base %>% mutate(key = paste0(round(lon,3), "_", round(lat,3)))
+coord_key_rea <- reaches_base %>% mutate(key = paste0(round(lon,3), "_", round(lat,3)))
+
+idx_map <- match(coord_key_lme$key, coord_key_rea$key)
+
+y_cols <- 3:ncol(tempe_all1)
+nu_cols <- 3:ncol(nu_reaches1)
+T_common <- min(length(y_cols), length(nu_cols))
+y_cols <- y_cols[1:T_common]
+nu_cols <- nu_cols[1:T_common]
+
+g0_121 <- sapply(1:n_loc, function(s){
+  # local LME sample
+  x_s <- get_xs_all_years(lme_df, s)
+  Fx_inv_s <- build_Fx_inv_local(x_s)
+
+  # reaches row index for this location
+  i_rea <- idx_map[s]
+
+  yhat_s <- as.numeric(tempe_all1[i_rea, y_cols])
+  nu_s   <- as.numeric(nu_reaches[i_rea, nu_cols])
+
+  u0 <- FY_hat_1loc(y = 0, yhat = yhat_s, nu = nu_s)
+  Fx_inv_s(u0)
+})
+
+plot_df <- lme_base %>%
+  mutate(temp0_c = g0_121)
+
+
+#jpeg("./Figure6e.png",width=5,height=4 , res = 300, units = "in")
+    print(
+      ggplot(plot_df,aes(lon,lat)) +
+      geom_point(aes(colour=temp0_c),cex=8.99, shape=15) +
+      coord_map(xlim=c(98,124.5),ylim=c(18,42.5)) + 
+      scale_color_gradientn(colors = c("blue", "cyan", "green", "yellow", "red"), limits=c(-10,25),na.value="transparent", guide="colourbar") +
+      #scale_colour_gradientn(colours=rev(brewer.pal(n=9,name='RdBu')),
+      #                       limits=c(-6,25),na.value="transparent",
+      #                       guide="colourbar") +
+      borders(database="world",xlim=c(76,126),ylim=c(18,45),fill=NA,colour="grey50") +
+      theme(text=element_text(size=15),legend.title=element_blank(),
+        legend.position="right")
+    )
+#    dev.off()
 
 
 
