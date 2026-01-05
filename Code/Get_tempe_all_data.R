@@ -23,27 +23,6 @@ y2 <- var.fit2$y2
 
 library(RColorBrewer)
 library(ggplot2)
-
-#Figure5(a1), 5(b1)
-
-  for(i in 1:length(year2)) {
-    temp.dat <- as.data.frame(y2[y2$year==year2[i],])
-    #jpeg(paste(getwd(),"/data-temp-",i,".jpg",sep=""),width=5,height=4, res=300, units = "in")
-     print(
-     ggplot(temp.dat,aes(long,lat)) +
-      geom_point(aes(colour=level),cex=2) +
-      ggtitle(paste0("Year ",year2[i])) + 
-      coord_map(xlim=c(98,124.5),ylim=c(18,42.5)) + 
-      scale_colour_gradientn(colours=rev(brewer.pal(n=9,name='RdBu')),limits=c(-2,2),
-      na.value="transparent",guide="colourbar") +
-      borders(database="world",xlim=c(76,132),ylim=c(19,52),fill=NA,colour="grey50") +
-      theme(text=element_text(size=15),legend.title=element_blank(),
-        legend.position=c(1.15, 0.7),legend.key.height=unit(2.4,"cm"))
-     )
-     #dev.off()
-  }
-
-
 library(MASS)
 library(mvtnorm)
 
