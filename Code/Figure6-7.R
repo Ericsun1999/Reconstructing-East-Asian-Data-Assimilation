@@ -151,17 +151,12 @@ ggplot(data = dsnorm.fit2, aes(x=temper)) +
   )
 # dev.off()
 
-
-#time series plot
-# Figure7bcd
-
-
 df7<-data.frame(YEAR=c(year3),y= ycorrected)
 df7<-cbind(df7,t(as.vector("REACH")))
 colnames(df7)<-c("YEAR","temperature","type")
 dsnorm.fit1 <- data.frame(temper=c(haave)[(year3-1350)], year = c(year3))
 
-#Figure7bcd
+#Figure7(bcd)
 
 #jpeg("~/Downloads/time reach lme corrected.png",width=6,height=3, res=300, units = "in")
       print(
@@ -178,7 +173,7 @@ dsnorm.fit1 <- data.frame(temper=c(haave)[(year3-1350)], year = c(year3))
     
 df8<-data.frame(year = c(year3), REACHES = ycorrected, std = nu)
 
-#Figure7a
+#Figure7(a)
 #jpeg("~/Downloads/bPredicted.png",width=6,height=3, res=300, units = "in")
       print(
       ggplot(data = df8, aes(x = year, y = REACHES)) +
