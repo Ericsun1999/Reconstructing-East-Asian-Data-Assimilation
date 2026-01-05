@@ -112,7 +112,6 @@ g_fun <- Vectorize(g_of, SIMPLIFY = TRUE)
 y_grid <- seq(-2.5, 2.5, length.out = 1000)
 g_grid <- sapply(y_grid, g_of)   
 g_fun_fast <- approxfun(y_grid, g_grid)
-```
 
 ## =========================================================
 ##  Kalman filter + RTS smoother with measurement equation
