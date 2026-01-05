@@ -10,11 +10,11 @@ The temperature index values are provided in `temperature index value.v1.xlsx`.
 
 ### 2. LME Data:
 
-Hong Kong: `LME data/a1.csv`.
+Hong Kong: `LME data/d1.csv`.
 
-Shanghai: `LME data/a2.csv`.
+Shanghai: `LME data/d2.csv`.
 
-Beijing: `LME data/a3.csv`.
+Beijing: `LME data/d3.csv`.
 
 Figure9: All 13 LME time series for produce Figure9.
 
