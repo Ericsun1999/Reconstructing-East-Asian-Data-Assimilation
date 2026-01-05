@@ -24,7 +24,7 @@ Data is provided in `GHCNv4.xlsx`.
 
 ### 4. Kriged REACHES Data (Section 3.1):
 
-Data is provided in `tempe_all.csv`.
+Data is provided in `tempe_all_v3.csv`.
 
 ### 5. Mean-Square Prediction Error of Kriged REACHES Data (Section 3.1):
 
