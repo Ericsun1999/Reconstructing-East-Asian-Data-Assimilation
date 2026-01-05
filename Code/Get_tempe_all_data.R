@@ -201,36 +201,12 @@ y_pred <- function(s_coords, s0,
     arr.pred[,,i] <- matrix(temp15,53,49)
     arr.std[,,i] <- matrix(temp16,53,49)
     temp.dat1 <- cbind(as.data.frame(loc@coords)[,1:2],mu=c(arr.pred[,,i]), std = c(arr.std[,,i]))
-
-  }
-
-  for(i in 1:length(year2)) {
-    temp14 <- y2[y2$year==year2[i],]
-    temp15 <- rep(0, length(loc@coords[,1]))
-    temp16 <- rep(0, length(loc@coords[,1]))
-    
-    locations<- temp14@coords
-    
-    Sigma_zz <- calc_Sigma_zz(locations)
-    invsigma_zz<- solve(Sigma_zz)
-    c_Y <- matrix(0, nrow = length(loc@coords[,1]), ncol = length(temp14$level))
-    Mat1<- matrix(mu_z, nrow = 1, ncol = length(temp14$level))
-    
-    for (j in 1:length(loc@coords[,1])) {
-      
-      s0 <- as.numeric(loc@coords[j,])
-      c_Y[j,] <- calc_c_Y(s0, locations)
-      temp15[j]<- t(as.matrix(c_Y[j,])) %*% as.matrix(invsigma_zz) %*% (as.matrix(temp14$level) - t(Mat1) )
-      temp16[j] <- cov_Y(s0,s0) - t(c_Y[j,]) %*% as.matrix(invsigma_zz) %*% (c_Y[j,])
-    }
-    arr.pred[,,i] <- matrix(temp15,53,49)
-    arr.std[,,i] <- matrix(temp16,53,49)
-    
     if(i==1) sk.all <- sk.all1 <- as.data.frame(loc@coords)
     sk.all <- cbind(sk.all,c(arr.pred[,,i]))
     sk.all1 <- cbind(sk.all1,c(arr.std[,,i]))
-    
   }
+
+
   
 #Write csv
   names(sk.all)[-c(1,2)] <- year2
