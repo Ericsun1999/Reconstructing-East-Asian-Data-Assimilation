@@ -4,9 +4,9 @@ tempe_all_data <- read.csv("~/Downloads/DA3/tempe_all_v3.csv", header=FALSE)
 year3<- as.integer(tempe_all_data[1,-c(1,2)]) 
 tempe_all<-tempe_all_data[c(2:4),]
 
-Data1 <- read.csv("~/Downloads/DA3/d1.csv", row.names=1)
-Data2 <- read.csv("~/Downloads/DA3/d2.csv", row.names=1)
-Data3 <- read.csv("~/Downloads/DA3/d3.csv", row.names=1)
+Data1 <- read.csv("./d1.csv", row.names=1)
+Data2 <- read.csv("./d2.csv", row.names=1)
+Data3 <- read.csv("./d3.csv", row.names=1)
 
 #Data1 Hong Kong
 #Data2 Shanghai
@@ -17,7 +17,7 @@ DData<-Data3 #Plot Shanghai or hong kong just change it to Data2 or Data1
 loc <- 3  #Shanghai or hong kong just change 3 to 2 or 1
 
 tempe_use<-tempe_all[loc,] 
-nu1 <- (read.csv("~/Downloads/DA3/tempe_all_std.csv"))
+nu1 <- (read.csv("./tempe_all_std.csv"))
 nu <- nu1[loc, -c(1,2)] 
 
 haa<- (DData[,-c(1,2)]) - 273.15
@@ -259,7 +259,7 @@ kalman_filter_smoother <- function(mu, M, r2, Xstar, alpha, beta, vdelta) {
   df3c <- read.csv("./rtB.csv")
   
   
-  sigma<- read.csv("~/Downloads/DA3/tempe_all_std.csv")
+  sigma<- read.csv("./tempe_all_std.csv")
   stdd1<- as.numeric(sigma[loc, -c(1,2)]) 
   
   sigmaY22 <- as.numeric(array(0.887, 524)) 
