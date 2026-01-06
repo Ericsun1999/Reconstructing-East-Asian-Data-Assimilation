@@ -307,4 +307,8 @@ df87<-data.frame(year = c(year4), predicted = out$X_smooth[1:523],
       )
 #   dev.off()
 
-   
+
+
+write_excel_csv(df87,"tempBv5.csv")
+write_excel_csv(df87,"tempSv5.csv")
+write_excel_csv(df87,"tempHv5.csv")
