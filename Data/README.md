@@ -48,7 +48,7 @@ For Hong Kong, replace the last character with "H" (e.g., `par/mtH.csv`).
 
 ### 8. Summary temperature (Section 4.3):
 
-It includes assimilated, LME, kriged REACHES temperature in Beijing, Shanghai, and Hong Kong.
+It includes assimilated, LME, and kriged REACHES temperatures for Beijing, Shanghai, and Hong Kong.
 
 Beijing:   `Valid/tempB5.csv`.
 
