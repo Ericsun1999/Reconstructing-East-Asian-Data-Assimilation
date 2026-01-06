@@ -18,7 +18,7 @@ Follow the code below to produce figures for this paper.
 
 7. `Figure8abc.R` uses the estimated parameters for Beijing (`Data/par`) to produce Figures 8(a-c).
 
-8. `Figure8d.R` uses the estimated parameters for Beijing (`Data/par`) to produce Figures 8d.
+8. `Figure8d.R` uses the Mean-Square Prediction Error of the kriged REACHES data (`Data/tempe_all_std.csv`), the kriged REACHES data (`Data/tempe_all_v3.csv`) and the estimated parameters for Beijing (`Data/par`) to produce Figures 8d.
 
 9. `Figure13.R` uses the Mean-Square Prediction Error of the kriged REACHES data (`Data/std`), the kriged REACHES data itself (`Data/tempe_all.csv`), and the estimated parameters for Beijing (`Data/par`) to produce Figure 13. (It should be executed after running `Figure7-8.R`)
    
