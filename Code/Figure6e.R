@@ -1,3 +1,5 @@
+###It should be executed after running Figure4.R
+
 # Kriging on 2.5x1.89 grid points
 
 year.start <- range(temp2$year)[1]
