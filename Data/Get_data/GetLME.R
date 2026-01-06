@@ -198,38 +198,51 @@ write.csv(pt3_df1, "d3.csv")
 
 
 
-#Get 'LME data/Figure9'
-clean_Data <- function(data){
-  data <- data[data$long < 125.5 & data$long >99 & data$lati > 19,]
-  data <- data[-c(1,2,3,4,6,7,8,9,10,11,12,13,14,15,18,19,20,21,22,32,33,44,45,55,56,66,67,77,78,79,88,89,98,99,100,110,111,112,113,114,121,122,123,124,125,126,132,133,134,135,136,137,138,139,140,141,143 ),]
-}
+#Get 'LME data/Figure6e'
 
-data1 <- clean_Data(Data1)
-data2 <- clean_Data(Data2)
-data3 <- clean_Data(Data3)
-data4 <- clean_Data(Data4)
-data5 <- clean_Data(Data5)
-data6 <- clean_Data(Data6)
-data7 <- clean_Data(Data7)
-data8 <- clean_Data(Data8)
-data9 <- clean_Data(Data9)
-data10 <- clean_Data(Data10)
-data11 <- clean_Data(Data11)
-data12 <- clean_Data(Data12)
-data13 <- clean_Data(Data13)
+library(sf)
+library(rnaturalearth)
+library(dplyr)
+library(stringr)
 
 
-write.csv(data1, "b1.csv")
-write.csv(data2, "b2.csv")
-write.csv(data3, "b3.csv")
-write.csv(data4, "b4.csv")
-write.csv(data5, "b5.csv")
-write.csv(data6, "b6.csv")
-write.csv(data7, "b7.csv")
-write.csv(data8, "b8.csv")
-write.csv(data9, "b9.csv")
-write.csv(data10, "b10.csv")
-write.csv(data11, "b11.csv")
-write.csv(data12, "b12.csv")
-write.csv(data13, "b13.csv")
+world <- ne_countries(scale = "medium", returnclass = "sf")
+targets <- world %>%
+  filter(str_detect(admin, regex("China|Taiwan|Hong Kong|Macao|Macau", ignore_case = TRUE)))
+china_tw_hk_mo <- st_union(targets)  
+china_tw_hk_mo <- st_as_sf(data.frame(name = "China+Taiwan+HK+MO"), geometry = china_tw_hk_mo)
+st_crs(china_tw_hk_mo) <- 4326
+
+coast_km <- 80
+
+china_tw_hk_mo_valid <- st_make_valid(china_tw_hk_mo)
+poly_m <- st_transform(china_tw_hk_mo_valid, 3857)
+poly_m_buf <- st_buffer(poly_m, dist = coast_km * 1000)
+china_tw_hk_mo_buf <- st_transform(poly_m_buf, 4326)
+
+pts_sf <- st_as_sf(data1, coords = c("long", "lati"), crs = 4326)
+data1$in_china_tw_hk_mo_coast <- st_within(
+  pts_sf,
+  china_tw_hk_mo_buf,
+  sparse = FALSE
+)[,1]
+
+arr <- (data1$in_china_tw_hk_mo_coast == "TRUE")
+arr[260] <- arr[261] <- FALSE
+dataa1 <- data1[(arr), -c(3:20,566:603)]
+dataa2 <- data2[(arr), -c(3:20,566:602)]
+dataa3 <- data3[(arr), -c(3:20,566:602)]
+dataa4 <- data4[(arr), -c(3:20,566:602)]
+dataa5 <- data5[(arr), -c(3:20,566:602)]
+dataa6 <- data6[(arr), -c(3:20,566:602)]
+dataa7 <- data7[(arr), -c(3:20,566:602)]
+dataa8 <- data8[(arr), -c(3:20,566:602)]
+dataa9 <- data9[(arr), -c(3:20,566:602)]
+dataa10 <- data10[(arr), -c(3:20,566:602)]
+dataa11 <- data11[(arr), -c(3:20,566:602)]
+dataa12 <- data12[(arr), -c(3:20,566:602)]
+dataa13 <- data13[(arr), -c(3:20,566:602)]
+
+dataa <- rbind(dataa1, dataa2, dataa3, dataa4, dataa5, dataa6, dataa7, dataa8, dataa9, dataa10, dataa11, dataa12, dataa13)
+write.csv(dataa, "b0.csv")
 
