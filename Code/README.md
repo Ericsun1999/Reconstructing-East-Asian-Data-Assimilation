@@ -12,7 +12,7 @@ Follow the code below to produce figures for this paper.
 
 4. `Figure5.R` uses the REACHES data (`Data/temperature index value.v1.xlsx`) to produce Figures 5(a1-b3). (It should be executed after running `Figure4.R`)
 
-5. `Figure6-7.R` uses the kriged REACHES data (`Data/tempe_all_v3.csv`) and the LME data (`Data/LME data`) to produce Figures 6(a-d) and 7(a-d).
+5. `Figure6-7.R` uses the Mean-Square Prediction Error of the kriged REACHES data (`Data/tempe_all_std.csv`), the kriged REACHES data (`Data/tempe_all_v3.csv`) and the LME data (`Data/LME data`) to produce Figures 6(a-d) and 7(a-d).
 
 6. `Figure6e.R` uses the REACHES data (`Data/temperature index value.v1.xlsx`) and the LME data (`Data/LME data/Figure6e`) to produce Figure 6(e). (It should be executed after running Figure4.R)
 
