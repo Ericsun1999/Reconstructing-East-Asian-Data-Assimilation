@@ -20,13 +20,13 @@ Follow the code below to produce figures for this paper.
 
 8. `Figure8d.R` uses the Mean-Square Prediction Error of the kriged REACHES data (`Data/tempe_all_std.csv`), the kriged REACHES data (`Data/tempe_all_v3.csv`) and the estimated parameters for Beijing (`Data/par/`) to produce Figures 8d.
 
-9.  `Figure8d.R` also produce the assimilated temperature dataset used to plot Figure9.
+9.  `Figure8d.R` also produce the summary temperature dataset used to plot Figure9.
    
-10.  `Figure9(a1)-(c1).R` uses the Beijing's assimilated data (`Data/Valid/tempBv5.csv`) and the GHCN data (`Data/GHCNv4.xlsx`) to produce Figure9(a1)-(c1).
+10.  `Figure9(a1)-(c1).R` uses the Beijing's summary data (`Data/Valid/tempBv5.csv`) and the GHCN data (`Data/GHCNv4.xlsx`) to produce Figure9(a1)-(c1).
 
-11. `Figure9(a2)-(c2).R` uses the Shanghai's assimilated data (`Data/Valid/tempSv5.csv`) and the GHCN data (`Data/GHCNv4.xlsx`) to produce Figure9(a2)-(c2).
+11. `Figure9(a2)-(c2).R` uses the Shanghai's summary data (`Data/Valid/tempSv5.csv`) and the GHCN data (`Data/GHCNv4.xlsx`) to produce Figure9(a2)-(c2).
 
-12. `Figure9(a3)-(c3).R` uses the Hong Kong's assimilated data (`Data/Valid/tempHv5.csv`) and the GHCN data (`Data/GHCNv4.xlsx`) to produce Figure9(a3)-(c3).
+12. `Figure9(a3)-(c3).R` uses the Hong Kong's summary data (`Data/Valid/tempHv5.csv`) and the GHCN data (`Data/GHCNv4.xlsx`) to produce Figure9(a3)-(c3).
 
 The following code is not essential for reproducing the figures presented in the paper. Skipping these will reduce the total runtime to less than one hour.
 
