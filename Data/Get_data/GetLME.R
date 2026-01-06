@@ -66,32 +66,136 @@ lat <- ncvar_get(data1,"lat")
 
 #Get LME data
 
-data1 <- Data1[c(46,144,227),]
-data2 <- Data2[c(46,144,227),]
-data3 <- Data3[c(46,144,227),]
-data4 <- Data4[c(46,144,227),]
-data5 <- Data5[c(46,144,227),]
-data6 <- Data6[c(46,144,227),]
-data7 <- Data7[c(46,144,227),]
-data8 <- Data8[c(46,144,227),]
-data9 <- Data9[c(46,144,227),]
-data10 <- Data10[c(46,144,227),]
-data11 <- Data11[c(46,144,227),]
-data12 <- Data12[c(46,144,227),]
-data13 <- Data13[c(46,144,227),]
+clean_data <- function(data){
+  data %>%
+  rowwise() %>% 
+  mutate(
+    annual_data = list(
+      colMeans(matrix(c_across(3:ncol(.)), nrow = 12))
+    )
+  ) %>%
+  ungroup() %>%
+  dplyr::select(lati, long, annual_data) %>%  
+  tidyr::unnest_wider(annual_data, names_sep = "_")  %>%
+    rename_with(
+      ~ as.character(1350:1949),
+      -c(lati, long)
+    )
+}
 
-i=1
-Dataa1<-rbind(data1[i,],data2[i,],data3[i,],data4[i,],data5[i,],data6[i,],data7[i,],data8[i,],data9[i,],data10[i,],data11[i,],data12[i,],data13[i,])
+data1 <- clean_data(Data1)  
+data2 <- clean_data(Data2)  
+data3 <- clean_data(Data3) 
+data4 <- clean_data(Data4) 
+data5 <- clean_data(Data5)  
+data6 <- clean_data(Data6)
+data7 <- clean_data(Data7)  
+data8 <- clean_data(Data8) 
+data9 <- clean_data(Data9)
+data10 <- clean_data(Data10)
+data11 <- clean_data(Data11) 
+data12 <- clean_data(Data12)
+data13 <- clean_data(Data13) 
 
-i=2
-Dataa2<-rbind(data1[i,],data2[i,],data3[i,],data4[i,],data5[i,],data6[i,],data7[i,],data8[i,],data9[i,],data10[i,],data11[i,],data12[i,],data13[i,])
+pred_points <- data.frame(
+  long = c(113.75, 121.25, 116.25),
+  lati = c(22.25, 31.25, 39.25)
+)
 
-i=3
-Dataa3<-rbind(data1[i,],data2[i,],data3[i,],data4[i,],data5[i,],data6[i,],data7[i,],data8[i,],data9[i,],data10[i,],data11[i,],data12[i,],data13[i,])
+library(mgcv)
 
-write.csv(Dataa1, "a1.csv")
-write.csv(Dataa2, "a2.csv")
-write.csv(Dataa3, "a3.csv")
+spatial_spline_predict_one_year <- function(df, year_col, pred_points, k = 60) {
+  d <- data.frame(
+    y    = as.numeric(df[[year_col]]),
+    long = as.numeric(df$long),
+    lati = as.numeric(df$lati)
+  )
+  d <- d[is.finite(d$y) & is.finite(d$long) & is.finite(d$lati), ]
+
+  fit <- gam(
+    y ~ s(long, lati, bs = "tp", k = k),
+    data = d,
+    method = "REML"
+  )
+
+  predict(fit, newdata = pred_points)
+}
+
+predict_one_series <- function(dataj, pred_points, k = 60) {
+  year_cols <- 3:ncol(dataj)
+
+  preds <- sapply(year_cols, function(col_id) {
+    spatial_spline_predict_one_year(dataj, col_id, pred_points, k = k)
+  })
+
+  rownames(preds) <- paste0("pt", 1:nrow(pred_points))
+  colnames(preds) <- colnames(dataj)[year_cols]
+  preds
+}
+
+data_list <- list(data1, data2, data3, data4, data5, data6, data7,
+                  data8, data9, data10, data11, data12, data13)
+
+result_list <- lapply(data_list, predict_one_series,
+                      pred_points = pred_points, k = 60)
+
+
+library(dplyr)
+
+extract_point_df <- function(result_list, point_id,
+                             long, lati) {
+  # point_id: "pt1", "pt2", or "pt3"
+
+  pt_df <- lapply(seq_along(result_list), function(j) {
+    result_list[[j]][point_id, ]
+  }) %>%
+    do.call(rbind, .) %>%
+    as.data.frame()
+
+  rownames(pt_df) <- paste0("data", seq_along(result_list))
+
+  pt_df <- pt_df %>%
+    dplyr::mutate(
+      long   = long,
+      lati   = lati,
+      series = rownames(pt_df),
+      point  = point_id,
+      .before = 1
+    )
+
+  pt_df
+}
+
+pt_coords <- data.frame(
+  point = c("pt1", "pt2", "pt3"),
+  long  = c(113.75, 121.25, 116.25),
+  lati  = c(22.25, 31.25, 39.25)
+)
+
+
+pt1_df <- extract_point_df(
+  result_list, "pt1",
+  long = 113.75, lati = 22.25
+)
+
+pt2_df <- extract_point_df(
+  result_list, "pt2",
+  long = 121.25, lati = 31.25
+)
+
+pt3_df <- extract_point_df(
+  result_list, "pt3",
+  long = 116.25, lati = 39.25
+)
+
+pt1_df1 <- pt1_df[,-c(3:4)]
+pt2_df1 <- pt2_df[,-c(3:4)]
+pt3_df1 <- pt3_df[,-c(3:4)]
+
+write.csv(pt1_df1, "d1.csv")
+write.csv(pt2_df1, "d2.csv")
+write.csv(pt3_df1, "d3.csv")
+
 
 
 #Get 'LME data/Figure9'
