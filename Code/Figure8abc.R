@@ -1,3 +1,6 @@
+#For Shanghai, replace the last character with "S" 
+#For Hong Kong, replace the last character with "H"
+
 dfc <- read.csv("./mtB.csv")
 df2c <- read.csv("./muB.csv")
 df3c <- read.csv("./rtB.csv")
