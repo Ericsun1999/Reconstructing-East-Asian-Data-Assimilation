@@ -49,7 +49,9 @@ For Hong Kong, replace the last character with "H" (e.g., `par/mtH.csv`).
 ### 8. Assimilated temperature (Section 4.3):
 
 Beijing:   `Valid/tempB5.csv`.
+
 Shanghai:  `Valid/tempS5.csv`.
+
 Hong Kong: `Valid/tempH5.csv`.
 
 
