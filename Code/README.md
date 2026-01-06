@@ -30,7 +30,7 @@ Follow the code below to produce figures for this paper.
 
 The following code is not essential for reproducing the figures presented in the paper. Skipping these will reduce the total runtime to less than one hour.
 
-`Get_tempe_all_data.R` uses the REACHES data (`Data/temperature index value.v1.xlsx`) to produce the kriged REACHES data. (It should be executed after running `Figure4.R`)
+`Get_tempe_all_data.R` uses the REACHES data (`Data/temperature index value.v1.xlsx`) to produce the kriged REACHES data and the Mean-Square Prediction Error of the kriged REACHES data (`Data/tempe_all_std.csv`). (It should be executed after running `Figure4.R`)
 
 `Prior.R` uses the LME data (`Data/LME data`) to estimate the tuning parameters described in Section 4.1.
 
