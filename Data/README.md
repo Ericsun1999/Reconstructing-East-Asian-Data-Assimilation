@@ -46,7 +46,7 @@ For Shanghai, replace the last character with "S" (e.g., `par/mtS.csv`).
 
 For Hong Kong, replace the last character with "H" (e.g., `par/mtH.csv`).
 
-### 8. Predicted temperature (Section 4.3):
+### 8. Assimilated temperature (Section 4.3):
 
 Beijing:   `Valid/tempB5.csv`.
 Shanghai:  `Valid/tempS5.csv`.
