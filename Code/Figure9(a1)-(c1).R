@@ -30,7 +30,6 @@ fitt3<-lm(df94$temperature~df94$LME)
       print(
       ggplot()+
       geom_point(data = df94, aes(x=predicted, y= temperature),cex=2.2)+
-      #geom_point(data = df93[1:17,], aes(x=predicted, y= temperature),cex=2.2, shape = 4, color ="red")+
       geom_abline(intercept = fitt1$coefficients[1], 
                   slope = fitt1$coefficients[2],color="blue") +
       ylab("GHCN")+
@@ -49,7 +48,6 @@ fitt3<-lm(df94$temperature~df94$LME)
     print(
       ggplot()+
       geom_point(data = df94, aes(x=REACHES, y= temperature),cex=2.2)+
-      #geom_point(data = df93[1:17,], aes(x=REACHES, y= temperature),cex=2.2, shape = 4, color ="red")+
       geom_abline(intercept = fitt2$coefficients[1], 
                   slope = fitt2$coefficients[2],color="blue") +
       ylab("GHCN")+
@@ -69,7 +67,6 @@ fitt3<-lm(df94$temperature~df94$LME)
     print(
       ggplot()+
       geom_point(data = df94, aes(x=LME, y= temperature), color = "black",cex=2.2)+
-      #geom_point(data = df93[1:17,], aes(x=LME, y= temperature),cex=2.2, shape = 4, color ="red")+
       geom_abline(intercept = fitt3$coefficients[1], 
                   slope = fitt3$coefficients[2],color="blue") +
       ylab("GHCN")+
