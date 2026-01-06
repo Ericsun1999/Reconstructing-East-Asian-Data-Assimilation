@@ -24,7 +24,8 @@ fitt1<-lm(df94$temperature~df94$predicted)
 fitt2<-lm(df94$temperature~df94$REACHES)
 fitt3<-lm(df94$temperature~df94$LME)
 
-  
+#Figure9(a1)–(c1), Scatter plots comparing annual GHCN temperatures with reconstructed estimates in Shanghai
+                    
 #jpeg("~/Downloads/scpregh.png",width=6,height=6, res = 300, units = "in")
       print(
       ggplot()+
