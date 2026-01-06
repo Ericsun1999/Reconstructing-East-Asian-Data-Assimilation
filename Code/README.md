@@ -37,3 +37,9 @@ The following code is not essential for reproducing the figures presented in the
 Follow the code below to produce figures for the supplementary.
 
 1. `Supplementary/FigureS1.R` uses the REACHES data (`Data/temperature index value.v1.xlsx`) to produce Figure S1(a)-(e).
+
+2. `Supplementary/FigureS2.R` uses the summary data (`Data/Valid/`) and the GHCN data (`Data/GHCNv4.xlsx`) to produce Figure S2(a)-(c).
+
+3.  `Figure8abc.R` uses the estimated parameters for Shanghai and Hong Kong (`Data/par/`) to produce Figures S3(a)-(c) and S4(a)-(c).
+
+4.  `Figure8d.R` uses the Mean-Square Prediction Error of the kriged REACHES data (`Data/tempe_all_std.csv`), the kriged REACHES data (`Data/tempe_all_v3.csv`) and the estimated parameters for Shanghai and Hong Kong (`Data/par/`) to produce Figure S3(d) and S4(d).
