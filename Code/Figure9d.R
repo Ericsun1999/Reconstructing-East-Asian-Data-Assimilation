@@ -187,7 +187,7 @@ compute_meas_params_mc <- function(
 
 ## ---------------------------
 ## 3) Kalman filter + RTS smoother (Sec 4.3)
-##    Eqs (16)-(23) :contentReference[oaicite:3]{index=3}
+##    Eqs (16)-(23) 
 ## ---------------------------
 kalman_filter_smoother <- function(mu, M, r2, Xstar, alpha, beta, vdelta) {
   N <- length(mu)
@@ -289,8 +289,8 @@ df87<-data.frame(year = c(year4), predicted = out$X_smooth[1:523],
                  vdelata = meas$vdelta[1:523],
                  LME = haave[year4-1350])
 
-#Figure8d
-#jpeg("Figure8d.png",width=6,height=3, res=300, units = "in")
+#Figure9d
+#jpeg("Figure9d.png",width=6,height=3, res=300, units = "in")
       print(
       ggplot(data = df87, aes(x = year, y = predicted)) +
       geom_line(color = "red") +
