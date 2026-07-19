@@ -95,7 +95,7 @@ ycorrected <- qm$ycorrected
 df111<-data.frame(reach=as.numeric(tempe_use[,-c(1,2)]), 
                   year =  c(year3))
 
-#Figure6(a)
+#Figure7(a)
  #jpeg("~/Downloads/reachtime.png",width=6,height=4 , res = 300, units = "in")
       print(
       ggplot(data = df111, aes(x = year, y = reach)) +
@@ -106,7 +106,7 @@ df111<-data.frame(reach=as.numeric(tempe_use[,-c(1,2)]),
       )
    #dev.off()
 
-#Figure6(c)   
+#Figure7(c)   
   #jpeg("~/Downloads/Reachtemp.png",width=6,height=3.5 , res = 300, units = "in")
       print(
   ggplot(df111, aes(x = reach)) +
@@ -124,7 +124,7 @@ df111<-data.frame(reach=as.numeric(tempe_use[,-c(1,2)]),
 
   df<-data.frame(z=qm$y_seq, y1 = qm$FX_values)
 
-#Figure6 (b)
+#Figure7 (b)
   #jpeg("~/Downloads/fyinverse.png",width=6,height=4 , res = 300, units = "in")
       print(
       ggplot(data = df,aes(x=z,y=y1)) +
@@ -138,7 +138,7 @@ df111<-data.frame(reach=as.numeric(tempe_use[,-c(1,2)]),
       
   dsnorm.fit2 <- data.frame(temper=c(haave2))
 
-#Figure6 (d)
+#Figure7 (d)
 #jpeg("~/Downloads/snormpdfhist.png",width=6,height=3.5 , res = 300, units = "in")
       print(
 ggplot(data = dsnorm.fit2, aes(x=temper)) +
@@ -156,7 +156,7 @@ df7<-cbind(df7,t(as.vector("REACH")))
 colnames(df7)<-c("YEAR","temperature","type")
 dsnorm.fit1 <- data.frame(temper=c(haave)[(year3-1350)], year = c(year3))
 
-#Figure7(bcd)
+#Figure8(bcd)
 
 #jpeg("~/Downloads/time reach lme corrected.png",width=6,height=3, res=300, units = "in")
       print(
@@ -173,7 +173,7 @@ dsnorm.fit1 <- data.frame(temper=c(haave)[(year3-1350)], year = c(year3))
     
 df8<-data.frame(year = c(year3), REACHES = ycorrected, std = nu)
 
-#Figure7(a)
+#Figure8(a)
 #jpeg("~/Downloads/bPredicted.png",width=6,height=3, res=300, units = "in")
       print(
       ggplot(data = df8, aes(x = year, y = REACHES)) +
