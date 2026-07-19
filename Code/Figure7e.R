@@ -367,7 +367,7 @@ plot_df <- lme_base %>%
   mutate(temp0_c = g0_121)
 
 
-#jpeg("./Figure6e.png",width=5,height=4 , res = 300, units = "in")
+#jpeg("./Figure7e.png",width=5,height=4 , res = 300, units = "in")
     print(
       ggplot(plot_df,aes(lon,lat)) +
       geom_point(aes(colour=temp0_c),cex=8.99, shape=15) +
