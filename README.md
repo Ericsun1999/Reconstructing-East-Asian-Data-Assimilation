@@ -15,6 +15,6 @@ Detailed descriptions of the data and usage instructions are available in `Data/
 
 ### Figure  
 
-The provided code generates Figures 2–9 as presented in the paper and Figures S1–S4 as presented in the supplementary.
+The provided code generates Figures 2–10 as presented in the paper and Figures S1–S4 as presented in the supplementary.
 
 
