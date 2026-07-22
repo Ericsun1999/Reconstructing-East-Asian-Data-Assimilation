@@ -26,22 +26,25 @@ build_D <- function(n) {
   D
 }
 
-h_one_series <- function(xj, mu, M, r2) {
+ell_one_series <- function(xj, mu, M, r2) {
   N <- length(mu)
+  if (any(!is.finite(r2)) || any(r2 <= 0)) {
+    return(Inf)
+  }
   val <- 0.5 * sum(log(r2))
-  # t = 1 term
-  val <- val + ( (xj[1] - mu[1])^2 ) / (2 * r2[1])
-  # t >= 2 terms
+  # t = 1
+  val <- val + (xj[1] - mu[1])^2 / (2 * r2[1])
+  # t >= 2
   if (N >= 2) {
-    resid <- xj[2:N] - mu[2:N] - M[1:(N-1)] * (xj[1:(N-1)] - mu[1:(N-1)])
-    val <- val + sum( resid^2 / (2 * r2[2:N]) )
+    resid <- xj[2:N] - mu[2:N] - M[1:(N - 1)] * (xj[1:(N - 1)] - mu[1:(N - 1)])
+    val <- val + sum(resid^2 / (2 * r2[2:N]))
   }
   val
 }
 
 compute_St <- function(X, mu, M) {
   N <- nrow(X)
-  J <- ncol(X) 
+  J <- ncol(X) # 應為 13
   S <- numeric(N)
   # S1
   S[1] <- mean( (X[1, ] - mu[1])^2 )
@@ -54,31 +57,50 @@ compute_St <- function(X, mu, M) {
   S
 }
 
-solve_r2_cubic <- function(S, x_prev, x_next, lambda3, x_init = NULL) {
-  if (lambda3 == 0) return(S)
-  a3 <- 8 * lambda3
-  a2 <- -4 * lambda3 * (x_prev + x_next)
-  a1 <- 13
-  a0 <- -13 * S
-  roots <- polyroot(c(a0, a1, a2, a3))  # polyroot expects ascending order
-  real_roots <- Re(roots[abs(Im(roots)) < 1e-10])
-  cand <- real_roots[real_roots > 0]
-  if (length(cand) == 0) {
-    x <- ifelse(is.null(x_init), max(S, 1e-8), x_init)
-    for (k in 1:50) {
-      f  <- 0.5*(13/x - 13*S/x^2) + 2*lambda3*(2*x - x_prev - x_next)
-      df <- 0.5*(-13/x^2 + 26*S/x^3) + 4*lambda3
-      step <- f/df
-      x <- x - step
-      x <- max(x, 1e-10)
-      if (abs(step) < 1e-10) break
-    }
-    return(x)
-  } else {
-    if (length(cand) == 1) return(cand)
-    cand[which.min(abs(cand - S))]
+solve_r2_cubic <- function(S, neighbor_values, lambda3, J, x_init = NULL,
+  eps = 1e-10
+) {
+  d <- length(neighbor_values)
+  q <- sum(neighbor_values)
+
+  if (lambda3 == 0 || d == 0) {
+    return(max(S, eps))
   }
+
+  # 4 lambda3 d x^3 - 4 lambda3 q x^2 + J x - J S = 0
+  roots <- polyroot(c(
+    -J * S,
+     J,
+    -4 * lambda3 * q,
+     4 * lambda3 * d
+  ))
+  is_real <- abs(Im(roots)) < 1e-8
+  cand <- Re(roots[is_real])
+  cand <- cand[is.finite(cand) & cand > eps]
+
+  coordinate_objective <- function(x) {
+    likelihood_part <- (J / 2) * (log(x) + S / x)
+    penalty_part <- lambda3 * sum((x - neighbor_values)^2)
+
+    likelihood_part + penalty_part
+  }
+
+  if (length(cand) > 0) {
+    values <- vapply(cand, coordinate_objective, numeric(1))
+    return(cand[which.min(values)])
+  }
+
+
+  center <- max(c(S, neighbor_values, x_init, eps), na.rm = TRUE)
+  z_center <- log(center)
+  opt <- optimize(
+    function(z) coordinate_objective(exp(z)),
+    interval = c(z_center - 20, z_center + 20)
+  )
+
+  max(exp(opt$minimum), eps)
 }
+
 
 update_M <- function(X, mu, r2, lambda1) {
   N <- nrow(X)
@@ -100,15 +122,15 @@ update_M <- function(X, mu, r2, lambda1) {
   as.vector( solve(K, a) )
 }
 
+
 update_mu <- function(X, M, r2, lambda2) {
   N <- nrow(X); J <- ncol(X)
   D_mu <- build_D(N)
   B <- matrix(0, N, N)
   b <- numeric(N)
-  # t = 1 ：(J / r1^2) (x1 - mu1)^2 的二次型
   B[1, 1] <- B[1, 1] + J / r2[1]
-  b[1]    <- b[1]    + sum(X[1, ]) / r2[1]   
-
+  b[1]    <- b[1]    + sum(X[1, ]) / r2[1]  
+  
   for (t in 2:N) {
     w <- J / r2[t]               
     m <- M[t - 1]
@@ -116,6 +138,7 @@ update_mu <- function(X, M, r2, lambda2) {
     B[t-1, t-1] <- B[t-1, t-1] + w * m^2
     B[t,   t-1] <- B[t,   t-1] - w * m
     B[t-1, t]   <- B[t-1, t]   - w * m
+
     S <- sum(X[t, ]) - m * sum(X[t-1, ])     # = ∑_j (x_t^{(j)} - m x_{t-1}^{(j)})
     b[t]   <- b[t]   + S / r2[t]             # + (1/r_t^2) ∑ S
     b[t-1] <- b[t-1] - m * (S / r2[t])       # - (m/r_t^2) ∑ S  
@@ -125,18 +148,35 @@ update_mu <- function(X, M, r2, lambda2) {
   as.vector(solve(K, b))
 }
 
+
 update_r2 <- function(X, mu, M, r2, lambda3) {
   N <- nrow(X)
+  J <- ncol(X)  
   S <- compute_St(X, mu, M)
   r2_new <- r2
-  for (t in 1:N) {
-    x_prev <- if (t == 1) 0 else r2_new[t-1]
-    x_next <- if (t == N) 0 else r2[t+1]   
-    r2_new[t] <- solve_r2_cubic(S[t], x_prev, x_next, lambda3, x_init = r2[t])
-    if (!is.finite(r2_new[t]) || r2_new[t] <= 0) r2_new[t] <- max(S[t], 1e-8)
+  for (t in seq_len(N)) {
+    # Sequential coordinate update：
+    neighbor_values <- numeric(0)
+    if (t > 1) {
+      neighbor_values <- c(neighbor_values, r2_new[t - 1])
+    }
+    if (t < N) {
+      neighbor_values <- c(neighbor_values, r2[t + 1])
+    }
+    r2_new[t] <- solve_r2_cubic(
+      S = S[t],
+      neighbor_values = neighbor_values,
+      lambda3 = lambda3,
+      J = J,
+      x_init = r2[t]
+    )
+    if (!is.finite(r2_new[t]) || r2_new[t] <= 0) {
+      r2_new[t] <- max(S[t], 1e-10)
+    }
   }
   r2_new
 }
+
 
 fit_theta_once <- function(X, lambda1, lambda2, lambda3, max_iter = 100, tol = 1e-6, verbose = FALSE) {
   N <- nrow(X); J <- ncol(X)
@@ -144,12 +184,20 @@ fit_theta_once <- function(X, lambda1, lambda2, lambda3, max_iter = 100, tol = 1
   r2  <- as.vector(apply(X, 1, function(z) mean( (z - mean(z))^2 )))
   M   <- rep(0, N - 1)
   obj <- function() {
-    # g(X; theta) = sum_j h + λ1||DM||^2 + λ2||Dmu||^2 + λ3||D r2||^2
-    hsum <- 0
-    for (j in 1:J) hsum <- hsum + h_one_series(X[, j], mu, M, r2)
-    D_M  <- build_D(N - 1); D_mu <- build_D(N); D_r2 <- build_D(N)
-    pen  <- lambda1 * sum((D_M %*% M)^2) + lambda2 * sum((D_mu %*% mu)^2) + lambda3 * sum((D_r2 %*% r2)^2)
-    hsum + pen
+    ell_sum <- 0
+  for (j in seq_len(J)) {
+    ell_sum <- ell_sum +
+      ell_one_series(X[, j], mu, M, r2)
+  }
+  D_M  <- build_D(N - 1)
+  D_mu <- build_D(N)
+  D_r2 <- build_D(N)
+
+  penalty <- lambda1 * sum((D_M %*% M)^2) +
+    lambda2 * sum((D_mu %*% mu)^2) +
+    lambda3 * sum((D_r2 %*% r2)^2)
+
+  ell_sum + penalty
   }
   prev <- obj()
   for (it in 1:max_iter) {
@@ -167,7 +215,6 @@ fit_theta_once <- function(X, lambda1, lambda2, lambda3, max_iter = 100, tol = 1
   list(M = M, mu = mu, r2 = r2, obj = prev, iters = it, converged = (it < max_iter))
 }
 
-# 13-fold CV 選擇 (λ1, λ2, λ3)
 cv_select_lambdas <- function(
   X,
   lambda1_grid = 10^seq(-3, 1, length.out = 5),
@@ -180,12 +227,13 @@ cv_select_lambdas <- function(
   best <- list(score = Inf)
   for (i in 1:nrow(combos)) {
     l1 <- combos$lambda1[i]; l2 <- combos$lambda2[i]; l3 <- combos$lambda3[i]
+    # 13 folds
     scores <- numeric(J)
     for (l in 1:J) {
       X_train <- X[, setdiff(1:J, l), drop = FALSE]
       X_test  <- X[, l]
       fit <- fit_theta_once(X_train, l1, l2, l3, max_iter = max_iter, tol = tol, verbose = FALSE)
-      scores[l] <- h_one_series(X_test, fit$mu, fit$M, fit$r2)
+      scores[l] <- ell_one_series(X_test, fit$mu, fit$M, fit$r2)
     }
     cv <- mean(scores)
     if (verbose) cat(sprintf("λ1=%.4g λ2=%.4g λ3=%.4g  CV=%.6f\n", l1, l2, l3, cv))
