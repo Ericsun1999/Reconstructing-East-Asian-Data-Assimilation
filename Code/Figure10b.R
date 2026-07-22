@@ -60,6 +60,6 @@ cor_lab_S <- df_long_S %>%
 p_scatter_S  <- make_scatter_plot(df_long_S,  cor_lab_S,  c(15, 18), c(15, 18))
 
 
-jpeg("~/Downloads/Figure10(b).png",width=6,height=6, res = 300, units = "in")
+#jpeg("~/Downloads/Figure10(b).png",width=6,height=6, res = 300, units = "in")
 print(p_scatter_S)
-dev.off
+#dev.off
