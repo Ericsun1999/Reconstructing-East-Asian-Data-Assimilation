@@ -12,21 +12,23 @@ Follow the code below to produce figures for this paper.
 
 4. `Figure5.R` uses the REACHES data (`Data/temperature index value.v1.xlsx`) to produce Figures 5(a1)-(b3). (It should be executed after running `Figure4.R`)
 
-5. `Figure7-8.R` uses the Mean-Square Prediction Error of the kriged REACHES data (`Data/tempe_all_std.csv`), the kriged REACHES data (`Data/tempe_all_v3.csv`) and the LME data (`Data/LME data/`) to produce Figures 7(a)-(d) and 8(a)-(d).
+5. `Figure6.R` uses the kriged REACHES data (`Data/tempe_figure6.csv`) to produce Figures 6.
 
-6. `Figure7e.R` uses the REACHES data (`Data/temperature index value.v1.xlsx`) and the LME data (`Data/LME data/Figure6e/b0.csv`) to produce Figure 6(e). (It should be executed after running Figure4.R)
+6. `Figure7-8.R` uses the Mean-Square Prediction Error of the kriged REACHES data (`Data/tempe_all_std.csv`), the kriged REACHES data (`Data/tempe_all_v3.csv`) and the LME data (`Data/LME data/`) to produce Figures 7(a)-(d) and 8(a)-(d).
 
-7. `Figure9abc.R` uses the estimated parameters for Beijing (`Data/par/`) to produce Figures 8(a)-(c).
+7. `Figure7e.R` uses the REACHES data (`Data/temperature index value.v1.xlsx`) and the LME data (`Data/LME data/Figure6e/b0.csv`) to produce Figure 6(e). (It should be executed after running Figure4.R)
 
-8. `Figure9d.R` uses the Mean-Square Prediction Error of the kriged REACHES data (`Data/tempe_all_std.csv`), the kriged REACHES data (`Data/tempe_all_v3.csv`) and the estimated parameters for Beijing (`Data/par/`) to produce Figure 8(d).
+8. `Figure9abc.R` uses the estimated parameters for Beijing (`Data/par/`) to produce Figures 8(a)-(c).
 
-9.  `Figure9d.R` also produce the summary temperature dataset used to plot Figures 9.
+9. `Figure9d.R` uses the Mean-Square Prediction Error of the kriged REACHES data (`Data/tempe_all_std.csv`), the kriged REACHES data (`Data/tempe_all_v3.csv`) and the estimated parameters for Beijing (`Data/par/`) to produce Figure 8(d).
+
+10.  `Figure9d.R` also produce the summary temperature dataset used to plot Figures 9.
    
-10.  `Figure10a.R` uses the Beijing's summary data (`Data/Valid/tempBv5.csv`) and the GHCN data (`Data/GHCNv4.xlsx`) to produce Figures 10(a).
+11.  `Figure10a.R` uses the Beijing's summary data (`Data/Valid/tempBv5.csv`) and the GHCN data (`Data/GHCNv4.xlsx`) to produce Figures 10(a).
 
-11. `Figure10b.R` uses the Shanghai's summary data (`Data/Valid/tempSv5.csv`) and the GHCN data (`Data/GHCNv4.xlsx`) to produce Figures 10(b).
+12. `Figure10b.R` uses the Shanghai's summary data (`Data/Valid/tempSv5.csv`) and the GHCN data (`Data/GHCNv4.xlsx`) to produce Figures 10(b).
 
-12. `Figure10c.R` uses the Hong Kong's summary data (`Data/Valid/tempHv5.csv`) and the GHCN data (`Data/GHCNv4.xlsx`) to produce Figures 10(c).
+13. `Figure10c.R` uses the Hong Kong's summary data (`Data/Valid/tempHv5.csv`) and the GHCN data (`Data/GHCNv4.xlsx`) to produce Figures 10(c).
 
 The following code is not essential for reproducing the figures presented in the paper. Skipping these will reduce the total runtime to less than one hour.
 
