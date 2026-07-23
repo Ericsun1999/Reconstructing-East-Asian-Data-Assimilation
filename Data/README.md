@@ -16,7 +16,7 @@ Shanghai: `LME data/d2.csv`.
 
 Beijing: `LME data/d3.csv`.
 
-Figure6e: All 13 LME time series for produce Figure6(e).
+Figure7e: All 13 LME time series for produce Figure7(e).
 
 ### 3. GHCN Data:
 
