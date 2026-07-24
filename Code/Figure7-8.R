@@ -6,19 +6,19 @@ here::i_am("Code/Figure7-8.R")
 # This script produces:
 #
 # Figure 7:
-#   Figure7a_Beijing.png
-#   Figure7b_Beijing.png
-#   Figure7c_Beijing.png
-#   Figure7d_Beijing.png
+#   Figure7a.png
+#   Figure7b.png
+#   Figure7c.png
+#   Figure7d.png
 #
 # Figure 8:
-#   Figure8a_Beijing.png
-#   Figure8b_Beijing.png
-#   Figure8c_Shanghai.png
-#   Figure8d_HongKong.png
+#   Figure8a.png
+#   Figure8b.png
+#   Figure8c.png
+#   Figure8d.png
 #
 # Figure 7(e), the spatial temperature map, is generated
-# separately by Code/Figure7e.R.
+# separately by Code/Figure7e.R
 #
 # City ordering in the REACHES files:
 #   row 1 = Hong Kong
@@ -679,49 +679,49 @@ save_panel <- function(
 output_files <- c(
   save_panel(
     p_figure7a,
-    "Figure7a_Beijing.png",
+    "Figure7a.png",
     width = 6,
     height = 4
   ),
   save_panel(
     p_figure7b,
-    "Figure7b_Beijing.png",
+    "Figure7b.png",
     width = 6,
     height = 4
   ),
   save_panel(
     p_figure7c,
-    "Figure7c_Beijing.png",
+    "Figure7c.png",
     width = 6,
     height = 3.5
   ),
   save_panel(
     p_figure7d,
-    "Figure7d_Beijing.png",
+    "Figure7d.png",
     width = 6,
     height = 3.5
   ),
   save_panel(
     p_figure8a,
-    "Figure8a_Beijing.png",
+    "Figure8a.png",
     width = 6,
     height = 3
   ),
   save_panel(
     p_figure8b,
-    "Figure8b_Beijing.png",
+    "Figure8b.png",
     width = 6,
     height = 3
   ),
   save_panel(
     p_figure8c,
-    "Figure8c_Shanghai.png",
+    "Figure8c.png",
     width = 6,
     height = 3
   ),
   save_panel(
     p_figure8d,
-    "Figure8d_HongKong.png",
+    "Figure8d.png",
     width = 6,
     height = 3
   )
