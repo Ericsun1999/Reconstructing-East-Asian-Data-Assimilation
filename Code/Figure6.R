@@ -260,7 +260,7 @@ save_reaches_clusters_separately <- function(
   for (k in 1:5) {
     filename <- file.path(
       output_dir,
-      paste0("reaches_cluster_", k, ".jpg")
+      paste0("Figure6_cluster_", k, ".jpg")
     )
 
     jpeg(
