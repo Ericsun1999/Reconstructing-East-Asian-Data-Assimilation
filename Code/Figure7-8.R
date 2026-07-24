@@ -39,52 +39,24 @@ tempe_all_data <- read.csv(
   check.names = FALSE
 )
 
-if (nrow(tempe_all_data) < 4L) {
-  stop(
-    "tempe_all_v3.csv must contain one year row followed by ",
-    "rows for Hong Kong, Shanghai, and Beijing."
-  )
-}
-
 # The first row contains the available REACHES years.
 year3 <- suppressWarnings(
   as.integer(
     unlist(
-      tempe_all_data[
-        1,
-        -c(1, 2),
-        drop = FALSE
-      ],
+      tempe_all_data[1, -c(1, 2), drop = FALSE ],
       use.names = FALSE
     )
   )
 )
 
-if (anyNA(year3)) {
-  stop(
-    "The first row of tempe_all_v3.csv contains invalid ",
-    "or non-numeric year values."
-  )
-}
-
 # Rows 2--4 correspond to Hong Kong, Shanghai, and Beijing.
-tempe_all <- tempe_all_data[
-  2:4,
-  ,
-  drop = FALSE
-]
+tempe_all <- tempe_all_data[2:4, , drop = FALSE]
 
 nu_all <- read.csv(
   here::here("Data", "tempe_all_std.csv"),
   check.names = FALSE
 )
 
-if (nrow(nu_all) < 3L) {
-  stop(
-    "tempe_all_std.csv must contain rows for ",
-    "Hong Kong, Shanghai, and Beijing."
-  )
-}
 
 # ------------------------------------------------------------
 # 2. City-specific configuration
@@ -279,15 +251,6 @@ prepare_city_result <- function(
   location_row <- config$location_row
   lme_file <- config$lme_file
 
-  if (!file.exists(lme_file)) {
-    stop(
-      "LME input file for ",
-      city_name,
-      " was not found: ",
-      lme_file
-    )
-  }
-
   # ----------------------------------------------------------
   # Read city-specific LME data
   # ----------------------------------------------------------
@@ -298,14 +261,6 @@ prepare_city_result <- function(
     check.names = FALSE
   )
 
-  if (ncol(lme_data) < 3L) {
-    stop(
-      "The LME input for ",
-      city_name,
-      " must contain two metadata columns followed by ",
-      "yearly temperature columns."
-    )
-  }
 
   lme_temperature_data <- lme_data[
     ,
@@ -323,14 +278,6 @@ prepare_city_result <- function(
   lme_temperature <- as.matrix(
     lme_temperature_data
   ) - 273.15
-
-  if (any(!is.finite(lme_temperature))) {
-    stop(
-      "The LME temperature data for ",
-      city_name,
-      " contain non-finite values."
-    )
-  }
 
   # Mean across LME ensemble members for each year.
   lme_mean <- colMeans(lme_temperature)
@@ -377,23 +324,6 @@ prepare_city_result <- function(
     stop(
       "The year, REACHES prediction, and uncertainty vectors ",
       "have different lengths for ",
-      city_name,
-      "."
-    )
-  }
-
-  if (any(!is.finite(yhat))) {
-    stop(
-      "The REACHES predictions contain non-finite values for ",
-      city_name,
-      "."
-    )
-  }
-
-  if (any(!is.finite(nu))) {
-    stop(
-      "The REACHES uncertainty values contain non-finite ",
-      "values for ",
       city_name,
       "."
     )
