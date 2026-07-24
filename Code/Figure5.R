@@ -1,3 +1,5 @@
+here::i_am("Code/Figure5.R")
+
 ###It should be executed after running Figure4.R
 
 # Kriging on 0.5x0.5 grid points
