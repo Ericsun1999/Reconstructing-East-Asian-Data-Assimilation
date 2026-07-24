@@ -1,3 +1,5 @@
+here::i_am("Code/Supplementary/FigureS1.R")
+
 # A map of temperature event levels for different periods, S1 (a)-(e) 
 
 library(readxl)
