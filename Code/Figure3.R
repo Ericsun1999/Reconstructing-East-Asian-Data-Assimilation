@@ -9,9 +9,9 @@ here::i_am("Code/Figure3.R")
 #   3. Beijing
 #
 # Outputs:
-#   Output/Figure3/Figure3_HongKong.png
-#   Output/Figure3/Figure3_Shanghai.png
-#   Output/Figure3/Figure3_Beijing.png
+#   Output/Figure3/Figure3(c).png
+#   Output/Figure3/Figure3(b).png
+#   Output/Figure3/Figure3(a).png
 # ============================================================
 
 library(ggplot2)
