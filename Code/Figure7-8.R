@@ -22,7 +22,7 @@ library(ggplot2)
 library(np)
 
 # ------------------------------------------------------------
-# 1. Read kriged REACHES data and uncertainties
+# 1. Read kriged REACHES data
 # ------------------------------------------------------------
 
 tempe_all_data <- read.csv(
@@ -31,7 +31,10 @@ tempe_all_data <- read.csv(
 )
 
 year3 <- as.integer(
-  tempe_all_data[1, -c(1, 2)]
+  unlist(
+    tempe_all_data[1, -c(1, 2)],
+    use.names = FALSE
+  )
 )
 
 tempe_all <- tempe_all_data[
@@ -45,8 +48,12 @@ nu1 <- read.csv(
 )
 
 # ------------------------------------------------------------
-# 2. Read city-specific LME data
+# 2. Read LME data
 # ------------------------------------------------------------
+
+# Data1: Hong Kong
+# Data2: Shanghai
+# Data3: Beijing
 
 Data1 <- read.csv(
   here::here("Data", "LME data", "d1.csv"),
@@ -97,7 +104,7 @@ FY_hat <- function(y, yhat, nu) {
   )
 }
 
-# Numerically invert F_X.
+# Inverse of F_X.
 Fx_inv <- function(
     u,
     qx_min,
@@ -126,12 +133,12 @@ Fx_inv <- function(
 }
 
 qmapping <- function(
-    yhat = yhat,
-    std = nu,
-    x = haave2,
+    yhat,
+    std,
+    x,
     ymax = 1,
     ymin = -2,
-    xhat = tempe_use[, -c(1, 2)]) {
+    xhat) {
 
   # Estimate F_X using npudist with bandwidth chosen by LS-CV.
   fx_bw <- npudistbw(
@@ -180,9 +187,9 @@ qmapping <- function(
 }
 
 # ------------------------------------------------------------
-# 4. Prepare one city's quantile-mapping results
+# 4. Prepare one city
 #
-# This preserves the calculations used in the original script.
+# The calculations below are the same as in the original code.
 # ------------------------------------------------------------
 
 prepare_city <- function(
@@ -229,20 +236,17 @@ prepare_city <- function(
 
   list(
     city_name = city_name,
-    loc = loc,
     tempe_use = tempe_use,
     nu = nu,
-    haa = haa,
     haave = haave,
     haave2 = haave2,
-    yhat = yhat,
     qm = qm,
     ycorrected = qm$ycorrected
   )
 }
 
 # ------------------------------------------------------------
-# 5. Automatically prepare all three cities
+# 5. Prepare all three cities automatically
 # ------------------------------------------------------------
 
 city_config <- list(
@@ -280,7 +284,49 @@ shanghai <- city_results[["Shanghai"]]
 hongkong <- city_results[["HongKong"]]
 
 # ------------------------------------------------------------
-# 6. Figure 7(a)--(d): Beijing only
+# 6. Output directory and graphics helper
+# ------------------------------------------------------------
+
+output_dir <- here::here(
+  "Output",
+  "Figure7-8"
+)
+
+dir.create(
+  output_dir,
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+
+save_png <- function(
+    plot_object,
+    filename,
+    width,
+    height,
+    res = 300) {
+
+  output_file <- file.path(
+    output_dir,
+    filename
+  )
+
+  png(
+    filename = output_file,
+    width = width,
+    height = height,
+    res = res,
+    units = "in"
+  )
+
+  on.exit(dev.off(), add = TRUE)
+
+  print(plot_object)
+
+  invisible(output_file)
+}
+
+# ------------------------------------------------------------
+# 7. Figure 7(a)--(d): Beijing only
 # ------------------------------------------------------------
 
 df111 <- data.frame(
@@ -291,110 +337,134 @@ df111 <- data.frame(
 )
 
 # Figure 7(a)
-p_figure7a <- ggplot(
-  data = df111,
-  aes(x = year, y = reach)
-) +
-  geom_line(
-    color = "darkorchid1"
-  ) +
-  theme(
-    text = element_text(size = 19),
-    legend.position = "right",
-    legend.key.height = grid::unit(1.5, "cm"),
-    plot.title = element_text(hjust = 0.5)
-  ) +
-  xlab("year") +
-  ylab("level")
+save_png(
+  plot_object =
+    ggplot(
+      data = df111,
+      aes(x = year, y = reach)
+    ) +
+    geom_line(
+      color = "darkorchid1"
+    ) +
+    theme(
+      text = element_text(size = 19),
+      legend.position = "right",
+      legend.key.height = grid::unit(1.5, "cm"),
+      plot.title = element_text(hjust = 0.5)
+    ) +
+    xlab("year") +
+    ylab("level"),
+  filename = "Figure7a.png",
+  width = 6,
+  height = 4
+)
 
 # Figure 7(b)
-df_transformation <- data.frame(
+df <- data.frame(
   z = beijing$qm$y_seq,
   y1 = beijing$qm$FX_values
 )
 
-p_figure7b <- ggplot(
-  data = df_transformation,
-  aes(x = z, y = y1)
-) +
-  geom_smooth(
-    method = "loess",
-    formula = y ~ x,
-    se = FALSE
-  ) +
-  xlab("index") +
-  ylab("temperature") +
-  theme(
-    text = element_text(size = 19),
-    legend.position = "right",
-    legend.key.height = grid::unit(1.5, "cm"),
-    plot.title = element_text(hjust = 0.5)
-  )
+save_png(
+  plot_object =
+    ggplot(
+      data = df,
+      aes(x = z, y = y1)
+    ) +
+    geom_smooth(
+      method = "loess",
+      formula = "y ~ x",
+      se = FALSE
+    ) +
+    xlab("index") +
+    ylab("temperature") +
+    theme(
+      text = element_text(size = 19),
+      legend.position = "right",
+      legend.key.height = grid::unit(1.5, "cm"),
+      plot.title = element_text(hjust = 0.5)
+    ),
+  filename = "Figure7b.png",
+  width = 6,
+  height = 4
+)
 
 # Figure 7(c)
-p_figure7c <- ggplot(
-  df111,
-  aes(x = reach)
-) +
-  geom_histogram(
-    aes(y = after_stat(density)),
-    breaks = seq(
-      -2.5,
-      1.5,
-      by = 0.2
-    ),
-    binwidth = 0.1,
-    fill = "darkorchid1",
-    color = "white"
-  ) +
-  geom_density(
-    color = "black",
-    size = 0.4
-  ) +
-  theme(
-    text = element_text(size = 18),
-    legend.position = "right",
-    legend.key.height = grid::unit(1.5, "cm"),
-    plot.title = element_text(hjust = 0.5)
-  ) +
-  xlab("temperature") +
-  ylab("density")
+save_png(
+  plot_object =
+    ggplot(
+      df111,
+      aes(x = reach)
+    ) +
+    geom_histogram(
+      aes(y = after_stat(density)),
+      breaks = seq(
+        -2.5,
+        1.5,
+        by = 0.2
+      ),
+      binwidth = 0.1,
+      fill = "darkorchid1",
+      color = "white"
+    ) +
+    geom_density(
+      color = "black",
+      size = 0.4
+    ) +
+    theme(
+      text = element_text(size = 18),
+      legend.position = "right",
+      legend.key.height = grid::unit(1.5, "cm"),
+      plot.title = element_text(hjust = 0.5)
+    ) +
+    xlab("temperature") +
+    ylab("density"),
+  filename = "Figure7c.png",
+  width = 6,
+  height = 3.5
+)
 
 # Figure 7(d)
 dsnorm.fit2 <- data.frame(
   temper = c(beijing$haave2)
 )
 
-p_figure7d <- ggplot(
-  data = dsnorm.fit2,
-  aes(x = temper)
-) +
-  geom_histogram(
-    aes(y = after_stat(density)),
-    breaks = seq(
-      9,
-      14,
-      by = 0.1
-    ),
-    binwidth = 0.1,
-    colour = "white",
-    fill = "deepskyblue"
-  ) +
-  geom_density(
-    color = "black",
-    size = 0.4
-  ) +
-  theme(
-    text = element_text(size = 18),
-    legend.position = "right",
-    legend.key.height = grid::unit(1.5, "cm"),
-    plot.title = element_text(hjust = 0.5)
-  ) +
-  xlim(9, 14) +
-  xlab("temperature")
+save_png(
+  plot_object =
+    ggplot(
+      data = dsnorm.fit2,
+      aes(x = temper)
+    ) +
+    geom_histogram(
+      aes(y = after_stat(density)),
+      breaks = seq(
+        9,
+        14,
+        by = 0.1
+      ),
+      binwidth = 0.1,
+      colour = "white",
+      fill = "deepskyblue"
+    ) +
+    geom_density(
+      color = "black",
+      size = 0.4
+    ) +
+    theme(
+      text = element_text(size = 18),
+      legend.position = "right",
+      legend.key.height = grid::unit(1.5, "cm"),
+      plot.title = element_text(hjust = 0.5)
+    ) +
+    xlim(9, 14) +
+    xlab("temperature"),
+  filename = "Figure7d.png",
+  width = 6,
+  height = 3.5
+)
 
 # ------------------------------------------------------------
-# 7. Figure 8(a): Beijing only
+# 8. Figure 8(a): Beijing only
 # ------------------------------------------------------------
 
 df8 <- data.frame(
@@ -403,36 +473,41 @@ df8 <- data.frame(
   std = beijing$nu
 )
 
-p_figure8a <- ggplot(
-  data = df8,
-  aes(x = year, y = REACHES)
-) +
-  # Preserve the original layer order.
-  geom_line(
-    color = "red"
-  ) +
-  geom_ribbon(
-    aes(
-      ymin = REACHES - std,
-      ymax = REACHES + std
-    ),
-    alpha = 0.5,
-    fill = "grey3"
-  ) +
-  theme(
-    text = element_text(size = 11),
-    legend.position = "right",
-    legend.key.height = grid::unit(1.5, "cm"),
-    plot.title = element_text(hjust = 0.5)
-  ) +
-  xlab("year") +
-  ylab("temperature")
+save_png(
+  plot_object =
+    ggplot(
+      data = df8,
+      aes(x = year, y = REACHES)
+    ) +
+    geom_line(
+      color = "red"
+    ) +
+    theme(
+      text = element_text(size = 11),
+      legend.position = "right",
+      legend.key.height = grid::unit(1.5, "cm"),
+      plot.title = element_text(hjust = 0.5)
+    ) +
+    geom_ribbon(
+      aes(
+        ymin = REACHES - std,
+        ymax = REACHES + std
+      ),
+      alpha = 0.5,
+      fill = "grey3"
+    ) +
+    xlab("year") +
+    ylab("temperature"),
+  filename = "Figure8a.png",
+  width = 6,
+  height = 3
+)
 
 # ------------------------------------------------------------
-# 8. Figure 8(b)--(d): Beijing, Shanghai, and Hong Kong
+# 9. Figure 8(b)--(d)
 #
-# This preserves the original year indexing and the first
-# 524-row plotting range used to create the manuscript panels.
+# Preserve the original year indexing, first 524 observations,
+# plot layers, LOESS settings, colors, and theme.
 # ------------------------------------------------------------
 
 make_figure8_city_plot <- function(city_result) {
@@ -477,7 +552,7 @@ make_figure8_city_plot <- function(city_result) {
         y = temperature
       ),
       method = "loess",
-      formula = y ~ x,
+      formula = "y ~ x",
       se = FALSE,
       size = 1.1,
       color = "firebrick",
@@ -500,7 +575,7 @@ make_figure8_city_plot <- function(city_result) {
         y = temper
       ),
       method = "loess",
-      formula = y ~ x,
+      formula = "y ~ x",
       se = FALSE,
       size = 1.1,
       color = "deepskyblue",
@@ -516,99 +591,28 @@ make_figure8_city_plot <- function(city_result) {
     )
 }
 
-p_figure8b <- make_figure8_city_plot(beijing)
-p_figure8c <- make_figure8_city_plot(shanghai)
-p_figure8d <- make_figure8_city_plot(hongkong)
-
-# ------------------------------------------------------------
-# 9. Save all panels
-# ------------------------------------------------------------
-
-output_dir <- here::here(
-  "Output",
-  "Figure7-8"
+# Figure 8(b): Beijing
+save_png(
+  plot_object = make_figure8_city_plot(beijing),
+  filename = "Figure8b.png",
+  width = 6,
+  height = 3
 )
 
-dir.create(
-  output_dir,
-  recursive = TRUE,
-  showWarnings = FALSE
+# Figure 8(c): Shanghai
+save_png(
+  plot_object = make_figure8_city_plot(shanghai),
+  filename = "Figure8c.png",
+  width = 6,
+  height = 3
 )
 
-save_panel <- function(
-    plot_object,
-    filename,
-    width,
-    height) {
-
-  output_file <- file.path(
-    output_dir,
-    filename
-  )
-
-  ggsave(
-    filename = output_file,
-    plot = plot_object,
-    width = width,
-    height = height,
-    units = "in",
-    dpi = 300
-  )
-
-  message("Saved: ", output_file)
-
-  invisible(output_file)
-}
-
-output_files <- c(
-  save_panel(
-    p_figure7a,
-    "Figure7a.png",
-    width = 6,
-    height = 4
-  ),
-  save_panel(
-    p_figure7b,
-    "Figure7b.png",
-    width = 6,
-    height = 4
-  ),
-  save_panel(
-    p_figure7c,
-    "Figure7c.png",
-    width = 6,
-    height = 3.5
-  ),
-  save_panel(
-    p_figure7d,
-    "Figure7d.png",
-    width = 6,
-    height = 3.5
-  ),
-  save_panel(
-    p_figure8a,
-    "Figure8a.png",
-    width = 6,
-    height = 3
-  ),
-  save_panel(
-    p_figure8b,
-    "Figure8b.png",
-    width = 6,
-    height = 3
-  ),
-  save_panel(
-    p_figure8c,
-    "Figure8c.png",
-    width = 6,
-    height = 3
-  ),
-  save_panel(
-    p_figure8d,
-    "Figure8d.png",
-    width = 6,
-    height = 3
-  )
+# Figure 8(d): Hong Kong
+save_png(
+  plot_object = make_figure8_city_plot(hongkong),
+  filename = "Figure8d.png",
+  width = 6,
+  height = 3
 )
 
 message(
