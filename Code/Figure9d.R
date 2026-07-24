@@ -1,3 +1,5 @@
+here::i_am("Code/Figure9d.R")
+
 #Kriged REACHES
 
 tempe_all_data <- read.csv("~/Downloads/DA3/tempe_all_v3.csv", header=FALSE)
