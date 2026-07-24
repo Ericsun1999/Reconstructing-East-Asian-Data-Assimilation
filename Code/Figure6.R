@@ -1,3 +1,5 @@
+here::i_am("Code/Figure6.R")
+
 # ============================================================
 # REACHES-only analysis
 #
@@ -20,7 +22,7 @@ library(maps)
 # ------------------------------------------------------------
 # 1. Read REACHES kriged data
 # ------------------------------------------------------------
-tempe_all_v4 <- read.csv("~/Downloads/tempe_figure6.csv")
+tempe_all_v4 <- read.csv(here::here("Data", "tempe_figure6.csv"))
 
 # Keep grid cells within 150 km of China or Taiwan
 pts <- tempe_all_v4 %>%
@@ -48,7 +50,7 @@ tempe_all_v4 <- tempe_all_v4[inside_easia_km, ]
 # 2. Read original REACHES observations
 # ------------------------------------------------------------
 temperature <- read_excel(
-  "~/Downloads/DA/temperature index value.v1.xlsx",
+  here::here("Data", "temperature index value.v1.xlsx"),
   col_types = c(
     "skip", "skip", "numeric", "numeric", "skip", "skip", "skip",
     "skip", "skip", "numeric", "numeric", "skip", "skip"
