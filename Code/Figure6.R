@@ -123,9 +123,18 @@ scores_R <- pca_R$scores
 
 # Keep the same model-selection setup as the original code.
 # In the original analysis, BIC selects five clusters.
-mc_R <- Mclust(scores_R, G = 1:8)
-cl_R <- mc_R$classification
 
+mc_R <- Mclust(scores_R, G = 1:8)
+
+if (length(mc_R$G) != 1L || mc_R$G != 5L) {
+  stop(
+    "Expected Mclust to select five clusters, but it selected ",
+    mc_R$G,
+    "."
+  )
+}
+
+cl_R <- mc_R$classification
 
 # Relabel the five clusters to match the geographic ordering
 # in the original analysis:
@@ -139,6 +148,14 @@ relabel_R <- c(
 )
 
 cl_R_geo <- unname(relabel_R[as.character(cl_R)])
+
+
+if (anyNA(cl_R_geo)) {
+  stop(
+    "Cluster relabeling produced missing values. ",
+    "Check the Mclust labels and relabel_R."
+  )
+}
 
 
 # Evaluate the fitted REACHES functions on the yearly grid.
@@ -200,10 +217,11 @@ draw_reaches_cluster <- function(k) {
 }
 
 # Draw all five clusters in one 5 x 1 figure.
+# Draw one cluster.
 plot_reaches_cluster <- function(k) {
-  stopifnot(k %in% 1:5)
-
-  idx <- which(cl_R_geo == k)
+  if (!k %in% 1:5) {
+    stop("k must be one of 1, 2, 3, 4, or 5.")
+  }
 
   oldpar <- par(no.readonly = TRUE)
   on.exit(par(oldpar))
@@ -215,16 +233,11 @@ plot_reaches_cluster <- function(k) {
     tcl = -0.2
   )
 
-  draw_fb(
-    eval_mat = eval_R,
-    idx = idx,
-    ylim_use = ylim_R,
-    ytick_use = ytick_R
-  )
-
-  title(main = paste("REACHES Cluster", k))
+  draw_reaches_cluster(k)
+  invisible(NULL)
 }
 
+# Draw all five clusters in one 5 x 1 figure.
 plot_reaches_clusters <- function() {
   oldpar <- par(no.readonly = TRUE)
   on.exit(par(oldpar))
@@ -237,15 +250,10 @@ plot_reaches_clusters <- function() {
   )
 
   for (k in 1:5) {
-    idx <- which(cl_R_geo == k)
-    draw_fb(
-      eval_mat = eval_R,
-      idx = idx,
-      ylim_use = ylim_R,
-      ytick_use = ytick_R
-    )
-    title(main = paste("REACHES Cluster", k))
+    draw_reaches_cluster(k)
   }
+
+  invisible(NULL)
 }
 
 # Save all five clusters to one image.
@@ -348,9 +356,6 @@ p_reach_map <- ggplot(
 # Display the map:
 print(p_reach_map)
 
-plot_reaches_cluster <- function(k) {
-  draw_reaches_cluster(k)
-}
 
 # Display the five REACHES functional boxplots.
 plot_reaches_cluster(1)
