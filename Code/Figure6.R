@@ -1,11 +1,19 @@
 here::i_am("Code/Figure6.R")
 
 # ============================================================
-# REACHES-only analysis
+# REACHES-only analysis for Figure 6
 #
-# Main outputs:
-#   1. p_reach_map              : map of the five REACHES clusters
-#   2. plot_reaches_clusters()  : five REACHES functional boxplots
+# This script produces the six individual panels used in
+# manuscript Figure 6:
+#   1. Figure6_cluster_map.jpg
+#   2. Figure6_cluster_1.jpg
+#   3. Figure6_cluster_2.jpg
+#   4. Figure6_cluster_3.jpg
+#   5. Figure6_cluster_4.jpg
+#   6. Figure6_cluster_5.jpg
+#
+# The six panels are assembled into the final 3 x 2 layout
+# in the manuscript LaTeX source.
 #
 # No posterior or LME code is included.
 # ============================================================
@@ -64,6 +72,9 @@ colnames(temperature) <- c("level", "year", "long", "lat")
 # ------------------------------------------------------------
 use_years <- 1368:1911
 target_cols <- paste0("x", use_years)
+
+# Retain the available REACHES year columns within 1368--1911.
+# REACHES documentary information is not available for every year.
 
 reach_cols <- grep("^x[0-9]+$", names(tempe_all_v4), value = TRUE)
 reach_cols_use <- intersect(target_cols, reach_cols)
@@ -216,8 +227,8 @@ draw_reaches_cluster <- function(k) {
   invisible(NULL)
 }
 
-# Draw all five clusters in one 5 x 1 figure.
-# Draw one cluster.
+
+# Draw one REACHES cluster.
 plot_reaches_cluster <- function(k) {
   if (!k %in% 1:5) {
     stop("k must be one of 1, 2, 3, 4, or 5.")
@@ -237,48 +248,9 @@ plot_reaches_cluster <- function(k) {
   invisible(NULL)
 }
 
-# Draw all five clusters in one 5 x 1 figure.
-plot_reaches_clusters <- function() {
-  oldpar <- par(no.readonly = TRUE)
-  on.exit(par(oldpar))
-
-  par(
-    mfrow = c(5, 1),
-    mar = c(2.5, 4, 1.5, 1),
-    mgp = c(1.8, 0.5, 0),
-    tcl = -0.2
-  )
-
-  for (k in 1:5) {
-    draw_reaches_cluster(k)
-  }
-
-  invisible(NULL)
-}
-
-# Save all five clusters to one image.
-save_reaches_clusters <- function(
-    filename = "reaches_only_5_clusters.jpg",
-    width = 6,
-    height = 12,
-    res = 300) {
-
-  jpeg(
-    filename = filename,
-    width = width,
-    height = height,
-    res = res,
-    units = "in"
-  )
-
-  on.exit(dev.off(), add = TRUE)
-  plot_reaches_clusters()
-  invisible(filename)
-}
-
 # Save the five clusters as five separate image files.
 save_reaches_clusters_separately <- function(
-    output_dir = "reaches_only_clusters",
+    output_dir = here::here("Output", "Figure6"),
     width = 6,
     height = 4,
     res = 300) {
@@ -350,16 +322,31 @@ p_reach_map <- ggplot(
   theme_minimal()
 
 # ------------------------------------------------------------
-# 8. Commands to display or save the requested outputs
+# 8. Save Figure 6 panels
 # ------------------------------------------------------------
 
-# Display the map:
-print(p_reach_map)
+figure6_output_dir <- here::here("Output", "Figure6")
 
+dir.create(
+  figure6_output_dir,
+  showWarnings = FALSE,
+  recursive = TRUE
+)
 
-# Display the five REACHES functional boxplots.
-plot_reaches_cluster(1)
-plot_reaches_cluster(2)
-plot_reaches_cluster(3)
-plot_reaches_cluster(4)
-plot_reaches_cluster(5)
+# Save the cluster map.
+ggsave(
+  filename = file.path(
+    figure6_output_dir,
+    "Figure6_cluster_map.jpg"
+  ),
+  plot = p_reach_map,
+  width = 6,
+  height = 4,
+  units = "in",
+  dpi = 300
+)
+
+# Save the five functional boxplots as separate panels.
+save_reaches_clusters_separately(
+  output_dir = figure6_output_dir
+)
