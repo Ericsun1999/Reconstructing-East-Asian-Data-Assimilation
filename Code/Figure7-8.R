@@ -210,7 +210,7 @@ prepare_city <- function(
 
   haa <- (
     DData[, -c(1, 2), drop = FALSE]
-  ) - 273.15
+  ) - 273
 
   haave <- colMeans(haa)
   haave2 <- as.numeric(t(haa))
