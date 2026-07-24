@@ -4,9 +4,9 @@ here::i_am("Code/Figure3.R")
 #Data2 Shanghai
 #Data3 Beijing
 
-Data1 <- read.csv("./d1.csv", row.names=1)
-Data2 <- read.csv("./d2.csv", row.names=1)
-Data3 <- read.csv("./d3.csv", row.names=1)
+Data1 <- read.csv(here::here("Data", "LME data", "d1.csv"), row.names=1)
+Data2 <- read.csv(here::here("Data", "LME data", "d2.csv"), row.names=1)
+Data3 <- read.csv(here::here("Data", "LME data", "d3.csv"), row.names=1)
 
 library(ggplot2)
 
