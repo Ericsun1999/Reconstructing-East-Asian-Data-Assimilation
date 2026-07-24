@@ -1,3 +1,5 @@
+here::i_am("Code/Prior.R")
+
 ### prior estimation
 
 Data1 <- read.csv("./d1.csv", row.names=1)
