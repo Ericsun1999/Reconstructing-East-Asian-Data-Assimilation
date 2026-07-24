@@ -1,3 +1,5 @@
+here::i_am("Code/Get_tempe_all_data.R")
+
 # Kriging on 0.5x0.5 grid points
 
 year.start <- range(temp2$year)[1]
