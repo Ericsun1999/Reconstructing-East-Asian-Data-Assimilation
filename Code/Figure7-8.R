@@ -3,7 +3,7 @@ here::i_am("Code/Figure7-8.R")
 #Figure6abcd 7abcd
 
 #Kriged REACHES
-tempe_all_data <- read.csv("./tempe_all_v3.csv", header=FALSE)
+tempe_all_data <- read.csv(here::here("Data", "tempe_all_v3.csv"), header=FALSE)
 year3<- as.integer(tempe_all_data[1,-c(1,2)]) 
 tempe_all<-tempe_all_data[c(2:4),]
 
