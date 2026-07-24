@@ -16,7 +16,7 @@ Follow the code below to produce figures for this paper.
 
 6. `Figure7-8.R` uses the Mean-Square Prediction Error of the kriged REACHES data (`Data/tempe_all_std.csv`), the kriged REACHES data (`Data/tempe_all_v3.csv`) and the LME data (`Data/LME data/`) to produce Figures 7(a)-(d) and 8(a)-(d).
 
-7. `Figure7e.R` uses the REACHES data (`Data/temperature index value.v1.xlsx`) and the LME data (`Data/LME data/Figure6e/b0.csv`) to produce Figure 6(e). (It should be executed after running Figure4.R)
+7. `Figure7e.R` uses the REACHES data (`Data/temperature index value.v1.xlsx`) and the LME data (`Data/LME data/Figure6e/b0.csv`) to produce Figure 7(e). (It should be executed after running Figure4.R)
 
 8. `Figure9abc.R` uses the estimated parameters for Beijing (`Data/par/`) to produce Figures 8(a)-(c).
 
