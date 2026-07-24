@@ -1,55 +1,221 @@
 here::i_am("Code/Figure3.R")
 
-#Data1 Hong Kong
-#Data2 Shanghai
-#Data3 Beijing
-
-Data1 <- read.csv(here::here("Data", "LME data", "d1.csv"), row.names=1)
-Data2 <- read.csv(here::here("Data", "LME data", "d2.csv"), row.names=1)
-Data3 <- read.csv(here::here("Data", "LME data", "d3.csv"), row.names=1)
+# ============================================================
+# LME yearly temperature time series for Figure 3
+#
+# This script automatically generates city-specific figures for:
+#   1. Hong Kong
+#   2. Shanghai
+#   3. Beijing
+#
+# Outputs:
+#   Output/Figure3/Figure3_HongKong.png
+#   Output/Figure3/Figure3_Shanghai.png
+#   Output/Figure3/Figure3_Beijing.png
+# ============================================================
 
 library(ggplot2)
 
-#Beijing
-Data <- Data3 #Plot Shanghai or hong kong just change it to Data2 or Data1
+# ------------------------------------------------------------
+# 1. Define city-specific inputs and plotting ranges
+# ------------------------------------------------------------
 
-haa<- (DData[,-c(1,2)]) - 273
-mean_row <- colMeans(haa, na.rm = TRUE)
-dfp <- data.frame(t(haa))
-dfp$dataave <- as.numeric(mean_row) 
-dfp$Year <- as.numeric(1350:1949)
-colnames(dfp) <- c(
-  paste0("data", 1:13),
-  "dataave",
-  "Year"
+city_config <- list(
+  HongKong = list(
+    input_file = here::here("Data", "LME data", "d1.csv"),
+    y_limits = c(20, 24)
+  ),
+  Shanghai = list(
+    input_file = here::here("Data", "LME data", "d2.csv"),
+    y_limits = c(13, 18)
+  ),
+  Beijing = list(
+    input_file = here::here("Data", "LME data", "d3.csv"),
+    y_limits = c(9, 13.5)
+  )
 )
-    
-#Figure3, Yearly temperature time series data from 13 LME simulations
 
-#jpeg("./Figure3.png",width=6,height=3, res=300, units = "in")
-      print(
-      ggplot(data=dfp, aes(x=Year)) +
-  geom_line(aes(y=data1,col="data1"))+
-  geom_line(aes(y=data2,col="data2"))+
-  geom_line(aes(y=data3,col="data3"))+
-  geom_line(aes(y=data4,col="data4"))+
-  geom_line(aes(y=data5,col="data5"))+
-  geom_line(aes(y=data6,col="data6"))+
-  geom_line(aes(y=data7,col="data7"))+
-  geom_line(aes(y=data8,col="data8"))+
-  geom_line(aes(y=data9,col="data9"))+
-  geom_line(aes(y=data10,col="data10"))+
-  geom_line(aes(y=data11,col="data11"))+
-  geom_line(aes(y=data12,col="data12"))+
-  geom_line(aes(y=data13,col="data13"))+
-  geom_line(aes(y=dataave,col="average"))+
-  scale_colour_manual("", values = c( "average"="deepskyblue")) +
-  ylab("temperature")+
-  xlab("year")+
-  xlim(1368,1911)+
-#  ylim(9,13.5)+ #Beijing
-# ylim(13,18) + #Shanghai
-# ylim(20,24) + #Hong Kong
-  theme(text=element_text(size=12), plot.title = element_text(hjust = 0.5), legend.title = element_text(),legend.position = "none")
+figure3_output_dir <- here::here("Output", "Figure3")
+
+dir.create(
+  figure3_output_dir,
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+
+# ------------------------------------------------------------
+# 2. Function to generate Figure 3 for one city
+# ------------------------------------------------------------
+
+make_figure3 <- function(
+    city_name,
+    input_file,
+    y_limits,
+    output_dir = figure3_output_dir) {
+
+  if (!file.exists(input_file)) {
+    stop(
+      "Input file for ",
+      city_name,
+      " was not found: ",
+      input_file
+    )
+  }
+
+  city_data <- read.csv(
+    input_file,
+    row.names = 1,
+    check.names = FALSE
+  )
+
+  if (ncol(city_data) < 3L) {
+    stop(
+      "The input data for ",
+      city_name,
+      " must contain at least two metadata columns ",
+      "followed by yearly temperature columns."
+    )
+  }
+
+  # The first two columns contain location information.
+  temperature_data <- city_data[, -c(1, 2), drop = FALSE]
+
+  if (!all(vapply(temperature_data, is.numeric, logical(1)))) {
+    stop(
+      "One or more yearly temperature columns for ",
+      city_name,
+      " are not numeric."
+    )
+  }
+
+  # Rows correspond to the 13 LME simulations;
+  # columns correspond to years 1350--1949.
+  temperature_matrix <- as.matrix(temperature_data) - 273
+
+  expected_years <- 1350:1949
+
+  if (nrow(temperature_matrix) != 13L) {
+    stop(
+      "Expected 13 LME simulations for ",
+      city_name,
+      ", but found ",
+      nrow(temperature_matrix),
+      "."
+    )
+  }
+
+  if (ncol(temperature_matrix) != length(expected_years)) {
+    stop(
+      "Expected ",
+      length(expected_years),
+      " yearly values for ",
+      city_name,
+      " covering 1350--1949, but found ",
+      ncol(temperature_matrix),
+      "."
+    )
+  }
+
+  # Convert the simulation matrix to long format for plotting.
+  simulation_data <- data.frame(
+    Year = rep(
+      expected_years,
+      times = nrow(temperature_matrix)
+    ),
+    Simulation = factor(
+      rep(
+        seq_len(nrow(temperature_matrix)),
+        each = length(expected_years)
       )
-#   dev.off()
+    ),
+    Temperature = as.vector(t(temperature_matrix))
+  )
+
+  average_data <- data.frame(
+    Year = expected_years,
+    Temperature = colMeans(
+      temperature_matrix,
+      na.rm = TRUE
+    )
+  )
+
+  # ----------------------------------------------------------
+  # Create the city-specific plot
+  # ----------------------------------------------------------
+
+  p_figure3 <- ggplot() +
+    geom_line(
+      data = simulation_data,
+      aes(
+        x = Year,
+        y = Temperature,
+        group = Simulation
+      ),
+      colour = "grey50",
+      linewidth = 0.35
+    ) +
+    geom_line(
+      data = average_data,
+      aes(
+        x = Year,
+        y = Temperature
+      ),
+      colour = "deepskyblue",
+      linewidth = 0.8
+    ) +
+    coord_cartesian(
+      xlim = c(1368, 1911),
+      ylim = y_limits
+    ) +
+    labs(
+      x = "Year",
+      y = "Temperature"
+    ) +
+    theme(
+      text = element_text(size = 12),
+      plot.title = element_text(hjust = 0.5),
+      legend.position = "none"
+    )
+
+  output_file <- file.path(
+    output_dir,
+    paste0("Figure3_", city_name, ".png")
+  )
+
+  ggsave(
+    filename = output_file,
+    plot = p_figure3,
+    width = 6,
+    height = 3,
+    units = "in",
+    dpi = 300
+  )
+
+  message(
+    "Figure 3 output for ",
+    city_name,
+    " saved to: ",
+    output_file
+  )
+
+  invisible(output_file)
+}
+
+# ------------------------------------------------------------
+# 3. Generate Figure 3 for all three cities
+# ------------------------------------------------------------
+
+figure3_output_files <- vapply(
+  names(city_config),
+  function(city_name) {
+    config <- city_config[[city_name]]
+
+    make_figure3(
+      city_name = city_name,
+      input_file = config$input_file,
+      y_limits = config$y_limits
+    )
+  },
+  character(1)
+)
+
