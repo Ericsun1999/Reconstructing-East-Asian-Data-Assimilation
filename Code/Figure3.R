@@ -3,35 +3,33 @@ here::i_am("Code/Figure3.R")
 # ============================================================
 # LME yearly temperature time series for Figure 3
 #
-# This script automatically generates city-specific figures for:
-#   1. Hong Kong
-#   2. Shanghai
-#   3. Beijing
+# This script automatically generates:
+#   Figure3(a).png: Beijing
+#   Figure3(b).png: Shanghai
+#   Figure3(c).png: Hong Kong
 #
-# Outputs:
-#   Output/Figure3/Figure3(c).png
-#   Output/Figure3/Figure3(b).png
-#   Output/Figure3/Figure3(a).png
+# Outputs are saved under:
+#   Output/Figure3/
 # ============================================================
 
 library(ggplot2)
 
 # ------------------------------------------------------------
-# 1. Define city-specific inputs and plotting ranges
+# 1. Define city-specific inputs and panel labels
 # ------------------------------------------------------------
 
 city_config <- list(
-  HongKong = list(
-    input_file = here::here("Data", "LME data", "d1.csv"),
-    y_limits = c(20, 24)
+  Beijing = list(
+    input_file = here::here("Data", "LME data", "d3.csv"),
+    panel_label = "a"
   ),
   Shanghai = list(
     input_file = here::here("Data", "LME data", "d2.csv"),
-    y_limits = c(13, 18)
+    panel_label = "b"
   ),
-  Beijing = list(
-    input_file = here::here("Data", "LME data", "d3.csv"),
-    y_limits = c(9, 13.5)
+  HongKong = list(
+    input_file = here::here("Data", "LME data", "d1.csv"),
+    panel_label = "c"
   )
 )
 
@@ -44,13 +42,13 @@ dir.create(
 )
 
 # ------------------------------------------------------------
-# 2. Function to generate Figure 3 for one city
+# 2. Generate one Figure 3 panel
 # ------------------------------------------------------------
 
 make_figure3 <- function(
     city_name,
     input_file,
-    y_limits,
+    panel_label,
     output_dir = figure3_output_dir) {
 
   if (!file.exists(input_file)) {
@@ -78,7 +76,11 @@ make_figure3 <- function(
   }
 
   # The first two columns contain location information.
-  temperature_data <- city_data[, -c(1, 2), drop = FALSE]
+  temperature_data <- city_data[
+    ,
+    -c(1, 2),
+    drop = FALSE
+  ]
 
   if (!all(vapply(temperature_data, is.numeric, logical(1)))) {
     stop(
@@ -88,8 +90,8 @@ make_figure3 <- function(
     )
   }
 
-  # Rows correspond to the 13 LME simulations;
-  # columns correspond to years 1350--1949.
+  # Rows correspond to 13 LME simulations.
+  # Columns correspond to years 1350--1949.
   temperature_matrix <- as.matrix(temperature_data) - 273
 
   expected_years <- 1350:1949
@@ -116,7 +118,7 @@ make_figure3 <- function(
     )
   }
 
-  # Convert the simulation matrix to long format for plotting.
+  # Convert the simulation matrix to long format.
   simulation_data <- data.frame(
     Year = rep(
       expected_years,
@@ -163,13 +165,10 @@ make_figure3 <- function(
       colour = "deepskyblue",
       linewidth = 0.8
     ) +
-    coord_cartesian(
-      xlim = c(1368, 1911),
-      ylim = y_limits
-    ) +
+    xlim(1368, 1911) +
     labs(
-      x = "Year",
-      y = "Temperature"
+      x = "year",
+      y = "temperature"
     ) +
     theme(
       text = element_text(size = 12),
@@ -179,7 +178,7 @@ make_figure3 <- function(
 
   output_file <- file.path(
     output_dir,
-    paste0("Figure3_", city_name, ".png")
+    paste0("Figure3(", panel_label, ").png")
   )
 
   ggsave(
@@ -192,7 +191,9 @@ make_figure3 <- function(
   )
 
   message(
-    "Figure 3 output for ",
+    "Figure 3 panel ",
+    panel_label,
+    " for ",
     city_name,
     " saved to: ",
     output_file
@@ -202,7 +203,7 @@ make_figure3 <- function(
 }
 
 # ------------------------------------------------------------
-# 3. Generate Figure 3 for all three cities
+# 3. Generate Figure 3(a)--(c)
 # ------------------------------------------------------------
 
 figure3_output_files <- vapply(
@@ -213,9 +214,13 @@ figure3_output_files <- vapply(
     make_figure3(
       city_name = city_name,
       input_file = config$input_file,
-      y_limits = config$y_limits
+      panel_label = config$panel_label
     )
   },
   character(1)
 )
 
+message(
+  "All Figure 3 panels were saved to: ",
+  figure3_output_dir
+)
