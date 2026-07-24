@@ -3,7 +3,7 @@ here::i_am("Code/Figure4.R")
 #Load data
 
   library(readxl)
-  temperature<- read_excel("./temperature index value.v1.xlsx",col_type = c("skip","skip","numeric","numeric","skip","skip","skip","skip","skip","numeric","numeric","skip","skip"))
+  temperature<- read_excel(here::here("Data", "temperature index value.v1.xlsx"),col_type = c("skip","skip","numeric","numeric","skip","skip","skip","skip","skip","numeric","numeric","skip","skip"))
   colnames(temperature)<-c("level","year","long","lat")
 
   library(dplyr)
