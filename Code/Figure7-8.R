@@ -1,15 +1,29 @@
 here::i_am("Code/Figure7-8.R")
 
 # ============================================================
-# Quantile mapping and city-specific outputs for Figures 7--8
+# Quantile-mapping calibration for Figures 7 and 8
 #
-# Cities:
-#   1. Hong Kong
-#   2. Shanghai
-#   3. Beijing
+# This script produces:
 #
-# All figures are generated automatically and saved under:
-#   Output/Figure7-8/
+# Figure 7:
+#   Figure7a_Beijing.png
+#   Figure7b_Beijing.png
+#   Figure7c_Beijing.png
+#   Figure7d_Beijing.png
+#
+# Figure 8:
+#   Figure8a_Beijing.png
+#   Figure8b_Beijing.png
+#   Figure8c_Shanghai.png
+#   Figure8d_HongKong.png
+#
+# Figure 7(e), the spatial temperature map, is generated
+# separately by Code/Figure7e.R.
+#
+# City ordering in the REACHES files:
+#   row 1 = Hong Kong
+#   row 2 = Shanghai
+#   row 3 = Beijing
 # ============================================================
 
 library(ggplot2)
@@ -25,10 +39,33 @@ tempe_all_data <- read.csv(
   check.names = FALSE
 )
 
-# The first row contains the years.
-year3 <- as.integer(
-  tempe_all_data[1, -c(1, 2)]
+if (nrow(tempe_all_data) < 4L) {
+  stop(
+    "tempe_all_v3.csv must contain one year row followed by ",
+    "rows for Hong Kong, Shanghai, and Beijing."
+  )
+}
+
+# The first row contains the available REACHES years.
+year3 <- suppressWarnings(
+  as.integer(
+    unlist(
+      tempe_all_data[
+        1,
+        -c(1, 2),
+        drop = FALSE
+      ],
+      use.names = FALSE
+    )
+  )
 )
+
+if (anyNA(year3)) {
+  stop(
+    "The first row of tempe_all_v3.csv contains invalid ",
+    "or non-numeric year values."
+  )
+}
 
 # Rows 2--4 correspond to Hong Kong, Shanghai, and Beijing.
 tempe_all <- tempe_all_data[
@@ -42,13 +79,6 @@ nu_all <- read.csv(
   check.names = FALSE
 )
 
-if (nrow(tempe_all) < 3L) {
-  stop(
-    "tempe_all_v3.csv must contain rows for ",
-    "Hong Kong, Shanghai, and Beijing."
-  )
-}
-
 if (nrow(nu_all) < 3L) {
   stop(
     "tempe_all_std.csv must contain rows for ",
@@ -61,14 +91,13 @@ if (nrow(nu_all) < 3L) {
 # ------------------------------------------------------------
 
 city_config <- list(
-  HongKong = list(
-    location_row = 1L,
+  Beijing = list(
+    location_row = 3L,
     lme_file = here::here(
       "Data",
       "LME data",
-      "d1.csv"
+      "d3.csv"
     ),
-    lme_temperature_limits = c(20, 24),
     figure8_panel = "b"
   ),
   Shanghai = list(
@@ -78,17 +107,15 @@ city_config <- list(
       "LME data",
       "d2.csv"
     ),
-    lme_temperature_limits = c(13, 18),
     figure8_panel = "c"
   ),
-  Beijing = list(
-    location_row = 3L,
+  HongKong = list(
+    location_row = 1L,
     lme_file = here::here(
       "Data",
       "LME data",
-      "d3.csv"
+      "d1.csv"
     ),
-    lme_temperature_limits = c(9, 14),
     figure8_panel = "d"
   )
 )
@@ -124,9 +151,7 @@ FY_hat <- function(y, yhat, nu) {
   nu <- as.numeric(nu)
 
   if (length(yhat) != length(nu)) {
-    stop(
-      "yhat and nu must have the same length."
-    )
+    stop("yhat and nu must have the same length.")
   }
 
   if (any(!is.finite(yhat))) {
@@ -137,7 +162,7 @@ FY_hat <- function(y, yhat, nu) {
     stop("nu contains non-finite values.")
   }
 
-  # Prevent division by zero.
+  # Avoid division by zero.
   nu_safe <- pmax(nu, 1e-8)
 
   vapply(
@@ -193,17 +218,18 @@ qmapping <- function(
   x <- as.numeric(x)
   xhat <- as.numeric(xhat)
 
-  # Select the LME CDF bandwidth by least-squares
-  # cross-validation.
+  if (any(!is.finite(x))) {
+    stop("The LME calibration sample contains non-finite values.")
+  }
+
+  # Estimate F_X using npudist, with bandwidth selected
+  # by least-squares cross-validation.
   fx_bw <- npudistbw(
-    dat = c(x)
+    dat = data.frame(x = x)
   )
 
-  qx_min <- min(x, na.rm = TRUE) -
-    5 * sd(x, na.rm = TRUE)
-
-  qx_max <- max(x, na.rm = TRUE) +
-    5 * sd(x, na.rm = TRUE)
+  qx_min <- min(x) - 5 * sd(x)
+  qx_max <- max(x) + 5 * sd(x)
 
   y_seq <- seq(
     ymin,
@@ -212,23 +238,27 @@ qmapping <- function(
   )
 
   FY_values <- FY_hat(
-    y_seq,
-    yhat,
-    std
+    y = y_seq,
+    yhat = yhat,
+    nu = std
   )
 
   FX_values <- Fx_inv(
-    FY_values,
-    qx_min,
-    qx_max,
-    fx_bw
+    u = FY_values,
+    qx_min = qx_min,
+    qx_max = qx_max,
+    fx_bw = fx_bw
   )
 
   ycorrected <- Fx_inv(
-    FY_hat(xhat, yhat, std),
-    qx_min,
-    qx_max,
-    fx_bw
+    u = FY_hat(
+      y = xhat,
+      yhat = yhat,
+      nu = std
+    ),
+    qx_min = qx_min,
+    qx_max = qx_max,
+    fx_bw = fx_bw
   )
 
   list(
@@ -239,42 +269,15 @@ qmapping <- function(
 }
 
 # ------------------------------------------------------------
-# 4. Save one ggplot object
+# 4. Prepare quantile-mapping results for one city
 # ------------------------------------------------------------
 
-save_plot <- function(
-    plot_object,
-    filename,
-    width,
-    height) {
-
-  ggsave(
-    filename = filename,
-    plot = plot_object,
-    width = width,
-    height = height,
-    units = "in",
-    dpi = 300
-  )
-
-  message("Saved: ", filename)
-
-  invisible(filename)
-}
-
-# ------------------------------------------------------------
-# 5. Generate Figures 7--8 for one city
-# ------------------------------------------------------------
-
-make_city_figures <- function(
+prepare_city_result <- function(
     city_name,
-    config,
-    output_dir = output_dir) {
+    config) {
 
   location_row <- config$location_row
   lme_file <- config$lme_file
-  lme_limits <- config$lme_temperature_limits
-  figure8_panel <- config$figure8_panel
 
   if (!file.exists(lme_file)) {
     stop(
@@ -304,58 +307,67 @@ make_city_figures <- function(
     )
   }
 
-  # First two columns contain metadata.
+  lme_temperature_data <- lme_data[
+    ,
+    -c(1, 2),
+    drop = FALSE
+  ]
+
+  lme_temperature_data[] <- lapply(
+    lme_temperature_data,
+    function(x) {
+      as.numeric(as.character(x))
+    }
+  )
+
   lme_temperature <- as.matrix(
-    lme_data[
-      ,
-      -c(1, 2),
-      drop = FALSE
-    ]
+    lme_temperature_data
   ) - 273.15
 
-  if (!is.numeric(lme_temperature)) {
+  if (any(!is.finite(lme_temperature))) {
     stop(
-      "The LME temperature values for ",
+      "The LME temperature data for ",
       city_name,
-      " are not numeric."
+      " contain non-finite values."
     )
   }
 
-  # Mean across the 13 LME simulations for each year.
-  lme_mean <- colMeans(
-    lme_temperature,
-    na.rm = TRUE
-  )
+  # Mean across LME ensemble members for each year.
+  lme_mean <- colMeans(lme_temperature)
 
-  # Pooled historical LME sample used to estimate F_X.
+  # Pooled LME sample used to estimate F_X.
   lme_sample <- as.numeric(
     t(lme_temperature)
   )
 
   # ----------------------------------------------------------
-  # Extract city-specific REACHES prediction and uncertainty
+  # Extract city-specific REACHES values and uncertainties
   # ----------------------------------------------------------
 
-  tempe_use <- tempe_all[
-    location_row,
-    ,
-    drop = FALSE
-  ]
-
-  yhat <- as.numeric(
-    tempe_use[
-      ,
-      -c(1, 2),
-      drop = TRUE
-    ]
+  yhat <- suppressWarnings(
+    as.numeric(
+      unlist(
+        tempe_all[
+          location_row,
+          -c(1, 2),
+          drop = FALSE
+        ],
+        use.names = FALSE
+      )
+    )
   )
 
-  nu <- as.numeric(
-    nu_all[
-      location_row,
-      -c(1, 2),
-      drop = TRUE
-    ]
+  nu <- suppressWarnings(
+    as.numeric(
+      unlist(
+        nu_all[
+          location_row,
+          -c(1, 2),
+          drop = FALSE
+        ],
+        use.names = FALSE
+      )
+    )
   )
 
   if (
@@ -370,19 +382,18 @@ make_city_figures <- function(
     )
   }
 
-  valid_years <- is.finite(year3)
-
-  city_years <- year3[valid_years]
-  yhat <- yhat[valid_years]
-  nu <- nu[valid_years]
-
-  if (
-    any(!is.finite(yhat)) ||
-      any(!is.finite(nu))
-  ) {
+  if (any(!is.finite(yhat))) {
     stop(
-      "Non-finite REACHES predictions or uncertainty values ",
-      "were found for ",
+      "The REACHES predictions contain non-finite values for ",
+      city_name,
+      "."
+    )
+  }
+
+  if (any(!is.finite(nu))) {
+    stop(
+      "The REACHES uncertainty values contain non-finite ",
+      "values for ",
       city_name,
       "."
     )
@@ -401,18 +412,14 @@ make_city_figures <- function(
     ymin = -2
   )
 
-  ycorrected <- qm$ycorrected
-
   # ----------------------------------------------------------
-  # Prepare LME annual means matching the REACHES years
+  # Match LME annual means to the available REACHES years
   # ----------------------------------------------------------
 
-  lme_years <- 1350:(
-    1349 + length(lme_mean)
-  )
+  lme_years <- 1350 + seq_along(lme_mean) - 1L
 
   lme_year_index <- match(
-    city_years,
+    year3,
     lme_years
   )
 
@@ -424,165 +431,237 @@ make_city_figures <- function(
     )
   }
 
-  lme_mean_matching <- data.frame(
-    temper = lme_mean[lme_year_index],
-    year = city_years
+  list(
+    city_name = city_name,
+    years = year3,
+    yhat = yhat,
+    nu = nu,
+    ycorrected = qm$ycorrected,
+    transformation_index = qm$y_seq,
+    transformation_temperature = qm$FX_values,
+    lme_sample = lme_sample,
+    lme_mean = lme_mean[lme_year_index]
   )
+}
 
-  # ----------------------------------------------------------
-  # Figure 7(a): REACHES index time series
-  # ----------------------------------------------------------
+# ------------------------------------------------------------
+# 5. Prepare results for all three cities
+# ------------------------------------------------------------
 
-  df_reaches <- data.frame(
-    reach = yhat,
-    year = city_years
-  )
+city_results <- lapply(
+  names(city_config),
+  function(city_name) {
+    message(
+      "Preparing quantile-mapping result for ",
+      city_name,
+      "..."
+    )
 
-  p_figure7a <- ggplot(
-    data = df_reaches,
-    aes(x = year, y = reach)
+    prepare_city_result(
+      city_name = city_name,
+      config = city_config[[city_name]]
+    )
+  }
+)
+
+names(city_results) <- names(city_config)
+
+beijing_result <- city_results[["Beijing"]]
+
+# ------------------------------------------------------------
+# 6. Figure 7(a): Beijing REACHES index time series
+# ------------------------------------------------------------
+
+df_figure7a <- data.frame(
+  year = beijing_result$years,
+  reach = beijing_result$yhat
+)
+
+p_figure7a <- ggplot(
+  data = df_figure7a,
+  aes(x = year, y = reach)
+) +
+  geom_line(
+    colour = "darkorchid1"
   ) +
+  labs(
+    x = "year",
+    y = "level"
+  ) +
+  theme(
+    text = element_text(size = 19),
+    legend.position = "right",
+    legend.key.height = grid::unit(1.5, "cm"),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+# ------------------------------------------------------------
+# 7. Figure 7(b): Beijing calibration function
+# ------------------------------------------------------------
+
+df_figure7b <- data.frame(
+  index = beijing_result$transformation_index,
+  temperature = beijing_result$transformation_temperature
+)
+
+p_figure7b <- ggplot(
+  data = df_figure7b,
+  aes(x = index, y = temperature)
+) +
+  geom_smooth(
+    method = "loess",
+    formula = y ~ x,
+    se = FALSE
+  ) +
+  labs(
+    x = "index",
+    y = "temperature"
+  ) +
+  theme(
+    text = element_text(size = 19),
+    legend.position = "right",
+    legend.key.height = grid::unit(1.5, "cm"),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+# ------------------------------------------------------------
+# 8. Figure 7(c): Beijing REACHES index distribution
+# ------------------------------------------------------------
+
+p_figure7c <- ggplot(
+  data = df_figure7a,
+  aes(x = reach)
+) +
+  geom_histogram(
+    aes(y = after_stat(density)),
+    breaks = seq(
+      -2.5,
+      1.5,
+      by = 0.2
+    ),
+    fill = "darkorchid1",
+    colour = "white"
+  ) +
+  geom_density(
+    colour = "black",
+    linewidth = 0.4
+  ) +
+  labs(
+    x = "temperature",
+    y = "density"
+  ) +
+  theme(
+    text = element_text(size = 18),
+    legend.position = "right",
+    legend.key.height = grid::unit(1.5, "cm"),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+# ------------------------------------------------------------
+# 9. Figure 7(d): Beijing LME temperature distribution
+# ------------------------------------------------------------
+
+df_figure7d <- data.frame(
+  temper = beijing_result$lme_sample
+)
+
+p_figure7d <- ggplot(
+  data = df_figure7d,
+  aes(x = temper)
+) +
+  geom_histogram(
+    aes(y = after_stat(density)),
+    breaks = seq(
+      9,
+      14,
+      by = 0.1
+    ),
+    colour = "white",
+    fill = "deepskyblue"
+  ) +
+  geom_density(
+    colour = "black",
+    linewidth = 0.4
+  ) +
+  scale_x_continuous(
+    limits = c(9, 14)
+  ) +
+  labs(
+    x = "temperature",
+    y = "density"
+  ) +
+  theme(
+    text = element_text(size = 18),
+    legend.position = "right",
+    legend.key.height = grid::unit(1.5, "cm"),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+# ------------------------------------------------------------
+# 10. Figure 8(a): Beijing reconstruction with uncertainty
+# ------------------------------------------------------------
+
+df_figure8a <- data.frame(
+  year = beijing_result$years,
+  REACHES = beijing_result$ycorrected,
+  std = beijing_result$nu
+)
+
+p_figure8a <- ggplot(
+  data = df_figure8a,
+  aes(x = year, y = REACHES)
+) +
+  geom_ribbon(
+    aes(
+      ymin = REACHES - std,
+      ymax = REACHES + std
+    ),
+    alpha = 0.5,
+    fill = "grey3"
+  ) +
+  geom_line(
+    colour = "red"
+  ) +
+  labs(
+    x = "year",
+    y = "temperature"
+  ) +
+  theme(
+    text = element_text(size = 11),
+    legend.position = "right",
+    legend.key.height = grid::unit(1.5, "cm"),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+# ------------------------------------------------------------
+# 11. Function for Figure 8(b)--(d)
+# ------------------------------------------------------------
+
+make_figure8_city_plot <- function(city_result) {
+  corrected_data <- data.frame(
+    year = city_result$years,
+    temperature = city_result$ycorrected
+  )
+
+  lme_data <- data.frame(
+    year = city_result$years,
+    temperature = city_result$lme_mean
+  )
+
+  ggplot() +
     geom_line(
-      colour = "darkorchid1"
-    ) +
-    labs(
-      x = "Year",
-      y = "Level"
-    ) +
-    theme(
-      text = element_text(size = 19),
-      legend.position = "right",
-      legend.key.height = grid::unit(1.5, "cm"),
-      plot.title = element_text(hjust = 0.5)
-    )
-
-  # ----------------------------------------------------------
-  # Figure 7(b): transformation function
-  # ----------------------------------------------------------
-
-  df_transformation <- data.frame(
-    index = qm$y_seq,
-    temperature = qm$FX_values
-  )
-
-  p_figure7b <- ggplot(
-    data = df_transformation,
-    aes(x = index, y = temperature)
-  ) +
-    geom_smooth(
-      method = "loess",
-      formula = y ~ x,
-      se = FALSE
-    ) +
-    labs(
-      x = "Index",
-      y = "Temperature"
-    ) +
-    theme(
-      text = element_text(size = 19),
-      legend.position = "right",
-      legend.key.height = grid::unit(1.5, "cm"),
-      plot.title = element_text(hjust = 0.5)
-    )
-
-  # ----------------------------------------------------------
-  # Figure 7(c): REACHES index distribution
-  # ----------------------------------------------------------
-
-  p_figure7c <- ggplot(
-    df_reaches,
-    aes(x = reach)
-  ) +
-    geom_histogram(
-      aes(y = after_stat(density)),
-      breaks = seq(
-        -2.5,
-        1.5,
-        by = 0.2
-      ),
-      fill = "darkorchid1",
-      colour = "white"
-    ) +
-    geom_density(
-      colour = "black",
-      linewidth = 0.4
-    ) +
-    labs(
-      x = "Temperature",
-      y = "Density"
-    ) +
-    theme(
-      text = element_text(size = 18),
-      legend.position = "right",
-      legend.key.height = grid::unit(1.5, "cm"),
-      plot.title = element_text(hjust = 0.5)
-    )
-
-  # ----------------------------------------------------------
-  # Figure 7(d): LME temperature distribution
-  # ----------------------------------------------------------
-
-  df_lme_distribution <- data.frame(
-    temper = lme_sample
-  )
-
-  lme_breaks <- seq(
-    lme_limits[1],
-    lme_limits[2],
-    by = 0.1
-  )
-
-  p_figure7d <- ggplot(
-    data = df_lme_distribution,
-    aes(x = temper)
-  ) +
-    geom_histogram(
-      aes(y = after_stat(density)),
-      breaks = lme_breaks,
-      colour = "white",
-      fill = "deepskyblue"
-    ) +
-    geom_density(
-      colour = "black",
-      linewidth = 0.4
-    ) +
-    scale_x_continuous(
-      limits = lme_limits
-    ) +
-    labs(
-      x = "Temperature",
-      y = "Density"
-    ) +
-    theme(
-      text = element_text(size = 18),
-      legend.position = "right",
-      legend.key.height = grid::unit(1.5, "cm"),
-      plot.title = element_text(hjust = 0.5)
-    )
-
-  # ----------------------------------------------------------
-  # Figure 8 city panel: corrected REACHES and LME means
-  # ----------------------------------------------------------
-
-  df_corrected <- data.frame(
-    YEAR = city_years,
-    temperature = ycorrected
-  )
-
-  p_figure8_city <- ggplot() +
-    geom_line(
-      data = df_corrected,
+      data = corrected_data,
       aes(
-        x = YEAR,
+        x = year,
         y = temperature
       ),
       colour = "palevioletred1",
       alpha = 0.75
     ) +
     geom_smooth(
-      data = df_corrected,
+      data = corrected_data,
       aes(
-        x = YEAR,
+        x = year,
         y = temperature
       ),
       method = "loess",
@@ -594,19 +673,19 @@ make_city_figures <- function(
       span = 0.75
     ) +
     geom_line(
-      data = lme_mean_matching,
+      data = lme_data,
       aes(
         x = year,
-        y = temper
+        y = temperature
       ),
       colour = "skyblue1",
       alpha = 0.75
     ) +
     geom_smooth(
-      data = lme_mean_matching,
+      data = lme_data,
       aes(
         x = year,
-        y = temper
+        y = temperature
       ),
       method = "loess",
       formula = y ~ x,
@@ -616,146 +695,104 @@ make_city_figures <- function(
       linetype = "dashed"
     ) +
     labs(
-      x = "Year",
-      y = "Temperature"
+      x = "year",
+      y = "temperature"
     ) +
     theme(
       text = element_text(size = 12),
       legend.position = "bottom",
-      plot.title = element_text(hjust = 0.5),
-      panel.background = element_blank()
-    )
-
-  # ----------------------------------------------------------
-  # Figure 8(a): corrected REACHES with uncertainty
-  # ----------------------------------------------------------
-
-  df_uncertainty <- data.frame(
-    year = city_years,
-    REACHES = ycorrected,
-    std = nu
-  )
-
-  p_figure8a <- ggplot(
-    data = df_uncertainty,
-    aes(x = year, y = REACHES)
-  ) +
-    geom_line(
-      colour = "red"
-    ) +
-    geom_ribbon(
-      aes(
-        ymin = REACHES - std,
-        ymax = REACHES + std
-      ),
-      alpha = 0.5,
-      fill = "grey3"
-    ) +
-    labs(
-      x = "Year",
-      y = "Temperature"
-    ) +
-    theme(
-      text = element_text(size = 11),
-      legend.position = "right",
-      legend.key.height = grid::unit(1.5, "cm"),
       plot.title = element_text(hjust = 0.5)
     )
-
-  # ----------------------------------------------------------
-  # Save city-specific outputs
-  # ----------------------------------------------------------
-
-  city_files <- c(
-    Figure7a = file.path(
-      output_dir,
-      paste0("Figure7a_", city_name, ".png")
-    ),
-    Figure7b = file.path(
-      output_dir,
-      paste0("Figure7b_", city_name, ".png")
-    ),
-    Figure7c = file.path(
-      output_dir,
-      paste0("Figure7c_", city_name, ".png")
-    ),
-    Figure7d = file.path(
-      output_dir,
-      paste0("Figure7d_", city_name, ".png")
-    ),
-    Figure8a = file.path(
-      output_dir,
-      paste0("Figure8a_", city_name, ".png")
-    ),
-    Figure8City = file.path(
-      output_dir,
-      paste0(
-        "Figure8",
-        figure8_panel,
-        "_",
-        city_name,
-        ".png"
-      )
-    )
-  )
-
-  save_plot(
-    p_figure7a,
-    city_files[["Figure7a"]],
-    width = 6,
-    height = 4
-  )
-
-  save_plot(
-    p_figure7b,
-    city_files[["Figure7b"]],
-    width = 6,
-    height = 4
-  )
-
-  save_plot(
-    p_figure7c,
-    city_files[["Figure7c"]],
-    width = 6,
-    height = 3.5
-  )
-
-  save_plot(
-    p_figure7d,
-    city_files[["Figure7d"]],
-    width = 6,
-    height = 3.5
-  )
-
-  save_plot(
-    p_figure8a,
-    city_files[["Figure8a"]],
-    width = 6,
-    height = 3
-  )
-
-  save_plot(
-    p_figure8_city,
-    city_files[["Figure8City"]],
-    width = 6,
-    height = 3
-  )
-
-  invisible(city_files)
 }
 
-# ------------------------------------------------------------
-# 6. Run all three cities
-# ------------------------------------------------------------
-
-all_output_files <- lapply(
-  names(city_config),
-  function(city_name) {
-    make_city_figures(
-      city_name = city_name,
-      config = city_config[[city_name]]
-    )
-  }
+p_figure8b <- make_figure8_city_plot(
+  city_results[["Beijing"]]
 )
 
-names(all_output_files) <- names(city_config)
+p_figure8c <- make_figure8_city_plot(
+  city_results[["Shanghai"]]
+)
+
+p_figure8d <- make_figure8_city_plot(
+  city_results[["HongKong"]]
+)
+
+# ------------------------------------------------------------
+# 12. Save all Figure 7--8 panels
+# ------------------------------------------------------------
+
+save_panel <- function(
+    plot_object,
+    filename,
+    width,
+    height) {
+
+  output_file <- file.path(
+    output_dir,
+    filename
+  )
+
+  ggsave(
+    filename = output_file,
+    plot = plot_object,
+    width = width,
+    height = height,
+    units = "in",
+    dpi = 300
+  )
+
+  message("Saved: ", output_file)
+
+  invisible(output_file)
+}
+
+output_files <- c(
+  save_panel(
+    p_figure7a,
+    "Figure7a_Beijing.png",
+    width = 6,
+    height = 4
+  ),
+  save_panel(
+    p_figure7b,
+    "Figure7b_Beijing.png",
+    width = 6,
+    height = 4
+  ),
+  save_panel(
+    p_figure7c,
+    "Figure7c_Beijing.png",
+    width = 6,
+    height = 3.5
+  ),
+  save_panel(
+    p_figure7d,
+    "Figure7d_Beijing.png",
+    width = 6,
+    height = 3.5
+  ),
+  save_panel(
+    p_figure8a,
+    "Figure8a_Beijing.png",
+    width = 6,
+    height = 3
+  ),
+  save_panel(
+    p_figure8b,
+    "Figure8b_Beijing.png",
+    width = 6,
+    height = 3
+  ),
+  save_panel(
+    p_figure8c,
+    "Figure8c_Shanghai.png",
+    width = 6,
+    height = 3
+  ),
+  save_panel(
+    p_figure8d,
+    "Figure8d_HongKong.png",
+    width = 6,
+    height = 3
+  )
+)
