@@ -566,24 +566,6 @@ ggsave(
   dpi = 300
 )
 
-write.csv(
-  plot_df,
-  file.path(
-    figure7e_output_dir,
-    "Figure7e_qm_locations.csv"
-  ),
-  row.names = FALSE
-)
-
-write.csv(
-  smooth_grid,
-  file.path(
-    figure7e_output_dir,
-    "Figure7e_smoothed_grid.csv"
-  ),
-  row.names = FALSE
-)
-
 message(
   "Figure 7(e) saved to: ",
   figure7e_output_file
