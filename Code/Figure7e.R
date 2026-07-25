@@ -291,7 +291,7 @@ y_pred <- function(
     alpha,
     cuts = c(-Inf, -1.5, -0.5, 0.5, Inf),
     vals = c(-2, -1, 0, 1),
-    tol = 1e-2,
+    tol = 1e-8,
     return = c("mean", "var")) {
 
   return <- unique(return)
