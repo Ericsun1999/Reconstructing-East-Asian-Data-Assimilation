@@ -149,19 +149,16 @@ cl_R <- mc_R$classification
 
 # Relabel the Mclust groups to match the cluster numbering
 # used in manuscript Figure 6:
-# old 5, 4, 1, 2, 3 -> new 1, 2, 3, 4, 5
+# old 5, 4, 3, 1, 2 -> new 1, 2, 3, 4, 5
 relabel_R <- c(
   "5" = 1,
   "4" = 2,
-  "1" = 3,
-  "2" = 4,
-  "3" = 5
+  "3" = 3,
+  "1" = 4,
+  "2" = 5
 )
 
-cl_R_geo <- unname(
-  relabel_R[as.character(cl_R)]
-)
-
+cl_R_geo <- unname(relabel_R[as.character(cl_R)])
 
 if (anyNA(cl_R_geo)) {
   stop(
