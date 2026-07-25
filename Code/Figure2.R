@@ -1,75 +1,205 @@
 here::i_am("Code/Figure2.R")
 
-#Load data
+# ============================================================
+# REACHES descriptive plots for Figure 2
+#
+# This script produces:
+#   1. Figure2(a).png: annual counts of REACHES records
+#   2. Figure2(b).png: empirical frequencies of temperature levels
+#   3. Figure2(c).png: spatial distribution of REACHES records
+#
+# Outputs are saved under:
+#   Output/Figure2/
+# ============================================================
 
 library(readxl)
-temperature<- read_excel(here::here("Data", "temperature index value.v1.xlsx"), col_type = c("skip","skip","numeric","numeric","skip","skip","skip","skip","skip","numeric","numeric","skip","skip"))
-colnames(temperature)<-c("level","year","long","lat")
-
 library(ggplot2)
 library(dplyr)
-  
-#Figure2b, Empirical frequencies of the temperature categories
+library(RColorBrewer)
 
-#jpeg("./Figure2(b).png",width=4,height=2.5 , res = 300, units = "in")
-    print(
-       ggplot(temperature,aes(x=level)) +
-    geom_histogram(bins=9) +
-    theme(text = element_text(size=15))
-    )
- #   dev.off()
+# ------------------------------------------------------------
+# 1. Load REACHES data
+# ------------------------------------------------------------
+
+temperature <- read_excel(
+  here::here(
+    "Data",
+    "temperature index value.v1.xlsx"
+  ),
+  col_types = c(
+    "skip", "skip", "numeric", "numeric",
+    "skip", "skip", "skip", "skip",
+    "skip", "numeric", "numeric",
+    "skip", "skip"
+  )
+)
+
+colnames(temperature) <- c(
+  "level",
+  "year",
+  "long",
+  "lat"
+)
+
+# ------------------------------------------------------------
+# 2. Figure 2(b): empirical frequencies of temperature levels
+# ------------------------------------------------------------
+
+p_figure2b <- ggplot(
+  temperature,
+  aes(x = level)
+) +
+  geom_histogram(
+    bins = 9
+  ) +
+  theme(
+    text = element_text(size = 15)
+  )
+
+# ------------------------------------------------------------
+# 3. Figure 2(a): annual counts of REACHES records
+# ------------------------------------------------------------
 
 year_count <- temperature %>%
   count(year)
-  
-#Figure2a, Annual counts of temperature records in the REACHES dataset
 
-#jpeg("./Figure2(a).png",width=4,height=2.5 , res = 300, units = "in")
-    print(
-       ggplot(year_count, aes(x = year, y = n)) +
-  geom_col(fill = "red", color = "red") +
-  geom_smooth(method = "loess", span = 0.3, color = "black", linewidth = 1, se = FALSE) +
-  theme(text = element_text(size = 15)) +
-  labs(y = "count")
-    )
-#    dev.off()
+p_figure2a <- ggplot(
+  year_count,
+  aes(x = year, y = n)
+) +
+  geom_col(
+    fill = "red",
+    color = "red"
+  ) +
+  geom_smooth(
+    method = "loess",
+    span = 0.3,
+    color = "black",
+    linewidth = 1,
+    se = FALSE
+  ) +
+  theme(
+    text = element_text(size = 15)
+  ) +
+  labs(
+    y = "count"
+  )
 
+# ------------------------------------------------------------
+# 4. Figure 2(c): spatial distribution of REACHES records
+# ------------------------------------------------------------
 
+# Preserve the grouped data structure used in the original code.
+temp2 <- temperature %>%
+  group_by(year, long, lat)
 
-# Take mode for events at duplicated locations and rearrange the data by year
+plot_originREACHES_map <- function(
+    data,
+    text_size = 15,
+    legend_height_cm = 2.5) {
 
-library(dplyr)
-
-temp2 <-temperature%>% 
-    group_by(year,long,lat) 
-
-library(RColorBrewer)
-
-plot_originREACHES_map <- function(data, text_size = 15, legend_height_cm = 2.5, legend_spacing_cm = 30) {
-  ggplot(data, aes(long, lat)) +
-    borders(database = "world", xlim = c(95, 126), ylim = c(19, 45), fill = NA, colour = "grey30") +
-    geom_point(aes(colour = level), cex = 1) +
-    coord_map(xlim = c(98, 124.5), ylim = c(19, 42.5)) +
+  ggplot(
+    data,
+    aes(long, lat)
+  ) +
+    borders(
+      database = "world",
+      xlim = c(95, 126),
+      ylim = c(19, 45),
+      fill = NA,
+      colour = "grey30"
+    ) +
+    geom_point(
+      aes(colour = level),
+      cex = 1
+    ) +
+    coord_map(
+      xlim = c(98, 124.5),
+      ylim = c(19, 42.5)
+    ) +
     scale_colour_gradientn(
-      colours = rev(brewer.pal(n = 9, name = 'RdBu')),
+      colours = rev(
+        brewer.pal(
+          n = 9,
+          name = "RdBu"
+        )
+      ),
       limits = c(-2, 2),
       na.value = "transparent",
       guide = "colourbar"
     ) +
     theme(
       text = element_text(size = text_size),
-      legend.position = c(1.12,0.61),
+      legend.position = c(1.12, 0.61),
       legend.title = element_blank(),
-      legend.key.height = unit(legend_height_cm, "cm"),
-      #legend.key.spacing.y = unit(legend_spacing_cm, "cm")
+      legend.key.height = grid::unit(
+        legend_height_cm,
+        "cm"
+      )
     )
 }
 
-#Figure2c, Spatial distribution of temperature records across East Asia
+p_figure2c <- plot_originREACHES_map(temp2)
 
-  #jpeg("./Figure2(c).png",width=5,height=4, res=300, units = "in")
-      print(
-      plot_originREACHES_map(temp2)
-      )
-    #dev.off() 
+# ------------------------------------------------------------
+# 5. Save Figure 2 panels
+# ------------------------------------------------------------
 
+figure2_output_dir <- here::here(
+  "Output",
+  "Figure2"
+)
+
+dir.create(
+  figure2_output_dir,
+  showWarnings = FALSE,
+  recursive = TRUE
+)
+
+ggsave(
+  filename = file.path(
+    figure2_output_dir,
+    "Figure2(a).png"
+  ),
+  plot = p_figure2a,
+  width = 4,
+  height = 2.5,
+  units = "in",
+  dpi = 300
+)
+
+ggsave(
+  filename = file.path(
+    figure2_output_dir,
+    "Figure2(b).png"
+  ),
+  plot = p_figure2b,
+  width = 4,
+  height = 2.5,
+  units = "in",
+  dpi = 300
+)
+
+ggsave(
+  filename = file.path(
+    figure2_output_dir,
+    "Figure2(c).png"
+  ),
+  plot = p_figure2c,
+  width = 5,
+  height = 4,
+  units = "in",
+  dpi = 300
+)
+
+message(
+  "All Figure 2 panels were saved to: ",
+  figure2_output_dir
+)
+
+# Display figures when running interactively in RStudio.
+if (interactive()) {
+  print(p_figure2a)
+  print(p_figure2b)
+  print(p_figure2c)
+}
