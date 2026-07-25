@@ -539,7 +539,7 @@ for (i in seq_along(year2)) {
     alpha = alpha,
     cuts = cuts,
     vals = vals,
-    tol = 1e-2
+    tol = 1e-12
   )
 
   mean_matrix[, i] <- yearly_result$mean
