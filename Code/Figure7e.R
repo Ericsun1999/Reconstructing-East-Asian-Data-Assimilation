@@ -1,466 +1,195 @@
 here::i_am("Code/Figure7e.R")
 
 # ============================================================
-# Spatial quantile-mapping calibration for Figure 7(e)
+# Quantile mapping and spatial smoothing for Figure 7(e)
 #
-# Required inputs:
-#   Output/Intermediate/calibration_parameters.rds
+# Inputs:
+#   Data/reaches_kriging_grid12x14_mean.csv
+#     Kriging means at the 12 x 14 coarse grid.
+#
+#   Data/reaches_kriging_grid12x14_variance.csv
+#     Kriging prediction VARIANCES at the same grid and years.
+#     They are converted to standard deviations before evaluating F_Y.
+#
 #   Data/LME data/b0.csv
+#     LME temperatures for 121 locations and 13 ensemble members.
 #
-# Output:
+# Outputs:
 #   Output/Figure7-8/Figure7e.png
+#   Output/Figure7-8/Figure7e_qm_locations.csv
+#   Output/Figure7-8/Figure7e_smoothed_grid.csv
 # ============================================================
 
-library(sp)
+library(here)
+library(dplyr)
 library(sf)
 library(rnaturalearth)
-library(dplyr)
 library(stringr)
 library(np)
+library(mgcv)
 library(ggplot2)
-library(mvtnorm)
 library(maps)
 
-calibration_file <- here::here(
-  "Output",
-  "Intermediate",
-  "calibration_parameters.rds"
+# ------------------------------------------------------------
+# 1. File paths
+# ------------------------------------------------------------
+
+mean_file <- here::here(
+  "Data",
+  "reaches_kriging_grid12x14_mean.csv"
 )
 
-if (!file.exists(calibration_file)) {
+variance_file <- here::here(
+  "Data",
+  "reaches_kriging_grid12x14_variance.csv"
+)
+
+lme_file <- here::here(
+  "Data",
+  "LME data",
+  "b0.csv"
+)
+
+required_files <- c(mean_file, variance_file, lme_file)
+missing_files <- required_files[!file.exists(required_files)]
+
+if (length(missing_files) > 0L) {
   stop(
-    "Required calibration file was not found: ",
-    calibration_file,
-    "\nRun Code/prepare_calibration.R first."
+    "The following required files were not found:\n",
+    paste0("  - ", missing_files, collapse = "\n")
   )
 }
 
-calibration_results <- readRDS(calibration_file)
-
-temp2 <- calibration_results$temp2
-var.fit2 <- calibration_results$var_fit2
-vario.fit2 <- calibration_results$vario_fit2
-
 # ------------------------------------------------------------
-# 1. Define the coarse grid and available REACHES years
+# 2. Read and validate the kriging files
 # ------------------------------------------------------------
 
-year_start <- min(temp2$year, na.rm = TRUE)
-year_end <- max(temp2$year, na.rm = TRUE)
-year_all <- year_start:year_end
+drop_accidental_index_column <- function(df) {
+  if (ncol(df) == 0L) {
+    return(df)
+  }
 
-ncase1 <- vapply(
-  year_all,
-  function(current_year) {
-    sum(temp2$year == current_year)
-  },
-  numeric(1)
-)
+  first_name <- names(df)[1]
+  looks_like_index_name <- first_name %in% c("", "X", "...1", "row.names")
+  first_values <- suppressWarnings(as.integer(df[[1]]))
 
-year2 <- year_all[ncase1 >= 1]
+  looks_like_row_numbers <-
+    length(first_values) == nrow(df) &&
+    all(!is.na(first_values)) &&
+    identical(first_values, seq_len(nrow(df)))
 
-loc <- expand.grid(
-  long = seq(97.5, 125, by = 2.5),
-  lat = seq(
-    18,
-    42.63158,
-    by = 1.89473692308
+  if (looks_like_index_name && looks_like_row_numbers) {
+    df <- df[, -1, drop = FALSE]
+  }
+
+  df
+}
+
+standardize_coordinate_names <- function(df) {
+  if ("lon" %in% names(df) && !"long" %in% names(df)) {
+    names(df)[names(df) == "lon"] <- "long"
+  }
+  if ("longitude" %in% names(df) && !"long" %in% names(df)) {
+    names(df)[names(df) == "longitude"] <- "long"
+  }
+  if ("lati" %in% names(df) && !"lat" %in% names(df)) {
+    names(df)[names(df) == "lati"] <- "lat"
+  }
+  if ("latitude" %in% names(df) && !"lat" %in% names(df)) {
+    names(df)[names(df) == "latitude"] <- "lat"
+  }
+
+  if (!all(c("long", "lat") %in% names(df))) {
+    stop(
+      "Each kriging file must contain coordinate columns named ",
+      "'long' and 'lat' (or recognizable equivalents)."
+    )
+  }
+
+  df
+}
+
+extract_year_columns <- function(df) {
+  year_values <- suppressWarnings(
+    as.integer(sub("^X", "", names(df)))
   )
-)
+  valid <- !is.na(year_values)
 
-coordinates(loc) <- ~ long + lat
-proj4string(loc) <- CRS("+proj=longlat +datum=WGS84")
+  if (!any(valid)) {
+    stop("No yearly columns were detected in a kriging file.")
+  }
 
-n_long <- length(unique(loc@coords[, 1]))
-n_lat <- length(unique(loc@coords[, 2]))
+  output <- names(df)[valid]
+  names(output) <- as.character(year_values[valid])
+  output
+}
 
-if (n_long != 12L || n_lat != 14L) {
+read_kriging_file <- function(path) {
+  df <- read.csv(
+    path,
+    check.names = FALSE,
+    stringsAsFactors = FALSE
+  )
+  df <- drop_accidental_index_column(df)
+  df <- standardize_coordinate_names(df)
+  df$long <- as.numeric(df$long)
+  df$lat <- as.numeric(df$lat)
+  df
+}
+
+tempe_all <- read_kriging_file(mean_file)
+variance_reaches <- read_kriging_file(variance_file)
+
+if (nrow(tempe_all) != nrow(variance_reaches)) {
   stop(
-    "Expected a 12 x 14 grid, but obtained ",
-    n_long,
-    " x ",
-    n_lat,
-    "."
+    "The mean and prediction-variance files have different row counts: ",
+    nrow(tempe_all), " versus ", nrow(variance_reaches), "."
   )
 }
 
-arr.pred <- arr.std <- array(
-  NA_real_,
-  dim = c(
-    n_long,
-    n_lat,
-    length(year2)
-  )
+coordinate_difference <- max(
+  abs(tempe_all$long - variance_reaches$long),
+  abs(tempe_all$lat - variance_reaches$lat),
+  na.rm = TRUE
 )
 
-y2 <- var.fit2$y2
-
-# ------------------------------------------------------------
-# 2. Kriging helper functions
-# ------------------------------------------------------------
-
-# These definitions preserve the original calculation used in
-# Figures 5 and 7(e).
-sigmay <- sqrt(vario.fit2$psill2)
-sigmae <- sqrt(vario.fit2$psill1)
-alpha <- vario.fit2$range / 100
-
-cuts <- c(-Inf, -1.5, -0.5, 0.5, Inf)
-vals <- c(-2, -1, 0, 1)
-
-Ez_discrete <- function(sigma, cuts, vals) {
-  stopifnot(length(vals) == length(cuts) - 1)
-
-  a <- head(cuts, -1) / sigma
-  b <- tail(cuts, -1) / sigma
-  probs <- pnorm(b) - pnorm(a)
-
-  sum(vals * probs)
+if (!is.finite(coordinate_difference) || coordinate_difference > 1e-8) {
+  stop(
+    "The coordinates in the mean and prediction-variance files ",
+    "are not aligned row by row."
+  )
 }
 
-EZstar_h <- function(sigma, cuts, vals) {
-  stopifnot(length(vals) == length(cuts) - 1)
+mean_year_map <- extract_year_columns(tempe_all)
+variance_year_map <- extract_year_columns(variance_reaches)
+common_years <- intersect(names(mean_year_map), names(variance_year_map))
+common_years <- as.character(sort(as.integer(common_years)))
 
-  a <- head(cuts, -1) / sigma
-  b <- tail(cuts, -1) / sigma
-  part <- sigma * (dnorm(a) - dnorm(b))
-
-  sum(vals * part)
+if (length(common_years) == 0L) {
+  stop("The mean and prediction-variance files have no common years.")
 }
 
-cov_Z_pair <- function(
-    rho,
-    sigma,
-    cuts,
-    vals,
-    Eh = NULL) {
+mean_year_columns <- unname(mean_year_map[common_years])
+variance_year_columns <- unname(variance_year_map[common_years])
 
-  if (is.null(Eh)) {
-    Eh <- Ez_discrete(
-      sigma,
-      cuts,
-      vals
-    )
-  }
+variance_values <- as.matrix(
+  variance_reaches[, variance_year_columns, drop = FALSE]
+)
+storage.mode(variance_values) <- "double"
 
-  K <- length(vals)
-  a_std <- head(cuts, -1) / sigma
-  b_std <- tail(cuts, -1) / sigma
-
-  Sigma2 <- matrix(
-    c(1, rho, rho, 1),
-    2,
-    2
+if (any(variance_values < -1e-10, na.rm = TRUE)) {
+  stop(
+    "Negative values were found in reaches_kriging_grid12x14_variance.csv. ",
+    "This file must contain nonnegative prediction variances, apart from negligible numerical error."
   )
-
-  Eh2 <- 0
-
-  for (k in seq_len(K)) {
-    for (l in seq_len(K)) {
-      lower <- c(
-        a_std[k],
-        a_std[l]
-      )
-      upper <- c(
-        b_std[k],
-        b_std[l]
-      )
-
-      pij <- as.numeric(
-        pmvnorm(
-          lower = lower,
-          upper = upper,
-          mean = c(0, 0),
-          sigma = Sigma2
-        )
-      )
-
-      Eh2 <- Eh2 +
-        vals[k] * vals[l] * pij
-    }
-  }
-
-  Eh2 - Eh^2
-}
-
-cZY_vector <- function(
-    s_coords,
-    s0,
-    sigma_Y2,
-    sigma_E2,
-    alpha,
-    cuts = c(-Inf, -1.5, -0.5, 0.5, Inf),
-    vals = c(-2, -1, 0, 1)) {
-
-  sigma2 <- sigma_Y2 + sigma_E2
-  sigma <- sqrt(sigma2)
-
-  Ezstar_h <- EZstar_h(
-    sigma,
-    cuts,
-    vals
-  )
-
-  dists <- sqrt(
-    rowSums(
-      (
-        s_coords -
-          matrix(
-            s0,
-            nrow(s_coords),
-            ncol(s_coords),
-            byrow = TRUE
-          )
-      )^2
-    )
-  )
-
-  covYY <- sigma_Y2 *
-    exp(-dists / alpha)
-
-  (covYY / sigma2) * Ezstar_h
-}
-
-SigmaZ_matrix <- function(
-    s_coords,
-    sigma_Y2,
-    sigma_E2,
-    alpha,
-    cuts = c(-Inf, -1.5, -0.5, 0.5, Inf),
-    vals = c(-2, -1, 0, 1)) {
-
-  n <- nrow(s_coords)
-  sigma2 <- sigma_Y2 + sigma_E2
-  sigma <- sqrt(sigma2)
-
-  Eh <- Ez_discrete(
-    sigma,
-    cuts,
-    vals
-  )
-
-  dmat <- as.matrix(
-    dist(
-      s_coords,
-      method = "euclidean",
-      upper = TRUE,
-      diag = TRUE
-    )
-  )
-
-  rho <- (
-    sigma_Y2 *
-      exp(-dmat / alpha)
-  ) / sigma2
-
-  diag(rho) <- 1
-
-  Sig <- matrix(
-    NA_real_,
-    n,
-    n
-  )
-
-  for (i in seq_len(n)) {
-    for (j in i:n) {
-      cij <- cov_Z_pair(
-        rho[i, j],
-        sigma,
-        cuts,
-        vals,
-        Eh = Eh
-      )
-
-      Sig[i, j] <- cij
-
-      if (j != i) {
-        Sig[j, i] <- cij
-      }
-    }
-  }
-
-  Sig
-}
-
-y_pred <- function(
-    s_coords,
-    s0,
-    z_obs = NULL,
-    sigma_Y2,
-    sigma_E2,
-    alpha,
-    cuts = c(-Inf, -1.5, -0.5, 0.5, Inf),
-    vals = c(-2, -1, 0, 1),
-    tol = 1e-8,
-    return = c("mean", "var")) {
-
-  return <- unique(return)
-
-  if (!is.null(z_obs)) {
-    stopifnot(
-      length(z_obs) ==
-        nrow(s_coords)
-    )
-  }
-
-  c_zy <- cZY_vector(
-    s_coords,
-    s0,
-    sigma_Y2,
-    sigma_E2,
-    alpha,
-    cuts,
-    vals
-  )
-
-  SigmaZ <- SigmaZ_matrix(
-    s_coords,
-    sigma_Y2,
-    sigma_E2,
-    alpha,
-    cuts,
-    vals
-  )
-
-  SigmaZ <- (
-    SigmaZ + t(SigmaZ)
-  ) / 2
-
-  out <- list()
-
-  if ("mean" %in% return) {
-    sigma2 <- sigma_Y2 + sigma_E2
-    sigma <- sqrt(sigma2)
-
-    Ez <- Ez_discrete(
-      sigma,
-      cuts,
-      vals
-    )
-
-    rhs <- z_obs - Ez
-    w_mean <- solve(
-      SigmaZ,
-      rhs,
-      tol = tol
-    )
-
-    out$mean <- drop(
-      crossprod(
-        c_zy,
-        w_mean
-      )
-    )
-  }
-
-  if ("var" %in% return) {
-    w_var <- solve(
-      SigmaZ,
-      c_zy,
-      tol = tol
-    )
-
-    var_pred <- sigma_Y2 -
-      drop(
-        crossprod(
-          c_zy,
-          w_var
-        )
-      )
-
-    out$var <- max(
-      var_pred,
-      0
-    )
-  }
-
-  if (length(out) == 1) {
-    return(out[[1]])
-  }
-
-  out
 }
 
 # ------------------------------------------------------------
-# 3. Krige all available years on the coarse grid
-# ------------------------------------------------------------
-
-for (i in seq_along(year2)) {
-  temp14 <- y2[
-    y2$year == year2[i],
-  ]
-
-  temp15 <- numeric(
-    nrow(loc@coords)
-  )
-  temp16 <- numeric(
-    nrow(loc@coords)
-  )
-
-  locations <- temp14@coords
-
-  for (j in seq_len(nrow(loc@coords))) {
-    s0 <- as.numeric(
-      loc@coords[j, ]
-    )
-
-    res <- y_pred(
-      s_coords = locations,
-      s0 = s0,
-      z_obs = as.matrix(temp14$level),
-      sigma_Y2 = sigmay,
-      sigma_E2 = sigmae,
-      alpha = alpha,
-      return = c("mean", "var")
-    )
-
-    temp15[j] <- res$mean
-    temp16[j] <- res$var
-  }
-
-  arr.pred[, , i] <- matrix(
-    temp15,
-    nrow = n_long,
-    ncol = n_lat
-  )
-
-  arr.std[, , i] <- matrix(
-    temp16,
-    nrow = n_long,
-    ncol = n_lat
-  )
-
-  if (i == 1L) {
-    sk.all <- as.data.frame(loc@coords)
-    sk.all1 <- as.data.frame(loc@coords)
-  }
-
-  sk.all <- cbind(
-    sk.all,
-    c(arr.pred[, , i])
-  )
-
-  sk.all1 <- cbind(
-    sk.all1,
-    c(arr.std[, , i])
-  )
-}
-
-names(sk.all)[-c(1, 2)] <- year2
-names(sk.all1)[-c(1, 2)] <- year2
-
-tempe_all <- sk.all
-nu_reaches <- sk.all1
-
-# ------------------------------------------------------------
-# 4. Keep locations in or near China, Taiwan, Hong Kong,
+# 3. Keep locations in or near China, Taiwan, Hong Kong,
 #    and Macao
 # ------------------------------------------------------------
 
-world <- ne_countries(
-  scale = "medium",
-  returnclass = "sf"
-)
+world <- ne_countries(scale = "medium", returnclass = "sf")
 
 targets <- world %>%
   filter(
@@ -473,136 +202,110 @@ targets <- world %>%
     )
   )
 
-china_tw_hk_mo <- st_union(targets)
+if (nrow(targets) == 0L) {
+  stop("The requested East Asian regions were not found.")
+}
 
+china_tw_hk_mo <- st_union(targets)
 china_tw_hk_mo <- st_as_sf(
-  data.frame(
-    name = "China+Taiwan+HK+MO"
-  ),
+  data.frame(name = "China+Taiwan+HK+MO"),
   geometry = china_tw_hk_mo
 )
-
 st_crs(china_tw_hk_mo) <- 4326
+china_tw_hk_mo_valid <- st_make_valid(china_tw_hk_mo)
 
-coast_km <- 80
+coast_buffer_km <- 80
+region_buffer <- china_tw_hk_mo_valid %>%
+  st_transform(3857) %>%
+  st_buffer(dist = coast_buffer_km * 1000) %>%
+  st_transform(4326)
 
-china_tw_hk_mo_valid <- st_make_valid(
-  china_tw_hk_mo
-)
-
-poly_m <- st_transform(
-  china_tw_hk_mo_valid,
-  3857
-)
-
-poly_m_buf <- st_buffer(
-  poly_m,
-  dist = coast_km * 1000
-)
-
-china_tw_hk_mo_buf <- st_transform(
-  poly_m_buf,
-  4326
-)
-
-pts_sf <- st_as_sf(
+mean_points_sf <- st_as_sf(
   tempe_all,
   coords = c("long", "lat"),
-  crs = 4326
+  crs = 4326,
+  remove = FALSE
 )
 
-keep_location <- st_within(
-  pts_sf,
-  china_tw_hk_mo_buf,
-  sparse = FALSE
-)[, 1]
+keep_location <- lengths(
+  st_intersects(mean_points_sf, region_buffer)
+) > 0
 
-tempe_all1 <- tempe_all[
-  keep_location,
-  ,
-  drop = FALSE
-]
+tempe_all1 <- tempe_all[keep_location, , drop = FALSE]
+variance_reaches1 <- variance_reaches[keep_location, , drop = FALSE]
 
-nu_reaches1 <- nu_reaches[
-  keep_location,
-  ,
-  drop = FALSE
-]
-
-# ------------------------------------------------------------
-# 5. Load LME data
-# ------------------------------------------------------------
-
-lme_file <- here::here(
-  "Data",
-  "LME data",
-  "b0.csv"
-)
-
-if (!file.exists(lme_file)) {
-  stop(
-    "The LME file required for Figure 7(e) was not found: ",
-    lme_file,
-    "\nPlace b0.csv under Data/LME data/ or update lme_file."
-  )
+if (nrow(tempe_all1) == 0L) {
+  stop("No kriging locations remained after the regional mask.")
 }
+
+# ------------------------------------------------------------
+# 4. Load and validate LME data
+# ------------------------------------------------------------
 
 lme_df <- read.csv(
   lme_file,
   row.names = 1,
-  check.names = FALSE
+  check.names = FALSE,
+  stringsAsFactors = FALSE
 )
 
-# ------------------------------------------------------------
-# 6. Spatial quantile mapping at zero
-# ------------------------------------------------------------
+if ("lon" %in% names(lme_df) && !"long" %in% names(lme_df)) {
+  names(lme_df)[names(lme_df) == "lon"] <- "long"
+}
+if ("lat" %in% names(lme_df) && !"lati" %in% names(lme_df)) {
+  names(lme_df)[names(lme_df) == "lat"] <- "lati"
+}
+
+if (!all(c("long", "lati") %in% names(lme_df))) {
+  stop("b0.csv must contain coordinate columns named 'long' and 'lati'.")
+}
 
 n_loc <- 121L
 n_rep <- 13L
+expected_lme_rows <- n_loc * n_rep
 
-if (nrow(lme_df) < n_loc * n_rep) {
+if (nrow(lme_df) < expected_lme_rows) {
   stop(
-    "Expected at least ",
-    n_loc * n_rep,
-    " LME rows, but found ",
-    nrow(lme_df),
-    "."
+    "Expected at least ", expected_lme_rows,
+    " rows in b0.csv, but found ", nrow(lme_df), "."
   )
 }
 
 get_block <- function(df, r) {
   first_row <- (r - 1L) * n_loc + 1L
   last_row <- r * n_loc
-
-  df[
-    first_row:last_row,
-    ,
-    drop = FALSE
-  ]
+  df[first_row:last_row, , drop = FALSE]
 }
 
 get_xs_all_years <- function(lme_df, s) {
   xs_list <- lapply(
     seq_len(n_rep),
     function(r) {
-      blk <- get_block(lme_df, r)
-      as.numeric(
-        blk[s, -(1:2)]
-      )
+      block <- get_block(lme_df, r)
+      as.numeric(block[s, -c(1, 2), drop = TRUE])
     }
   )
 
-  xs_kelvin <- unlist(
-    xs_list,
-    use.names = FALSE
-  )
-
+  xs_kelvin <- unlist(xs_list, use.names = FALSE)
   xs_kelvin - 273.15
 }
+
+# ------------------------------------------------------------
+# 5. Quantile-mapping functions
+# ------------------------------------------------------------
 
 build_Fx_inv_local <- function(x_s) {
   x_s <- as.numeric(x_s)
   x_s <- x_s[is.finite(x_s)]
+
+  if (length(x_s) < 2L) {
+    stop("Too few finite LME values for a local quantile-mapping fit.")
+  }
+
+  x_sd <- sd(x_s)
+  if (!is.finite(x_sd) || x_sd <= 0) {
+    stop("The local LME sample has zero or invalid variation.")
+  }
 
   bw <- npudistbw(dat = x_s)
 
@@ -611,26 +314,19 @@ build_Fx_inv_local <- function(x_s) {
       bws = bw,
       edat = data.frame(x = q)
     )
-
     as.numeric(fitted(fit))
   }
 
   Fx_inv <- function(u) {
-    u <- pmin(
-      pmax(u, 1e-8),
-      1 - 1e-8
-    )
-
-    xmin <- min(x_s) - 5 * sd(x_s)
-    xmax <- max(x_s) + 5 * sd(x_s)
+    u <- pmin(pmax(u, 1e-8), 1 - 1e-8)
+    xmin <- min(x_s) - 5 * x_sd
+    xmax <- max(x_s) + 5 * x_sd
 
     sapply(
       u,
       function(uu) {
         uniroot(
-          function(q) {
-            Fx_hat(q) - uu
-          },
+          function(q) Fx_hat(q) - uu,
           interval = c(xmin, xmax),
           tol = 1e-6
         )$root
@@ -643,112 +339,112 @@ build_Fx_inv_local <- function(x_s) {
 
 FY_hat_1loc <- function(y, yhat, nu) {
   yhat <- as.numeric(yhat)
-  nu <- pmax(
-    as.numeric(nu),
-    1e-8
-  )
+  nu <- as.numeric(nu)
 
-  stopifnot(
-    length(yhat) ==
-      length(nu)
-  )
+  valid <- is.finite(yhat) & is.finite(nu)
+  yhat <- yhat[valid]
+  nu <- nu[valid]
 
-  mean(
-    pnorm(
-      (y - yhat) / nu
+  if (length(yhat) == 0L) {
+    stop(
+      "No valid paired kriging means and prediction standard deviations ",
+      "were available at a location."
     )
-  )
+  }
+
+  # nu contains prediction standard deviations obtained by
+  # taking square roots of the stored prediction variances.
+  nu <- pmax(nu, 1e-8)
+  mean(pnorm((y - yhat) / nu))
 }
 
-lme_base <- get_block(
-  lme_df,
-  1
-) %>%
+# ------------------------------------------------------------
+# 6. Match the 121 LME locations to the kriged REACHES grid
+# ------------------------------------------------------------
+
+lme_base <- get_block(lme_df, 1) %>%
   transmute(
-    lat = lati,
-    lon = long
+    lon = as.numeric(long),
+    lat = as.numeric(lati)
   )
 
 reaches_base <- tempe_all1 %>%
   transmute(
-    lon = long,
-    lat = lat
+    lon = as.numeric(long),
+    lat = as.numeric(lat)
   )
 
-coord_key_lme <- lme_base %>%
-  mutate(
-    key = paste0(
-      round(lon, 3),
-      "_",
-      round(lat, 3)
-    )
-  )
+make_coordinate_key <- function(lon, lat, digits = 3) {
+  paste0(round(lon, digits), "_", round(lat, digits))
+}
 
-coord_key_rea <- reaches_base %>%
-  mutate(
-    key = paste0(
-      round(lon, 3),
-      "_",
-      round(lat, 3)
-    )
-  )
+coord_key_lme <- make_coordinate_key(lme_base$lon, lme_base$lat)
+coord_key_reaches <- make_coordinate_key(reaches_base$lon, reaches_base$lat)
 
-idx_map <- match(
-  coord_key_lme$key,
-  coord_key_rea$key
-)
+if (anyDuplicated(coord_key_reaches)) {
+  stop("The filtered REACHES grid contains duplicated coordinate keys.")
+}
+
+idx_map <- match(coord_key_lme, coord_key_reaches)
 
 if (anyNA(idx_map)) {
+  missing_locations <- lme_base[is.na(idx_map), , drop = FALSE]
   stop(
-    "At least one LME grid location could not be matched ",
-    "to the kriged REACHES grid."
+    "Some LME locations could not be matched to the filtered REACHES grid. ",
+    "First unmatched location: ",
+    paste(missing_locations[1, ], collapse = ", ")
   )
 }
 
-common_year_columns <- intersect(
-  names(tempe_all1)[-c(1, 2)],
-  names(nu_reaches1)[-c(1, 2)]
-)
+# ------------------------------------------------------------
+# 7. Compute g_s(0) for all 121 locations
+# ------------------------------------------------------------
 
-if (length(common_year_columns) == 0L) {
-  stop(
-    "No common year columns were found between the ",
-    "kriged means and variances."
-  )
-}
-
-# npudistbw uses a numerical multistart search, so fix the
-# random sequence for repeatable bandwidth selection.
+# npudistbw uses multistart numerical optimization.
+# The fixed seed makes the updated figure reproducible.
 set.seed(10)
 
-g0_121 <- sapply(
+g0_121 <- vapply(
   seq_len(n_loc),
   function(s) {
-    x_s <- get_xs_all_years(
-      lme_df,
-      s
-    )
-
-    Fx_inv_s <- build_Fx_inv_local(
-      x_s
-    )
-
-    i_rea <- idx_map[s]
+    x_s <- get_xs_all_years(lme_df, s)
+    Fx_inv_s <- build_Fx_inv_local(x_s)
+    reaches_row <- idx_map[s]
 
     yhat_s <- as.numeric(
       tempe_all1[
-        i_rea,
-        common_year_columns,
+        reaches_row,
+        mean_year_columns,
         drop = TRUE
       ]
     )
 
-    nu_s <- as.numeric(
-      nu_reaches1[
-        i_rea,
-        common_year_columns,
+    # The variance file stores kriging prediction variances.
+    # FY_hat_1loc() requires prediction standard deviations.
+    prediction_variance_s <- as.numeric(
+      variance_reaches1[
+        reaches_row,
+        variance_year_columns,
         drop = TRUE
       ]
+    )
+
+    if (any(
+      prediction_variance_s < -1e-10,
+      na.rm = TRUE
+    )) {
+      stop(
+        "Negative prediction variances were found for LME location ",
+        s,
+        "."
+      )
+    }
+
+    nu_s <- sqrt(
+      pmax(
+        prediction_variance_s,
+        0
+      )
     )
 
     u0 <- FY_hat_1loc(
@@ -758,25 +454,71 @@ g0_121 <- sapply(
     )
 
     Fx_inv_s(u0)
-  }
+  },
+  numeric(1)
 )
 
 plot_df <- lme_base %>%
-  mutate(
-    temp0_c = g0_121
-  )
+  mutate(temp0_c = g0_121)
 
 # ------------------------------------------------------------
-# 7. Save Figure 7(e)
+# 8. Smooth the 121 mapped values to a 0.25-degree grid
+# ------------------------------------------------------------
+
+smooth_fit <- gam(
+  temp0_c ~ s(lon, lat, bs = "tp", fx = TRUE),
+  data = plot_df,
+  method = "REML"
+)
+
+lon_seq <- seq(98, 124.5, by = 0.25)
+lat_seq <- seq(18, 42.5, by = 0.25)
+
+smooth_grid <- expand.grid(
+  lon = lon_seq,
+  lat = lat_seq
+)
+
+smooth_grid$temp0_c <- as.numeric(
+  predict(smooth_fit, newdata = smooth_grid)
+)
+
+# Keep only land locations in the target regions, using the
+# original 1-km coastal buffer from the smoothing code.
+smooth_buffer_km <- 1
+smooth_region_buffer <- china_tw_hk_mo_valid %>%
+  st_transform(3857) %>%
+  st_buffer(dist = smooth_buffer_km * 1000) %>%
+  st_transform(4326)
+
+smooth_points_sf <- st_as_sf(
+  smooth_grid,
+  coords = c("lon", "lat"),
+  crs = 4326,
+  remove = FALSE
+)
+
+keep_smooth_location <- lengths(
+  st_intersects(smooth_points_sf, smooth_region_buffer)
+) > 0
+
+smooth_grid <- smooth_grid[
+  keep_smooth_location,
+  ,
+  drop = FALSE
+]
+
+# ------------------------------------------------------------
+# 9. Save Figure 7(e) and its underlying values
 # ------------------------------------------------------------
 
 p_figure7e <- ggplot(
-  plot_df,
+  smooth_grid,
   aes(lon, lat)
 ) +
   geom_point(
     aes(colour = temp0_c),
-    cex = 8.99,
+    cex = 4.5,
     shape = 15
   ) +
   coord_map(
@@ -784,13 +526,7 @@ p_figure7e <- ggplot(
     ylim = c(18, 42.5)
   ) +
   scale_color_gradientn(
-    colors = c(
-      "blue",
-      "cyan",
-      "green",
-      "yellow",
-      "red"
-    ),
+    colors = c("blue", "cyan", "green", "yellow", "red"),
     limits = c(-10, 25),
     na.value = "transparent",
     guide = "colourbar"
@@ -808,11 +544,7 @@ p_figure7e <- ggplot(
     legend.position = "right"
   )
 
-figure7e_output_dir <- here::here(
-  "Output",
-  "Figure7-8"
-)
-
+figure7e_output_dir <- here::here("Output", "Figure7-8")
 dir.create(
   figure7e_output_dir,
   recursive = TRUE,
@@ -831,6 +563,24 @@ ggsave(
   height = 4,
   units = "in",
   dpi = 300
+)
+
+write.csv(
+  plot_df,
+  file.path(
+    figure7e_output_dir,
+    "Figure7e_qm_locations.csv"
+  ),
+  row.names = FALSE
+)
+
+write.csv(
+  smooth_grid,
+  file.path(
+    figure7e_output_dir,
+    "Figure7e_smoothed_grid.csv"
+  ),
+  row.names = FALSE
 )
 
 message(
