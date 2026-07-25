@@ -524,9 +524,15 @@ predict_grid_one_year <- function(
 
 for (i in seq_along(year2)) {
 
+   current_year <- year2[i]
+
+  set.seed(
+    500000L + as.integer(current_year)
+  )
+
   message(
     "Kriging year ",
-    year2[i],
+    current_year,
     " (",
     i,
     "/",
@@ -534,12 +540,8 @@ for (i in seq_along(year2)) {
     ")"
   )
 
-  temp14 <- y2[
-    y2$year == year2[i],
-  ]
-
   yearly_result <- predict_grid_one_year(
-    current_year = year2[i],
+    current_year = current_year,
     observation_data = y2,
     prediction_coordinates = loc@coords,
     sigma_Y2 = sigmay,
