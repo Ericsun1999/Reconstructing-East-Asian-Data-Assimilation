@@ -147,11 +147,14 @@ if (length(mc_R$G) != 1L || mc_R$G != 5L) {
 
 cl_R <- mc_R$classification
 
+# Relabel the Mclust groups to match the cluster numbering
+# used in manuscript Figure 6:
+# old 5, 4, 1, 2, 3 -> new 1, 2, 3, 4, 5
 relabel_R <- c(
   "5" = 1,
   "4" = 2,
-  "2" = 3,
-  "1" = 4,
+  "1" = 3,
+  "2" = 4,
   "3" = 5
 )
 
