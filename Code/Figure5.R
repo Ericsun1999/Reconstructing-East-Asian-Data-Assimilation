@@ -216,6 +216,75 @@ EZstar_h <- function(sigma, cuts, vals) {
   sum(vals * part)
 }
 
+# Deterministic bivariate normal CDF:
+# P(X <= x, Y <= y)
+bvn_cdf <- function(x, y, rho) {
+
+  if (is.infinite(x) && x < 0) {
+    return(0)
+  }
+
+  if (is.infinite(y) && y < 0) {
+    return(0)
+  }
+
+  if (is.infinite(x) && x > 0 &&
+      is.infinite(y) && y > 0) {
+    return(1)
+  }
+
+  if (is.infinite(x) && x > 0) {
+    return(pnorm(y))
+  }
+
+  if (is.infinite(y) && y > 0) {
+    return(pnorm(x))
+  }
+
+  correlation_matrix <- matrix(
+    c(
+      1, rho,
+      rho, 1
+    ),
+    nrow = 2,
+    ncol = 2
+  )
+
+  as.numeric(
+    mvtnorm::pmvnorm(
+      lower = c(-Inf, -Inf),
+      upper = c(x, y),
+      mean = c(0, 0),
+      corr = correlation_matrix,
+      algorithm = mvtnorm::TVPACK()
+    )
+  )
+}
+
+
+# Deterministic probability over a rectangle:
+# P(a1 < X <= b1, a2 < Y <= b2)
+bvn_rectangle_probability <- function(
+    a1,
+    b1,
+    a2,
+    b2,
+    rho) {
+
+  probability <-
+    bvn_cdf(b1, b2, rho) -
+    bvn_cdf(a1, b2, rho) -
+    bvn_cdf(b1, a2, rho) +
+    bvn_cdf(a1, a2, rho)
+
+  # Protect against negligible floating-point error.
+  min(
+    max(probability, 0),
+    1
+  )
+}
+
+
 cov_Z_pair <- function(
     rho,
     sigma,
@@ -231,40 +300,34 @@ cov_Z_pair <- function(
     )
   }
 
+  # Prevent tiny numerical excursions outside [-1, 1].
+  rho <- min(
+    max(rho, -1 + 1e-12),
+    1 - 1e-12
+  )
+
   K <- length(vals)
+
   a_std <- head(cuts, -1) / sigma
   b_std <- tail(cuts, -1) / sigma
-
-  Sigma2 <- matrix(
-    c(1, rho, rho, 1),
-    2,
-    2
-  )
 
   Eh2 <- 0
 
   for (k in seq_len(K)) {
     for (l in seq_len(K)) {
-      lower <- c(
-        a_std[k],
-        a_std[l]
-      )
-      upper <- c(
-        b_std[k],
-        b_std[l]
-      )
 
-      pij <- as.numeric(
-        pmvnorm(
-          lower = lower,
-          upper = upper,
-          mean = c(0, 0),
-          sigma = Sigma2
-        )
+      pij <- bvn_rectangle_probability(
+        a1 = a_std[k],
+        b1 = b_std[k],
+        a2 = a_std[l],
+        b2 = b_std[l],
+        rho = rho
       )
 
       Eh2 <- Eh2 +
-        vals[k] * vals[l] * pij
+        vals[k] *
+        vals[l] *
+        pij
     }
   }
 
