@@ -147,18 +147,17 @@ if (length(mc_R$G) != 1L || mc_R$G != 5L) {
 
 cl_R <- mc_R$classification
 
-# Relabel the five clusters to match the geographic ordering
-# in the original analysis:
-# old 2, 4, 5, 1, 3 -> new 1, 2, 3, 4, 5
 relabel_R <- c(
-  "2" = 1,
+  "5" = 1,
   "4" = 2,
-  "5" = 3,
+  "2" = 3,
   "1" = 4,
   "3" = 5
 )
 
-cl_R_geo <- unname(relabel_R[as.character(cl_R)])
+cl_R_geo <- unname(
+  relabel_R[as.character(cl_R)]
+)
 
 
 if (anyNA(cl_R_geo)) {
