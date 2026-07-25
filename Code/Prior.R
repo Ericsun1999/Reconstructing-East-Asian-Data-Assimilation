@@ -1079,9 +1079,7 @@ prior_results <- lapply(
   names(city_config),
   function(city_name) {
 
-    config <- city_config[
-      [city_name]
-    ]
+    config <- city_config[[city_name]]
 
     result <- estimate_city(
       city_name = city_name,
