@@ -26,7 +26,7 @@ library(np)
 # ------------------------------------------------------------
 
 tempe_all_data <- read.csv(
-  here::here("Data", "tempe_all_v3.csv"),
+  here::here("Data", "reaches_kriging_city3_mean.csv"),
   header = FALSE
 )
 
@@ -44,7 +44,7 @@ tempe_all <- tempe_all_data[
 ]
 
 nu1 <- read.csv(
-  here::here("Data", "tempe_all_std.csv")
+  here::here("Data", "reaches_kriging_city3_sd.csv")
 )
 
 # ------------------------------------------------------------
