@@ -1,222 +1,754 @@
 here::i_am("Code/Get_tempe_all_data.R")
 
-###It should be executed after running Figure4.R
+# ============================================================
+# Generate REACHES kriging results for the complete 53 x 49
+# grid and extract the three locations used in Figures 7--10.
+#
+# The kriging equations and calibrated parameter definitions
+# are intentionally the same as those used in Figure5.R.
+#
+# Required input:
+#   Output/Intermediate/calibration_parameters.rds
+#
+# Outputs:
+#   Data/reaches_kriging_grid53x49_mean.csv
+#   Data/reaches_kriging_grid53x49_variance.csv
+#   Data/reaches_kriging_city3_mean.csv
+#   Data/reaches_kriging_city3_sd.csv
+#
+# City-row order in the city3 files:
+#   1. Hong Kong
+#   2. Shanghai
+#   3. Beijing
+#
+# Note:
+#   The full-grid uncertainty file stores prediction VARIANCE.
+#   The city3 uncertainty file stores prediction STANDARD
+#   DEVIATION for compatibility with Figure7-8.R.
+# ============================================================
 
-# Kriging on 0.5x0.5 grid points
-
-year.start <- range(temp2$year)[1]
-year.end <- range(temp2$year)[2]
-year.all <- year.start:year.end
-
-ncase1 <- rep(NA, nyear)
-for (i in 1:nyear) {
-  ncase1[i] <- sum(temp2$year == year.start + i - 1)
-  if (ncase1[i] > 0) {
-    temp21 <- temp2[temp2$year == (year.start + i - 1), ]
-  }
-}
-m <- 1
-year2 <- year.all[which(ncase1 >= m)]
-
-arr.pred <- arr.std <- array(NA, c(53, 49, length(year2)))
-
-loc <- expand.grid(long = seq(98.25, 124.25, by = 0.5), lat = seq(18.25, 42.25, by = 0.5))
-coordinates(loc) <- ~ long + lat
-proj4string(loc) <- CRS('+proj=longlat +datum=WGS84')
-y2 <- var.fit2$y2
-
-library(RColorBrewer)
-library(ggplot2)
-library(MASS)
+library(sp)
 library(mvtnorm)
 
-sigmay = sqrt(vario.fit2$psill2)
-sigmae = sqrt(vario.fit2$psill1)
+# ------------------------------------------------------------
+# 1. Load shared calibration results
+# ------------------------------------------------------------
 
-sigma = sqrt(vario.fit2$psill1 + vario.fit2$psill2)
-alpha = vario.fit2$range/100
-cuts = c(-Inf, -1.5, -0.5, 0.5, Inf)
-vals = c(-2, -1, 0, 1)
+calibration_file <- here::here(
+  "Output",
+  "Intermediate",
+  "calibration_parameters.rds"
+)
 
-mu_z <- -pnorm(-1.5, mean = 0, sd = sqrt(sigmay + sigmae))
-
-cov_Y <- function(s1, s2) {
-  (sigmay)^2 * exp(-sqrt(sum((s1-s2)^2))/alpha)
+if (!file.exists(calibration_file)) {
+  stop(
+    "Required calibration file was not found: ",
+    calibration_file,
+    "\nRun Code/prepare_calibration.R first."
+  )
 }
 
-calc_c_Y <- function(s0, locations) {
-  n <- nrow(locations)
-  c_Y <- numeric(n)
-  for (i in 1:n) {
-    si <- locations[i, ]
-    c_Y[i] <- cov_Y(s0, si)
-  }
-  return(c_Y)
+calibration_results <- readRDS(
+  calibration_file
+)
+
+required_objects <- c(
+  "temp2",
+  "var_fit2",
+  "vario_fit2"
+)
+
+if (!all(required_objects %in% names(calibration_results))) {
+  stop(
+    "The calibration file does not contain all required objects: ",
+    paste(required_objects, collapse = ", "),
+    "."
+  )
 }
 
-# E[h(Z*)]
+temp2 <- calibration_results$temp2
+var.fit2 <- calibration_results$var_fit2
+vario.fit2 <- calibration_results$vario_fit2
+y2 <- var.fit2$y2
+
+# ------------------------------------------------------------
+# 2. Define all available years and the complete 53 x 49 grid
+# ------------------------------------------------------------
+
+year2 <- sort(
+  unique(
+    as.integer(temp2$year)
+  )
+)
+
+year2 <- year2[
+  is.finite(year2)
+]
+
+if (length(year2) == 0L) {
+  stop("No valid REACHES observation years were found.")
+}
+
+loc <- expand.grid(
+  long = seq(
+    98.25,
+    124.25,
+    by = 0.5
+  ),
+  lat = seq(
+    18.25,
+    42.25,
+    by = 0.5
+  )
+)
+
+coordinates(loc) <- ~ long + lat
+proj4string(loc) <- CRS(
+  "+proj=longlat +datum=WGS84"
+)
+
+n_long <- length(
+  unique(loc@coords[, 1])
+)
+
+n_lat <- length(
+  unique(loc@coords[, 2])
+)
+
+n_grid <- nrow(loc@coords)
+
+if (n_long != 53L ||
+    n_lat != 49L ||
+    n_grid != 2597L) {
+  stop(
+    "Expected a 53 x 49 grid with 2597 locations, but obtained ",
+    n_long,
+    " x ",
+    n_lat,
+    " with ",
+    n_grid,
+    " locations."
+  )
+}
+
+# ------------------------------------------------------------
+# 3. Kriging functions copied from Figure5.R
+# ------------------------------------------------------------
+
+# These definitions preserve the original calculation used in
+# Figure 5. The square-root transformation is intentionally kept
+# because it is part of the original analysis code.
+sigmay <- sqrt(vario.fit2$psill2)
+sigmae <- sqrt(vario.fit2$psill1)
+alpha <- vario.fit2$range / 100
+
+cuts <- c(-Inf, -1.5, -0.5, 0.5, Inf)
+vals <- c(-2, -1, 0, 1)
+
 Ez_discrete <- function(sigma, cuts, vals) {
   stopifnot(length(vals) == length(cuts) - 1)
+
   a <- head(cuts, -1) / sigma
   b <- tail(cuts, -1) / sigma
   probs <- pnorm(b) - pnorm(a)
+
   sum(vals * probs)
 }
 
-
-# E[Z* h(Z*)]
 EZstar_h <- function(sigma, cuts, vals) {
   stopifnot(length(vals) == length(cuts) - 1)
+
   a <- head(cuts, -1) / sigma
   b <- tail(cuts, -1) / sigma
   part <- sigma * (dnorm(a) - dnorm(b))
+
   sum(vals * part)
 }
 
-# Cov(Z_i, Z_j)
-cov_Z_pair <- function(rho, sigma, cuts, vals, Eh = NULL) {
-  if (is.null(Eh)) Eh <- Ez_discrete(sigma, cuts, vals)
+cov_Z_pair <- function(
+    rho,
+    sigma,
+    cuts,
+    vals,
+    Eh = NULL) {
+
+  if (is.null(Eh)) {
+    Eh <- Ez_discrete(
+      sigma,
+      cuts,
+      vals
+    )
+  }
+
   K <- length(vals)
   a_std <- head(cuts, -1) / sigma
   b_std <- tail(cuts, -1) / sigma
 
-  Sigma2 <- matrix(c(1, rho, rho, 1), 2, 2)
+  Sigma2 <- matrix(
+    c(1, rho, rho, 1),
+    2,
+    2
+  )
+
   Eh2 <- 0
+
   for (k in seq_len(K)) {
     for (l in seq_len(K)) {
-      lower <- c(a_std[k], a_std[l])
-      upper <- c(b_std[k], b_std[l])
-      pij <- as.numeric(pmvnorm(lower = lower, upper = upper, mean = c(0,0), sigma = Sigma2))
-      Eh2 <- Eh2 + vals[k] * vals[l] * pij
+      lower <- c(
+        a_std[k],
+        a_std[l]
+      )
+      upper <- c(
+        b_std[k],
+        b_std[l]
+      )
+
+      pij <- as.numeric(
+        pmvnorm(
+          lower = lower,
+          upper = upper,
+          mean = c(0, 0),
+          sigma = Sigma2
+        )
+      )
+
+      Eh2 <- Eh2 +
+        vals[k] * vals[l] * pij
     }
   }
+
   Eh2 - Eh^2
 }
 
-cZY_vector <- function(s_coords, s0, sigma_Y2, sigma_E2, alpha,
-                       cuts = c(-Inf, -1.5, -0.5, 0.5, Inf),
-                       vals = c(-2, -1, 0, 1)) {
+cZY_vector <- function(
+    s_coords,
+    s0,
+    sigma_Y2,
+    sigma_E2,
+    alpha,
+    cuts = c(-Inf, -1.5, -0.5, 0.5, Inf),
+    vals = c(-2, -1, 0, 1)) {
+
   sigma2 <- sigma_Y2 + sigma_E2
-  sigma  <- sqrt(sigma2)
-  Ezstar_h <- EZstar_h(sigma, cuts, vals)
-  dists <- sqrt(rowSums((s_coords - matrix(s0, nrow(s_coords), ncol(s_coords), byrow=TRUE))^2))
-  covYY  <- sigma_Y2 * exp(-dists / alpha)
+  sigma <- sqrt(sigma2)
+
+  Ezstar_h <- EZstar_h(
+    sigma,
+    cuts,
+    vals
+  )
+
+  dists <- sqrt(
+    rowSums(
+      (
+        s_coords -
+          matrix(
+            s0,
+            nrow(s_coords),
+            ncol(s_coords),
+            byrow = TRUE
+          )
+      )^2
+    )
+  )
+
+  covYY <- sigma_Y2 *
+    exp(-dists / alpha)
+
   (covYY / sigma2) * Ezstar_h
 }
 
-cZY_matrix <- function(s_coords, s0_mat, sigma_Y2, sigma_E2, alpha,
-                       cuts, vals) {
-  if (is.null(dim(s0_mat))) s0_mat <- matrix(s0_mat, nrow = 1)
-  n <- nrow(s_coords); m <- nrow(s0_mat)
-  sigma2 <- sigma_Y2 + sigma_E2
-  sigma  <- sqrt(sigma2)
-  # E[Z* h(Z*)]
-  EZh <- EZstar_h(sigma, cuts, vals)
-  dists <- as.matrix(dist(rbind(s_coords, s0_mat)))[1:n, (n+1):(n+m)]
-  covYY <- sigma_Y2 * exp(-dists / alpha)          # n × m
-  (covYY / sigma2) * EZh                           # n × m
-}
+SigmaZ_matrix <- function(
+    s_coords,
+    sigma_Y2,
+    sigma_E2,
+    alpha,
+    cuts = c(-Inf, -1.5, -0.5, 0.5, Inf),
+    vals = c(-2, -1, 0, 1)) {
 
-SigmaZ_matrix <- function(s_coords, sigma_Y2, sigma_E2, alpha,
-                          cuts = c(-Inf, -1.5, -0.5, 0.5, Inf),
-                          vals = c(-2, -1, 0, 1)) {
   n <- nrow(s_coords)
   sigma2 <- sigma_Y2 + sigma_E2
-  sigma  <- sqrt(sigma2)
-  Eh <- Ez_discrete(sigma, cuts, vals)
-  
-  # d_ij = ||s_i - s_j||
-  dmat <- as.matrix(dist(s_coords, method = "euclidean", upper = TRUE, diag = TRUE))
-  rho  <- (sigma_Y2 * exp(-dmat / alpha)) / sigma2
-  diag(rho) <- 1  
+  sigma <- sqrt(sigma2)
 
-  Sig <- matrix(NA_real_, n, n)
-  for (i in 1:n) {
+  Eh <- Ez_discrete(
+    sigma,
+    cuts,
+    vals
+  )
+
+  dmat <- as.matrix(
+    dist(
+      s_coords,
+      method = "euclidean",
+      upper = TRUE,
+      diag = TRUE
+    )
+  )
+
+  rho <- (
+    sigma_Y2 *
+      exp(-dmat / alpha)
+  ) / sigma2
+
+  diag(rho) <- 1
+
+  Sig <- matrix(
+    NA_real_,
+    n,
+    n
+  )
+
+  for (i in seq_len(n)) {
     for (j in i:n) {
-      cij <- cov_Z_pair(rho[i,j], sigma, cuts, vals, Eh = Eh)
-      Sig[i,j] <- cij
-      if (j != i) Sig[j,i] <- cij
+      cij <- cov_Z_pair(
+        rho[i, j],
+        sigma,
+        cuts,
+        vals,
+        Eh = Eh
+      )
+
+      Sig[i, j] <- cij
+
+      if (j != i) {
+        Sig[j, i] <- cij
+      }
     }
   }
+
   Sig
 }
 
-y_pred <- function(s_coords, s0,
-                   z_obs = NULL,
-                   sigma_Y2, sigma_E2, alpha,
-                   cuts = c(-Inf, -1.5, -0.5, 0.5, Inf),
-                   vals = c(-2, -1, 0, 1),
-                   tol = 1e-2,
-                   return = c("mean", "var")) {
-  return <- unique(return)
+predict_grid_one_year <- function(
+    current_year,
+    observation_data,
+    prediction_coordinates,
+    sigma_Y2,
+    sigma_E2,
+    alpha,
+    cuts = c(-Inf, -1.5, -0.5, 0.5, Inf),
+    vals = c(-2, -1, 0, 1),
+    tol = 1e-2) {
 
-  if (!is.null(z_obs)) {
-    stopifnot(length(z_obs) == nrow(s_coords))
+  temp14 <- observation_data[
+    observation_data$year == current_year,
+  ]
+
+  if (nrow(temp14) == 0L) {
+    stop(
+      "No REACHES observations were found for year ",
+      current_year,
+      "."
+    )
   }
 
-  c_zy   <- cZY_vector(s_coords, s0, sigma_Y2, sigma_E2, alpha, cuts, vals)
-  SigmaZ <- SigmaZ_matrix(s_coords, sigma_Y2, sigma_E2, alpha, cuts, vals)
-  SigmaZ <- (SigmaZ + t(SigmaZ)) / 2  
+  locations <- temp14@coords
+  z_obs <- as.numeric(temp14$level)
 
-  out <- list()
-  
-  # --- mean: c' Σ^{-1} (z - Ez) ---
-  if ("mean" %in% return) {
-    sigma2 <- sigma_Y2 + sigma_E2
-    sigma  <- sqrt(sigma2)
-    Ez <- Ez_discrete(sigma, cuts, vals)
-
-    rhs <- z_obs - Ez
-    w_mean <- solve(SigmaZ, rhs, tol = tol)
-    out$mean <- drop(crossprod(c_zy, w_mean))
+  if (length(z_obs) != nrow(locations)) {
+    stop(
+      "The observation values and coordinates have different ",
+      "lengths for year ",
+      current_year,
+      "."
+    )
   }
 
-  # --- var: sigma_Y2 - c' Σ^{-1} c ---
-  if ("var" %in% return) {
-    w_var <- solve(SigmaZ, c_zy, tol = tol)
-    var_pred <- sigma_Y2 - drop(crossprod(c_zy, w_var))
-    out$var <- max(var_pred, 0)
+  # SigmaZ depends on the observation locations and model
+  # parameters, not on the prediction location. Construct it
+  # only once for this year.
+  SigmaZ <- SigmaZ_matrix(
+    s_coords = locations,
+    sigma_Y2 = sigma_Y2,
+    sigma_E2 = sigma_E2,
+    alpha = alpha,
+    cuts = cuts,
+    vals = vals
+  )
+
+  SigmaZ <- (
+    SigmaZ + t(SigmaZ)
+  ) / 2
+
+  sigma2 <- sigma_Y2 + sigma_E2
+  sigma <- sqrt(sigma2)
+
+  Ez <- Ez_discrete(
+    sigma = sigma,
+    cuts = cuts,
+    vals = vals
+  )
+
+  rhs_mean <- z_obs - Ez
+
+  # Each column is the cross-covariance vector for one
+  # prediction grid point.
+  CZY <- vapply(
+    seq_len(nrow(prediction_coordinates)),
+    function(j) {
+
+      s0 <- as.numeric(
+        prediction_coordinates[j, ]
+      )
+
+      cZY_vector(
+        s_coords = locations,
+        s0 = s0,
+        sigma_Y2 = sigma_Y2,
+        sigma_E2 = sigma_E2,
+        alpha = alpha,
+        cuts = cuts,
+        vals = vals
+      )
+    },
+    numeric(nrow(locations))
+  )
+
+  if (!is.matrix(CZY)) {
+    CZY <- matrix(
+      CZY,
+      nrow = nrow(locations)
+    )
   }
-  if (length(out) == 1) return(out[[1]])
-  out
+
+  # Solve the mean system and all prediction-variance systems
+  # together. This performs one matrix factorization per year.
+  all_rhs <- cbind(
+    rhs_mean,
+    CZY
+  )
+
+  all_solutions <- tryCatch(
+    solve(
+      SigmaZ,
+      all_rhs,
+      tol = tol
+    ),
+    error = function(e) {
+      stop(
+        "Failed to solve the kriging systems for year ",
+        current_year,
+        ". Reciprocal condition number = ",
+        signif(rcond(SigmaZ), 6),
+        ". Original error: ",
+        conditionMessage(e)
+      )
+    }
+  )
+
+  w_mean <- all_solutions[, 1]
+
+  W_variance <- all_solutions[
+    ,
+    -1,
+    drop = FALSE
+  ]
+
+  prediction_mean <- drop(
+    crossprod(
+      CZY,
+      w_mean
+    )
+  )
+
+  prediction_variance <- sigma_Y2 -
+    colSums(
+      CZY * W_variance
+    )
+
+  prediction_variance <- pmax(
+    prediction_variance,
+    0
+  )
+
+  list(
+    mean = prediction_mean,
+    variance = prediction_variance
+  )
 }
 
+# ------------------------------------------------------------
+# 4. Generate predictions for every grid location and year
+# ------------------------------------------------------------
 
-  for(i in 1:length(year2)) {
-    temp14 <- y2[y2$year==year2[i],]
-    temp15 <- rep(0, length(loc@coords[,1]))
-    temp16 <- rep(0, length(loc@coords[,1]))
-    
-    locations<- temp14@coords
-    
-    
-    c_Y <- matrix(0, nrow = length(loc@coords[,1]), ncol = length(temp14$level))
-    Mat1<- matrix(mu_z, nrow = 1, ncol = length(temp14$level))
-    
-    for (j in 1:length(loc@coords[,1])) {
-      
-      s0 <- as.numeric(loc@coords[j,])
-      c_Y[j,] <- calc_c_Y(s0, locations)
-      res <- y_pred(locations, s0,  as.matrix(temp14$level), sigmay, sigmae, alpha, 
-                    return = c("mean","var"))
-      temp15[j]<- res$mean
-      temp16[j] <- res$var
-    }
-    arr.pred[,,i] <- matrix(temp15,53,49)
-    arr.std[,,i] <- matrix(temp16,53,49)
-    temp.dat1 <- cbind(as.data.frame(loc@coords)[,1:2],mu=c(arr.pred[,,i]), std = c(arr.std[,,i]))
-    if(i==1) sk.all <- sk.all1 <- as.data.frame(loc@coords)
-    sk.all <- cbind(sk.all,c(arr.pred[,,i]))
-    sk.all1 <- cbind(sk.all1,c(arr.std[,,i]))
+mean_matrix <- matrix(
+  NA_real_,
+  nrow = n_grid,
+  ncol = length(year2)
+)
+
+variance_matrix <- matrix(
+  NA_real_,
+  nrow = n_grid,
+  ncol = length(year2)
+)
+
+colnames(mean_matrix) <- as.character(year2)
+colnames(variance_matrix) <- as.character(year2)
+
+start_time <- Sys.time()
+
+for (i in seq_along(year2)) {
+
+  current_year <- year2[i]
+
+  # pmvnorm() uses numerical integration. Give each year a
+  # fixed random-number state so the result does not depend on
+  # which other years were run before it.
+  set.seed(
+    500000L + current_year
+  )
+
+  message(
+    "Kriging year ",
+    current_year,
+    " (",
+    i,
+    "/",
+    length(year2),
+    ")"
+  )
+
+  current_data <- y2[
+    y2$year == current_year,
+  ]
+
+  duplicated_coordinates <- duplicated(
+    as.data.frame(
+      current_data@coords
+    )
+  )
+
+  if (any(duplicated_coordinates)) {
+    warning(
+      "Year ",
+      current_year,
+      " contains ",
+      sum(duplicated_coordinates),
+      " duplicated observation coordinates. ",
+      "The records are retained in this version."
+    )
   }
 
+  yearly_result <- predict_grid_one_year(
+    current_year = current_year,
+    observation_data = y2,
+    prediction_coordinates = loc@coords,
+    sigma_Y2 = sigmay,
+    sigma_E2 = sigmae,
+    alpha = alpha,
+    cuts = cuts,
+    vals = vals,
+    tol = 1e-2
+  )
 
-  
-#Write csv
-  names(sk.all)[-c(1,2)] <- year2
-  names(sk.all1)[-c(1,2)] <- year2
-  
-#The point of Hong Kong, Shanghai, Beijing
-  write_excel_csv(sk.all[c(456,1425,2316),],"tempe_all_v3.csv")
-  write_excel_csv(sk.all1[c(456,1425,2316),],"tempe_all_std.csv")
-  
+  mean_matrix[, i] <- yearly_result$mean
+  variance_matrix[, i] <- yearly_result$variance
+}
+
+elapsed_minutes <- as.numeric(
+  difftime(
+    Sys.time(),
+    start_time,
+    units = "mins"
+  )
+)
+
+# ------------------------------------------------------------
+# 5. Assemble and save complete-grid outputs
+# ------------------------------------------------------------
+
+grid_coordinates <- as.data.frame(
+  loc@coords
+)
+
+grid_mean <- cbind(
+  grid_coordinates,
+  as.data.frame(
+    mean_matrix,
+    check.names = FALSE
+  )
+)
+
+grid_variance <- cbind(
+  grid_coordinates,
+  as.data.frame(
+    variance_matrix,
+    check.names = FALSE
+  )
+)
+
+names(grid_mean)[1:2] <- c(
+  "long",
+  "lat"
+)
+
+names(grid_variance)[1:2] <- c(
+  "long",
+  "lat"
+)
+
+grid_mean_file <- here::here(
+  "Data",
+  "reaches_kriging_grid53x49_mean.csv"
+)
+
+grid_variance_file <- here::here(
+  "Data",
+  "reaches_kriging_grid53x49_variance.csv"
+)
+
+write.csv(
+  grid_mean,
+  grid_mean_file,
+  row.names = FALSE
+)
+
+write.csv(
+  grid_variance,
+  grid_variance_file,
+  row.names = FALSE
+)
+
+# ------------------------------------------------------------
+# 6. Extract Hong Kong, Shanghai, and Beijing by coordinates
+#
+# These coordinates reproduce the original rows:
+#   Hong Kong: row 456
+#   Shanghai:  row 1425
+#   Beijing:   row 2316
+#
+# Using coordinates is safer than depending on row numbers.
+# ------------------------------------------------------------
+
+city_locations <- data.frame(
+  city = c(
+    "HongKong",
+    "Shanghai",
+    "Beijing"
+  ),
+  long = c(
+    113.75,
+    121.25,
+    116.25
+  ),
+  lat = c(
+    22.25,
+    31.25,
+    39.75
+  )
+)
+
+coordinate_key <- function(
+    long,
+    lat) {
+  sprintf(
+    "%.2f_%.2f",
+    long,
+    lat
+  )
+}
+
+grid_keys <- coordinate_key(
+  grid_mean$long,
+  grid_mean$lat
+)
+
+city_keys <- coordinate_key(
+  city_locations$long,
+  city_locations$lat
+)
+
+city_indices <- match(
+  city_keys,
+  grid_keys
+)
+
+if (anyNA(city_indices)) {
+  stop(
+    "At least one city location could not be matched to the ",
+    "53 x 49 prediction grid."
+  )
+}
+
+city3_mean <- grid_mean[
+  city_indices,
+  ,
+  drop = FALSE
+]
+
+city3_variance <- grid_variance[
+  city_indices,
+  ,
+  drop = FALSE
+]
+
+city3_sd <- city3_variance
+
+year_columns <- names(city3_sd)[
+  -c(1, 2)
+]
+
+city3_sd[
+  ,
+  year_columns
+] <- sqrt(
+  pmax(
+    as.matrix(
+      city3_variance[
+        ,
+        year_columns,
+        drop = FALSE
+      ]
+    ),
+    0
+  )
+)
+
+city3_mean_file <- here::here(
+  "Data",
+  "reaches_kriging_city3_mean.csv"
+)
+
+city3_sd_file <- here::here(
+  "Data",
+  "reaches_kriging_city3_sd.csv"
+)
+
+write.csv(
+  city3_mean,
+  city3_mean_file,
+  row.names = FALSE
+)
+
+write.csv(
+  city3_sd,
+  city3_sd_file,
+  row.names = FALSE
+)
+
+message(
+  "Complete-grid kriging means saved to: ",
+  grid_mean_file
+)
+
+message(
+  "Complete-grid prediction variances saved to: ",
+  grid_variance_file
+)
+
+message(
+  "Three-city kriging means saved to: ",
+  city3_mean_file
+)
+
+message(
+  "Three-city prediction standard deviations saved to: ",
+  city3_sd_file
+)
+
+message(
+  "Elapsed time: ",
+  round(elapsed_minutes, 2),
+  " minutes."
+)
