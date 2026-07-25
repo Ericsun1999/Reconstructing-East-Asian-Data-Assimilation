@@ -55,7 +55,7 @@ par_est_initial <- function(temp2) {
 
 findgam <- function(y, z, y_target) {
 
-  # 把 Figure4.R 裡原本完整的函數內容放在這裡。
+  
 
 }
 
