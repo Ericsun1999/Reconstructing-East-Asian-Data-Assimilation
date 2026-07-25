@@ -20,3 +20,17 @@ calibration_results <- readRDS(calibration_file)
 
 var.fit2 <- calibration_results$var_fit2
 vario.fit2 <- calibration_results$vario_fit2
+
+
+vario.fit2$plot1
+vario.fit2$plot2
+vario.fit2$plot3
+
+list(
+  psill1 = x_closest1,
+  psill2 = x_closest - x_closest1,
+  range = x_closest2,
+  plot1 = p1,
+  plot2 = p2,
+  plot3 = p3
+)
