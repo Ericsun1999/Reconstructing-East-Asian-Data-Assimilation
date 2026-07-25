@@ -401,6 +401,10 @@ predict_one_year <- function(
     vals,
     tol) {
 
+  # ----------------------------------------------------------
+  # 1. Extract observations for this year
+  # ----------------------------------------------------------
+
   temp14 <- observation_data[
     observation_data$year == current_year,
   ]
@@ -425,6 +429,10 @@ predict_one_year <- function(
     )
   }
 
+  # ----------------------------------------------------------
+  # 2. Construct SigmaZ once for this year
+  # ----------------------------------------------------------
+
   SigmaZ <- SigmaZ_matrix(
     s_coords = locations,
     sigma_Y2 = sigma_Y2,
@@ -438,6 +446,10 @@ predict_one_year <- function(
     SigmaZ + t(SigmaZ)
   ) / 2
 
+  # ----------------------------------------------------------
+  # 3. Construct the right-hand side for the prediction means
+  # ----------------------------------------------------------
+
   sigma2_total <- sigma_Y2 + sigma_E2
   sigma_total <- sqrt(sigma2_total)
 
@@ -447,17 +459,68 @@ predict_one_year <- function(
     vals = vals
   )
 
-  rhs <- z_obs - Ez
+  rhs_mean <- z_obs - Ez
 
-  w_mean <- tryCatch(
+  # ----------------------------------------------------------
+  # 4. Construct all 168 cross-covariance vectors
+  #
+  # CZY has:
+  #   rows    = observation locations
+  #   columns = prediction locations
+  # ----------------------------------------------------------
+
+  CZY <- vapply(
+    seq_len(nrow(prediction_coordinates)),
+    function(j) {
+
+      s0 <- as.numeric(
+        prediction_coordinates[j, ]
+      )
+
+      cZY_vector(
+        s_coords = locations,
+        s0 = s0,
+        sigma_Y2 = sigma_Y2,
+        sigma_E2 = sigma_E2,
+        alpha = alpha,
+        cuts = cuts,
+        vals = vals
+      )
+    },
+    numeric(nrow(locations))
+  )
+
+  if (!is.matrix(CZY)) {
+    CZY <- matrix(
+      CZY,
+      nrow = nrow(locations)
+    )
+  }
+
+  # ----------------------------------------------------------
+  # 5. Solve all systems at once
+  #
+  # Column 1:
+  #   SigmaZ^{-1} (z_obs - Ez)
+  #
+  # Columns 2--169:
+  #   SigmaZ^{-1} c_zy(s0)
+  # ----------------------------------------------------------
+
+  all_rhs <- cbind(
+    rhs_mean,
+    CZY
+  )
+
+  all_solutions <- tryCatch(
     solve(
       SigmaZ,
-      rhs,
+      all_rhs,
       tol = tol
     ),
     error = function(e) {
       stop(
-        "Failed to solve the mean kriging system for year ",
+        "Failed to solve the kriging systems for year ",
         current_year,
         ". Reciprocal condition number = ",
         signif(rcond(SigmaZ), 6),
@@ -467,76 +530,55 @@ predict_one_year <- function(
     }
   )
 
-  prediction_mean <- numeric(
-    nrow(prediction_coordinates)
+  w_mean <- all_solutions[, 1]
+
+  W_variance <- all_solutions[
+    ,
+    -1,
+    drop = FALSE
+  ]
+
+  # ----------------------------------------------------------
+  # 6. Prediction means
+  #
+  # For each prediction location:
+  #   c_zy' SigmaZ^{-1} (z_obs - Ez)
+  # ----------------------------------------------------------
+
+  prediction_mean <- drop(
+    crossprod(
+      CZY,
+      w_mean
+    )
   )
 
-  prediction_variance <- numeric(
-    nrow(prediction_coordinates)
+  # ----------------------------------------------------------
+  # 7. Prediction variances
+  #
+  # For each prediction location:
+  #   sigma_Y2 - c_zy' SigmaZ^{-1} c_zy
+  # ----------------------------------------------------------
+
+  covariance_reduction <- colSums(
+    CZY * W_variance
   )
 
-  for (j in seq_len(nrow(prediction_coordinates))) {
+  prediction_variance <- sigma_Y2 -
+    covariance_reduction
 
-    s0 <- as.numeric(
-      prediction_coordinates[j, ]
-    )
-
-    c_zy <- cZY_vector(
-      s_coords = locations,
-      s0 = s0,
-      sigma_Y2 = sigma_Y2,
-      sigma_E2 = sigma_E2,
-      alpha = alpha,
-      cuts = cuts,
-      vals = vals
-    )
-
-    prediction_mean[j] <- drop(
-      crossprod(
-        c_zy,
-        w_mean
-      )
-    )
-
-    w_var <- tryCatch(
-      solve(
-        SigmaZ,
-        c_zy,
-        tol = tol
-      ),
-      error = function(e) {
-        stop(
-          "Failed to solve the variance kriging system for year ",
-          current_year,
-          " at prediction location ",
-          j,
-          ". Reciprocal condition number = ",
-          signif(rcond(SigmaZ), 6),
-          ". Original error: ",
-          conditionMessage(e)
-        )
-      }
-    )
-
-    variance_value <- sigma_Y2 -
-      drop(
-        crossprod(
-          c_zy,
-          w_var
-        )
-      )
-
-    prediction_variance[j] <- max(
-      variance_value,
-      0
-    )
-  }
+  # Avoid negligible negative values caused by floating-point
+  # numerical error.
+  prediction_variance <- pmax(
+    prediction_variance,
+    0
+  )
 
   list(
     mean = prediction_mean,
     variance = prediction_variance
   )
 }
+
 
 # ------------------------------------------------------------
 # 6. Generate all yearly predictions
