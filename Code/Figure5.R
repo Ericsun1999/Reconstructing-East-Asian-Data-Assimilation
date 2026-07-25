@@ -370,103 +370,152 @@ SigmaZ_matrix <- function(
   Sig
 }
 
-y_pred <- function(
-    s_coords,
-    s0,
-    z_obs = NULL,
+predict_grid_one_year <- function(
+    current_year,
+    observation_data,
+    prediction_coordinates,
     sigma_Y2,
     sigma_E2,
     alpha,
     cuts = c(-Inf, -1.5, -0.5, 0.5, Inf),
     vals = c(-2, -1, 0, 1),
-    tol = 1e-2,
-    return = c("mean", "var")) {
+    tol = 1e-2) {
 
-  return <- unique(return)
+  temp14 <- observation_data[
+    observation_data$year == current_year,
+  ]
 
-  if (!is.null(z_obs)) {
-    stopifnot(
-      length(z_obs) ==
-        nrow(s_coords)
+  if (nrow(temp14) == 0L) {
+    stop(
+      "No REACHES observations were found for year ",
+      current_year,
+      "."
     )
   }
 
-  c_zy <- cZY_vector(
-    s_coords,
-    s0,
-    sigma_Y2,
-    sigma_E2,
-    alpha,
-    cuts,
-    vals
-  )
+  locations <- temp14@coords
+  z_obs <- as.numeric(temp14$level)
 
+  if (length(z_obs) != nrow(locations)) {
+    stop(
+      "The observation values and coordinates have different ",
+      "lengths for year ",
+      current_year,
+      "."
+    )
+  }
+
+  # SigmaZ depends on the observation locations and model
+  # parameters, not on the prediction location. Construct it
+  # only once for this year.
   SigmaZ <- SigmaZ_matrix(
-    s_coords,
-    sigma_Y2,
-    sigma_E2,
-    alpha,
-    cuts,
-    vals
+    s_coords = locations,
+    sigma_Y2 = sigma_Y2,
+    sigma_E2 = sigma_E2,
+    alpha = alpha,
+    cuts = cuts,
+    vals = vals
   )
 
   SigmaZ <- (
     SigmaZ + t(SigmaZ)
   ) / 2
 
-  out <- list()
+  sigma2 <- sigma_Y2 + sigma_E2
+  sigma <- sqrt(sigma2)
 
-  if ("mean" %in% return) {
-    sigma2 <- sigma_Y2 + sigma_E2
-    sigma <- sqrt(sigma2)
+  Ez <- Ez_discrete(
+    sigma = sigma,
+    cuts = cuts,
+    vals = vals
+  )
 
-    Ez <- Ez_discrete(
-      sigma,
-      cuts,
-      vals
-    )
+  rhs_mean <- z_obs - Ez
 
-    rhs <- z_obs - Ez
-    w_mean <- solve(
-      SigmaZ,
-      rhs,
-      tol = tol
-    )
+  # Each column is the cross-covariance vector for one
+  # prediction grid point.
+  CZY <- vapply(
+    seq_len(nrow(prediction_coordinates)),
+    function(j) {
 
-    out$mean <- drop(
-      crossprod(
-        c_zy,
-        w_mean
-      )
-    )
-  }
-
-  if ("var" %in% return) {
-    w_var <- solve(
-      SigmaZ,
-      c_zy,
-      tol = tol
-    )
-
-    var_pred <- sigma_Y2 -
-      drop(
-        crossprod(
-          c_zy,
-          w_var
-        )
+      s0 <- as.numeric(
+        prediction_coordinates[j, ]
       )
 
-    out$var <- max(
-      var_pred,
-      0
+      cZY_vector(
+        s_coords = locations,
+        s0 = s0,
+        sigma_Y2 = sigma_Y2,
+        sigma_E2 = sigma_E2,
+        alpha = alpha,
+        cuts = cuts,
+        vals = vals
+      )
+    },
+    numeric(nrow(locations))
+  )
+
+  if (!is.matrix(CZY)) {
+    CZY <- matrix(
+      CZY,
+      nrow = nrow(locations)
     )
   }
 
-  if (length(out) == 1) {
-    return(out[[1]])
-  }
+  # Solve the mean system and all prediction-variance systems
+  # together. This performs one matrix factorization per year.
+  all_rhs <- cbind(
+    rhs_mean,
+    CZY
+  )
 
-  out
+  all_solutions <- tryCatch(
+    solve(
+      SigmaZ,
+      all_rhs,
+      tol = tol
+    ),
+    error = function(e) {
+      stop(
+        "Failed to solve the kriging systems for year ",
+        current_year,
+        ". Reciprocal condition number = ",
+        signif(rcond(SigmaZ), 6),
+        ". Original error: ",
+        conditionMessage(e)
+      )
+    }
+  )
+
+  w_mean <- all_solutions[, 1]
+
+  W_variance <- all_solutions[
+    ,
+    -1,
+    drop = FALSE
+  ]
+
+  prediction_mean <- drop(
+    crossprod(
+      CZY,
+      w_mean
+    )
+  )
+
+  prediction_variance <- sigma_Y2 -
+    colSums(
+      CZY * W_variance
+    )
+
+  prediction_variance <- pmax(
+    prediction_variance,
+    0
+  )
+
+  list(
+    mean = prediction_mean,
+    variance = prediction_variance
+  )
 }
 
 # ------------------------------------------------------------
@@ -474,37 +523,35 @@ y_pred <- function(
 # ------------------------------------------------------------
 
 for (i in seq_along(year2)) {
+
+  message(
+    "Kriging year ",
+    year2[i],
+    " (",
+    i,
+    "/",
+    length(year2),
+    ")"
+  )
+
   temp14 <- y2[
     y2$year == year2[i],
   ]
 
-  temp15 <- numeric(
-    nrow(loc@coords)
+  yearly_result <- predict_grid_one_year(
+    current_year = year2[i],
+    observation_data = y2,
+    prediction_coordinates = loc@coords,
+    sigma_Y2 = sigmay,
+    sigma_E2 = sigmae,
+    alpha = alpha,
+    cuts = cuts,
+    vals = vals,
+    tol = 1e-2
   )
-  temp16 <- numeric(
-    nrow(loc@coords)
-  )
 
-  locations <- temp14@coords
-
-  for (j in seq_len(nrow(loc@coords))) {
-    s0 <- as.numeric(
-      loc@coords[j, ]
-    )
-
-    res <- y_pred(
-      s_coords = locations,
-      s0 = s0,
-      z_obs = as.matrix(temp14$level),
-      sigma_Y2 = sigmay,
-      sigma_E2 = sigmae,
-      alpha = alpha,
-      return = c("mean", "var")
-    )
-
-    temp15[j] <- res$mean
-    temp16[j] <- res$var
-  }
+  temp15 <- yearly_result$mean
+  temp16 <- yearly_result$variance
 
   arr.pred[, , i] <- matrix(
     temp15,
