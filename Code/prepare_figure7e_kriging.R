@@ -153,7 +153,7 @@ vals <- c(
   1
 )
 
-solve_tol <- 1e-2
+solve_tol <- 1e-12
 
 # ------------------------------------------------------------
 # 4. Figure5.R kriging helper functions
