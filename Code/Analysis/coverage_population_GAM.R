@@ -78,10 +78,6 @@ candidate_lme_dirs <- c(
   # Current repository location.
   here::here("Data", "LME data", "population"),
 
-  # Also accept this literal spelling in case the folder is
-  # actually named "LME dara" rather than "LME data".
-  here::here("Data", "LME dara", "population"),
-
   # Backward-compatible alternatives.
   here::here("Data", "LME data"),
   here::here("Data", "LME"),
