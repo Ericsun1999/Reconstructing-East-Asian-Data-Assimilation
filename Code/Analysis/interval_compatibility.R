@@ -294,7 +294,7 @@ split_validation_data <- function(
   training_data <- anti_join(
     data,
     test_data %>%
-      select(
+      dplyr::select(
         year,
         long,
         lat
@@ -360,7 +360,7 @@ estimate_pilot_variogram <- function(
     round(
       as.matrix(
         y2 %>%
-          select(
+          dplyr::select(
             level,
             year,
             long,
@@ -1483,7 +1483,7 @@ for (repetition in seq_len(
         held_out_predictions
       )
     ) %>%
-    select(
+    dplyr::select(
       repetition,
       nominal_level,
       compatibility,
