@@ -524,9 +524,7 @@ for (member_id in seq_len(number_of_lme_members)) {
     number_of_lme_members
   )
 
-  lme_long_list[
-    [member_id]
-  ] <- annualize_lme_member(
+  lme_long_list[[member_id]] <- annualize_lme_member(
     input_file = input_file,
     member_id = member_id,
     years_use = analysis_years,
@@ -824,14 +822,10 @@ names(population_rasters) <- as.character(
   population_years_available
 )
 
-reference_raster <- population_rasters[
-  [1]
-]
+reference_raster <- population_rasters[[1]]
 
 geometry_matches <- vapply(
-  population_rasters[
-    -1
-  ],
+  population_rasters[-1],
   function(current_raster) {
 
     isTRUE(
