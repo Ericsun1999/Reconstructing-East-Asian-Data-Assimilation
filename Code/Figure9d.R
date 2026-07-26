@@ -98,7 +98,7 @@ measurement_mc_seed <- 1
 
 # Preserve the original behavior of saving and plotting all
 # available kriging years except the final one.
-drop_final_output_year <- TRUE
+drop_final_output_year <- FALSE
 
 candidate_lme_dirs <- c(
   here::here(
