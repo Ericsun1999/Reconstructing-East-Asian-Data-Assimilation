@@ -28,26 +28,8 @@ library(tidyr)
 # 1. Paths
 # ------------------------------------------------------------
 
-candidate_ghcn_files <- c(
-  here::here("Data", "GHCNv4.xlsx"),
-  here::here("Data", "GHCN", "GHCNv4.xlsx")
-)
 
-ghcn_file_found <- candidate_ghcn_files[
-  file.exists(candidate_ghcn_files)
-]
-
-if (length(ghcn_file_found) == 0L) {
-  stop(
-    "GHCNv4.xlsx was not found. Expected one of:\n",
-    paste(
-      paste0("  - ", candidate_ghcn_files),
-      collapse = "\n"
-    )
-  )
-}
-
-ghcn_file <- ghcn_file_found[1]
+ghcn_file <- here::here("Data", "GHCNv4.xlsx")
 
 validation_dir <- here::here(
   "Data",
