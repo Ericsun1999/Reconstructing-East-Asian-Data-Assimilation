@@ -4,7 +4,7 @@ here::i_am("Code/Figure10a.R")
 library(ggplot2)
 library(readxl)
 
-ghcnn<-read_excel("./GHCNv4.xlsx",col_type = c("skip","numeric","skip","numeric","skip","skip","numeric","skip","skip","numeric","skip","skip","numeric","skip","skip","numeric","skip","skip","numeric","skip","skip","numeric","skip","skip","numeric","skip","skip","numeric","skip","skip","numeric","skip","skip","numeric","skip","skip","numeric","skip","skip"))
+ghcnn<-read_excel(here::here("Data","GHCNv4.xlsx"),col_type = c("skip","numeric","skip","numeric","skip","skip","numeric","skip","skip","numeric","skip","skip","numeric","skip","skip","numeric","skip","skip","numeric","skip","skip","numeric","skip","skip","numeric","skip","skip","numeric","skip","skip","numeric","skip","skip","numeric","skip","skip","numeric","skip","skip"))
 
 #Beijing
 ghcn<-ghcnn[1:161,]
