@@ -230,9 +230,6 @@ prepare_plot_data <- function(
     ghcn_data,
     start_year_exclusive) {
 
-  # Assimilated, REACHES, LME, and the uncertainty ribbon are
-  # available annually, so retain every available validation
-  # year after the city-specific starting year.
   validation_data <- validation_data %>%
     mutate(
       REACHES_transformed = predicted * beta + alpha,
@@ -240,20 +237,21 @@ prepare_plot_data <- function(
       lo = predicted - 1.96 * se,
       hi = predicted + 1.96 * se
     ) %>%
-    filter(
-      year > start_year_exclusive
-    )
+    filter(year > start_year_exclusive)
 
-  # GHCN is plotted only for years with all 12 monthly values.
-  # Do not restrict the annual model series to these GHCN years.
   ghcn_data <- ghcn_data %>%
-    filter(
-      year > start_year_exclusive
-    )
+    filter(year > start_year_exclusive)
+
+  common_years <- intersect(
+    validation_data$year,
+    ghcn_data$year
+  )
 
   list(
-    validation = validation_data,
-    ghcn = ghcn_data
+    validation = validation_data %>%
+      filter(year %in% common_years),
+    ghcn = ghcn_data %>%
+      filter(year %in% common_years)
   )
 }
 
@@ -381,23 +379,16 @@ for (city_name in names(city_config)) {
     start_year_exclusive = config$start_year_exclusive
   )
 
-  if (nrow(plot_data$validation) == 0L) {
+  if (
+    nrow(plot_data$validation) == 0L ||
+      nrow(plot_data$ghcn) == 0L
+  ) {
     stop(
-      "No annual model results after ",
+      "No common post-",
       config$start_year_exclusive,
-      " were found for ",
+      " years were found for ",
       city_name,
       "."
-    )
-  }
-
-  if (nrow(plot_data$ghcn) == 0L) {
-    warning(
-      "No complete GHCN years after ",
-      config$start_year_exclusive,
-      " were found for ",
-      city_name,
-      ". The model series will still be plotted."
     )
   }
 
