@@ -979,7 +979,7 @@ coverage_population_panel <- coverage_panel %>%
 
 # Common complete-case panel S used by all four models.
 model_df <- coverage_population_panel %>%
-  select(
+  dplyr::select(
     cell_id,
     R,
     Ngu,
