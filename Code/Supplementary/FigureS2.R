@@ -230,6 +230,7 @@ prepare_plot_data <- function(
     ghcn_data,
     start_year_exclusive) {
 
+  # Keep the annual model series for every available year.
   validation_data <- validation_data %>%
     mutate(
       REACHES_transformed = predicted * beta + alpha,
@@ -237,21 +238,22 @@ prepare_plot_data <- function(
       lo = predicted - 1.96 * se,
       hi = predicted + 1.96 * se
     ) %>%
-    filter(year > start_year_exclusive)
+    filter(
+      year > start_year_exclusive,
+      year <= 1911
+    )
 
+  # GHCN is shown only for years with all 12 months available.
+  # It is not used to filter the annual model series.
   ghcn_data <- ghcn_data %>%
-    filter(year > start_year_exclusive)
-
-  common_years <- intersect(
-    validation_data$year,
-    ghcn_data$year
-  )
+    filter(
+      year > start_year_exclusive,
+      year <= 1911
+    )
 
   list(
-    validation = validation_data %>%
-      filter(year %in% common_years),
-    ghcn = ghcn_data %>%
-      filter(year %in% common_years)
+    validation = validation_data,
+    ghcn = ghcn_data
   )
 }
 
@@ -379,18 +381,33 @@ for (city_name in names(city_config)) {
     start_year_exclusive = config$start_year_exclusive
   )
 
-  if (
-    nrow(plot_data$validation) == 0L ||
-      nrow(plot_data$ghcn) == 0L
-  ) {
+  if (nrow(plot_data$validation) == 0L) {
     stop(
-      "No common post-",
-      config$start_year_exclusive,
-      " years were found for ",
+      "No annual model results between ",
+      config$start_year_exclusive + 1,
+      " and 1911 were found for ",
       city_name,
       "."
     )
   }
+
+  if (nrow(plot_data$ghcn) == 0L) {
+    warning(
+      "No complete GHCN years between ",
+      config$start_year_exclusive + 1,
+      " and 1911 were found for ",
+      city_name,
+      ". The annual model series will still be plotted."
+    )
+  }
+
+  message(
+    city_name,
+    ": annual model years = ",
+    nrow(plot_data$validation),
+    "; complete GHCN years = ",
+    nrow(plot_data$ghcn)
+  )
 
   plot_object <- make_time_series_plot(
     validation_data = plot_data$validation,
