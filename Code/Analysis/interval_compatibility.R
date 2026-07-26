@@ -189,15 +189,7 @@ mode_first <- function(
     values %in% modal_values
   )
 
-  values[
-    tied_rows[
-      which.min(
-        source_order[
-          tied_rows
-        ]
-      )
-    ]
-  ]
+  values[tied_rows[which.min(source_order[tied_rows])]]
 }
 
 duplicate_diagnostics <- temperature %>%
@@ -1259,9 +1251,7 @@ predict_held_out_sites <- function(
         )
       )
 
-    prediction_results[
-      [year_index]
-    ] <- data.frame(
+    prediction_results[[year_index]] <- data.frame(
       year = current_year,
       long = held_out_year$long,
       lat = held_out_year$lat,
@@ -1302,17 +1292,12 @@ compute_validation_metrics <- function(
     function(category_index) {
 
       pnorm(
-        cuts[
-          category_index +
-            1L
-        ],
+        cuts[category_index + 1L],
         mean = test_predictions$yhat,
         sd = predictive_sd
       ) -
         pnorm(
-          cuts[
-            category_index
-          ],
+          cuts[category_index],
           mean = test_predictions$yhat,
           sd = predictive_sd
         )
@@ -1347,45 +1332,21 @@ compute_validation_metrics <- function(
 
   rps_by_observation <- rowSums(
     (
-      cumulative_probabilities[
-        ,
-        seq_len(
-          length(values) -
-            1L
-        ),
-        drop = FALSE
-      ] -
-        observed_cumulative_indicators[
-          ,
-          seq_len(
-            length(values) -
-              1L
-          ),
-          drop = FALSE
-        ]
+      cumulative_probabilities[, seq_len(length(values) - 1L), drop = FALSE] -
+        observed_cumulative_indicators[, seq_len(length(values) - 1L), drop = FALSE]
     )^2
   )
 
-  predicted_category <- values[
-    max.col(
-      category_probabilities,
-      ties.method = "first"
-    )
-  ]
+  predicted_category <- values[max.col( category_probabilities, ties.method = "first")]
 
   category_index <- match(
     test_predictions$Z_obs,
     values
   )
 
-  observed_lower <- cuts[
-    category_index
-  ]
+  observed_lower <- cuts[category_index]
 
-  observed_upper <- cuts[
-    category_index +
-      1L
-  ]
+  observed_upper <- cuts[category_index +1L]
 
   compatibility_by_level <- lapply(
     nominal_levels,
@@ -1515,9 +1476,7 @@ for (repetition in seq_len(
     nominal_levels = nominal_levels
   )
 
-  split_results[
-    [repetition]
-  ] <- validation_metrics$compatibility %>%
+  split_results[[repetition]] <- validation_metrics$compatibility %>%
     mutate(
       repetition = repetition,
       number_of_held_out_sites = nrow(
@@ -1531,9 +1490,7 @@ for (repetition in seq_len(
       number_of_held_out_sites
     )
 
-  diagnostic_results[
-    [repetition]
-  ] <- data.frame(
+  diagnostic_results[[repetition]] <- data.frame(
     repetition = repetition,
     number_of_held_out_sites = nrow(
       held_out_predictions
@@ -1568,9 +1525,7 @@ for (repetition in seq_len(
     )
   )
 
-  observation_results[
-    [repetition]
-  ] <- bind_cols(
+  observation_results[[repetition]] <- bind_cols(
     data.frame(
       repetition = repetition
     ),
@@ -1591,18 +1546,10 @@ for (repetition in seq_len(
   checkpoint <- list(
     completed_repetitions = repetition,
     split_results = bind_rows(
-      split_results[
-        seq_len(
-          repetition
-        )
-      ]
+      split_results[seq_len(repetition)]
     ),
     diagnostic_results = bind_rows(
-      diagnostic_results[
-        seq_len(
-          repetition
-        )
-      ]
+      diagnostic_results[seq_len(repetition)]
     )
   )
 
