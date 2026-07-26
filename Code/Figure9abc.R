@@ -1,61 +1,90 @@
 here::i_am("Code/Figure9abc.R")
 
 # ============================================================
-# Generate Figure 9(a)--(c) automatically for Beijing,
-# Shanghai, and Hong Kong.
+# Generate the parameter plots for Beijing, Shanghai, and
+# Hong Kong.
 #
-# Required inputs produced by Code/Prior.R:
-#   Output/Intermediate/Prior/mtB.csv
-#   Output/Intermediate/Prior/muB.csv
-#   Output/Intermediate/Prior/rtB.csv
-#   Output/Intermediate/Prior/mtS.csv
-#   Output/Intermediate/Prior/muS.csv
-#   Output/Intermediate/Prior/rtS.csv
-#   Output/Intermediate/Prior/mtH.csv
-#   Output/Intermediate/Prior/muH.csv
-#   Output/Intermediate/Prior/rtH.csv
+# Inputs:
+#   Data/par/mtB.csv
+#   Data/par/muB.csv
+#   Data/par/rtB.csv
+#   Data/par/mtS.csv
+#   Data/par/muS.csv
+#   Data/par/rtS.csv
+#   Data/par/mtH.csv
+#   Data/par/muH.csv
+#   Data/par/rtH.csv
 #
 # Outputs:
-#   Output/Figure9/Beijing/Figure9a.png
-#   Output/Figure9/Beijing/Figure9b.png
-#   Output/Figure9/Beijing/Figure9c.png
-#   Output/Figure9/Shanghai/Figure9a.png
-#   ...
+#   Beijing:
+#     Output/Figure9/Figure9a.png
+#     Output/Figure9/Figure9b.png
+#     Output/Figure9/Figure9c.png
+#
+#   Shanghai:
+#     Output/Supplementary/FigureS3a.png
+#     Output/Supplementary/FigureS3b.png
+#     Output/Supplementary/FigureS3c.png
+#
+#   Hong Kong:
+#     Output/Supplementary/FigureS4a.png
+#     Output/Supplementary/FigureS4b.png
+#     Output/Supplementary/FigureS4c.png
 # ============================================================
 
 library(here)
 library(ggplot2)
 
 # ------------------------------------------------------------
-# 1. Configuration
+# 1. Paths and city-specific figure names
 # ------------------------------------------------------------
 
-prior_dir <- here::here(
-  "Output",
-  "Intermediate",
-  "Prior"
+parameter_dir <- here::here(
+  "Data",
+  "par"
 )
 
-figure_dir <- here::here(
+figure9_dir <- here::here(
   "Output",
   "Figure9"
 )
 
+supplementary_dir <- here::here(
+  "Output",
+  "Supplementary"
+)
+
 dir.create(
-  figure_dir,
+  figure9_dir,
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+
+dir.create(
+  supplementary_dir,
   recursive = TRUE,
   showWarnings = FALSE
 )
 
 city_config <- list(
-  Beijing = list(code = "B"),
-  Shanghai = list(code = "S"),
-  HongKong = list(code = "H")
+  Beijing = list(
+    code = "B",
+    output_dir = figure9_dir,
+    figure_prefix = "Figure9"
+  ),
+  Shanghai = list(
+    code = "S",
+    output_dir = supplementary_dir,
+    figure_prefix = "FigureS3"
+  ),
+  HongKong = list(
+    code = "H",
+    output_dir = supplementary_dir,
+    figure_prefix = "FigureS4"
+  )
 )
 
-# Preserve the appearance of the original plots:
-#   ML            = blue dotted line
-#   Penalized ML  = dark-red solid line
+# Preserve the original line appearance.
 line_colors <- c(
   "ML" = "steelblue",
   "Penalized ML" = "darkred"
@@ -82,8 +111,7 @@ read_parameter_file <- function(
       " file for ",
       city_name,
       ": ",
-      filename,
-      "\nRun Code/Prior.R first."
+      filename
     )
   }
 
@@ -192,8 +220,8 @@ make_parameter_plot <- function(
 save_parameter_plot <- function(
     plot_object,
     output_file,
-    width = 6,
-    height = 4) {
+    width,
+    height) {
 
   ggsave(
     filename = output_file,
@@ -211,7 +239,7 @@ save_parameter_plot <- function(
 }
 
 # ------------------------------------------------------------
-# 3. Generate Figure 9(a)--(c) for every city
+# 3. Generate all nine plots
 # ------------------------------------------------------------
 
 figure9_plots <- vector(
@@ -225,22 +253,14 @@ names(figure9_plots) <- names(
 
 for (city_name in names(city_config)) {
 
-  city_code <- city_config[[city_name]]$code
-
-  city_output_dir <- file.path(
-    figure_dir,
-    city_name
-  )
-
-  dir.create(
-    city_output_dir,
-    recursive = TRUE,
-    showWarnings = FALSE
-  )
+  config <- city_config[[city_name]]
+  city_code <- config$code
+  figure_prefix <- config$figure_prefix
+  output_dir <- config$output_dir
 
   df_M <- read_parameter_file(
     filename = file.path(
-      prior_dir,
+      parameter_dir,
       paste0(
         "mt",
         city_code,
@@ -253,7 +273,7 @@ for (city_name in names(city_config)) {
 
   df_mu <- read_parameter_file(
     filename = file.path(
-      prior_dir,
+      parameter_dir,
       paste0(
         "mu",
         city_code,
@@ -266,7 +286,7 @@ for (city_name in names(city_config)) {
 
   df_r2 <- read_parameter_file(
     filename = file.path(
-      prior_dir,
+      parameter_dir,
       paste0(
         "rt",
         city_code,
@@ -277,35 +297,35 @@ for (city_name in names(city_config)) {
     parameter_name = "r2"
   )
 
-  # Figure 9(a): estimated M_t.
   plot_M <- make_parameter_plot(
     data = df_M,
     y_label = expression(M)
   )
 
-  # Figure 9(b): estimated mu_t.
   plot_mu <- make_parameter_plot(
     data = df_mu,
     y_label = expression(mu)
   )
 
-  # Figure 9(c): estimated r_t^2.
   plot_r2 <- make_parameter_plot(
     data = df_r2,
     y_label = expression(r^2)
   )
 
   figure9_plots[[city_name]] <- list(
-    Figure9a = plot_M,
-    Figure9b = plot_mu,
-    Figure9c = plot_r2
+    a = plot_M,
+    b = plot_mu,
+    c = plot_r2
   )
 
   save_parameter_plot(
     plot_object = plot_M,
     output_file = file.path(
-      city_output_dir,
-      "Figure9a.png"
+      output_dir,
+      paste0(
+        figure_prefix,
+        "a.png"
+      )
     ),
     width = 6,
     height = 4
@@ -314,8 +334,11 @@ for (city_name in names(city_config)) {
   save_parameter_plot(
     plot_object = plot_mu,
     output_file = file.path(
-      city_output_dir,
-      "Figure9b.png"
+      output_dir,
+      paste0(
+        figure_prefix,
+        "b.png"
+      )
     ),
     width = 6,
     height = 4
@@ -324,8 +347,11 @@ for (city_name in names(city_config)) {
   save_parameter_plot(
     plot_object = plot_r2,
     output_file = file.path(
-      city_output_dir,
-      "Figure9c.png"
+      output_dir,
+      paste0(
+        figure_prefix,
+        "c.png"
+      )
     ),
     width = 6,
     height = 3
@@ -333,9 +359,5 @@ for (city_name in names(city_config)) {
 }
 
 message(
-  "Figure 9(a)--(c) completed for: ",
-  paste(
-    names(city_config),
-    collapse = ", "
-  )
+  "Completed Figure 9, Figure S3, and Figure S4."
 )
