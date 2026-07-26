@@ -27,7 +27,7 @@ df94 <- inner_join(df87, df92, by = "year")
 
 
 df_long <- df94 %>%
-  select(year, GHCN, predicted, REACHES, LME) %>%
+  dplyr::select(year, GHCN, predicted, REACHES, LME) %>%
   pivot_longer(
     cols = c(predicted, REACHES, LME),
     names_to = "Method",
