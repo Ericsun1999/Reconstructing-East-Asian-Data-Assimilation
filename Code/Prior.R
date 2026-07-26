@@ -11,9 +11,9 @@ library(tidyr)
 analysis_years <- 1368:1911
 lme_columns <- 21:564
 
-lambda1_grid <- 10^seq(3, 3, length.out = 1)
-lambda2_grid <- 10^seq(0, 2, length.out = 9)
-lambda3_grid <- 10^seq(2, 3, length.out = 4)
+lambda1_grid <- 10^seq(-3, 3, length.out = 25)
+lambda2_grid <- 10^seq(-3, 3, length.out = 25)
+lambda3_grid <- 10^seq(-3, 3, length.out = 25)
 
 max_iter <- 100
 tol <- 1e-8
@@ -1007,17 +1007,6 @@ estimate_city <- function(
     )
   )
 
-  readr::write_excel_csv(
-    penalized_fit$cv_table,
-    file.path(
-      output_dir,
-      paste0(
-        "cv_scores_",
-        city_name,
-        ".csv"
-      )
-    )
-  )
 
   saveRDS(
     list(
@@ -1108,14 +1097,6 @@ best_lambda_summary <- do.call(
 )
 
 rownames(best_lambda_summary) <- NULL
-
-readr::write_excel_csv(
-  best_lambda_summary,
-  file.path(
-    output_dir,
-    "best_lambdas_all_cities.csv"
-  )
-)
 
 saveRDS(
   prior_results,
