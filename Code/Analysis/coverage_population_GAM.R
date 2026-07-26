@@ -30,7 +30,10 @@ here::i_am("Code/Analysis/coverage_population_GAM.R")
 # Expected raw-data locations:
 #   Data/temperature index value.v1.xlsx
 #
-#   Data/LME data/a1.csv, ..., a13.csv
+#   Data/LME data/population/a1.csv.gz, ..., a13.csv.gz
+#
+#   For convenience, the script also accepts uncompressed
+#   a1.csv, ..., a13.csv and several alternate LME folders.
 #
 #   Data/population/1776_pd.tif
 #   Data/population/1820_pd.tif
@@ -72,6 +75,14 @@ reaches_file <- here::here(
 )
 
 candidate_lme_dirs <- c(
+  # Current repository location.
+  here::here("Data", "LME data", "population"),
+
+  # Also accept this literal spelling in case the folder is
+  # actually named "LME dara" rather than "LME data".
+  here::here("Data", "LME dara", "population"),
+
+  # Backward-compatible alternatives.
   here::here("Data", "LME data"),
   here::here("Data", "LME"),
   here::here("Data", "LME_data")
@@ -105,22 +116,59 @@ dir.create(
   showWarnings = FALSE
 )
 
-required_lme_files <- paste0(
-  "a",
-  seq_len(number_of_lme_members),
-  ".csv"
-)
+find_lme_member_file <- function(
+    directory,
+    member_id) {
+
+  candidates <- c(
+    file.path(
+      directory,
+      paste0(
+        "a",
+        member_id,
+        ".csv.gz"
+      )
+    ),
+    file.path(
+      directory,
+      paste0(
+        "a",
+        member_id,
+        ".csv"
+      )
+    )
+  )
+
+  existing_files <- candidates[
+    file.exists(candidates)
+  ]
+
+  if (length(existing_files) == 0L) {
+    return(NA_character_)
+  }
+
+  # Prefer the compressed file when both versions exist.
+  existing_files[1]
+}
+
 
 valid_lme_dir <- vapply(
   candidate_lme_dirs,
   function(directory) {
-    all(
-      file.exists(
-        file.path(
-          directory,
-          required_lme_files
+
+    member_files <- vapply(
+      seq_len(number_of_lme_members),
+      function(member_id) {
+        find_lme_member_file(
+          directory = directory,
+          member_id = member_id
         )
-      )
+      },
+      character(1)
+    )
+
+    all(
+      !is.na(member_files)
     )
   },
   logical(1)
@@ -128,10 +176,17 @@ valid_lme_dir <- vapply(
 
 if (!any(valid_lme_dir)) {
   stop(
-    "Could not find a1.csv through a13.csv together in:\n",
-    paste(
-      paste0("  - ", candidate_lme_dirs),
-      collapse = "\n"
+    paste0(
+      "Could not find all 13 LME files in one directory.\n",
+      "Each member may be stored as a*.csv.gz or a*.csv.\n",
+      "Directories searched:\n",
+      paste(
+        paste0(
+          "  - ",
+          candidate_lme_dirs
+        ),
+        collapse = "\n"
+      )
     )
   )
 }
@@ -139,6 +194,11 @@ if (!any(valid_lme_dir)) {
 lme_dir <- candidate_lme_dirs[
   which(valid_lme_dir)[1]
 ]
+
+message(
+  "Using LME files from: ",
+  lme_dir
+)
 
 population_years_available <- c(
   1776L,
@@ -277,8 +337,31 @@ annualize_lme_member <- function(
     years_use,
     first_year = 1350L) {
 
+  input_connection <- if (
+    grepl(
+      "\\.gz$",
+      input_file,
+      ignore.case = TRUE
+    )
+  ) {
+    gzfile(
+      input_file,
+      open = "rt"
+    )
+  } else {
+    file(
+      input_file,
+      open = "rt"
+    )
+  }
+
+  on.exit(
+    close(input_connection),
+    add = TRUE
+  )
+
   raw_data <- read.csv(
-    input_file,
+    input_connection,
     row.names = 1,
     check.names = FALSE
   )
@@ -421,14 +504,18 @@ lme_long_list <- vector(
 
 for (member_id in seq_len(number_of_lme_members)) {
 
-  input_file <- file.path(
-    lme_dir,
-    paste0(
-      "a",
-      member_id,
-      ".csv"
-    )
+  input_file <- find_lme_member_file(
+    directory = lme_dir,
+    member_id = member_id
   )
+
+  if (is.na(input_file)) {
+    stop(
+      "The LME file for member ",
+      member_id,
+      " disappeared after the initial input check."
+    )
+  }
 
   message(
     "  LME member ",
