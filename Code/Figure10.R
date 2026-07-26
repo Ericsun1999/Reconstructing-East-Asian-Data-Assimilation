@@ -563,9 +563,7 @@ correlation_summary <- dplyr::bind_rows(
       data.frame(
         city = city_name,
         method = as.character(
-          correlation_tables[
-            [city_name]
-          ]$Method
+          correlation_tables[[city_name]]$Method
         ),
         correlation = correlation_tables[
           [city_name]
