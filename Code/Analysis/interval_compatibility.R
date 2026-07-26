@@ -92,7 +92,7 @@ calibration_n2 <- 200L
 calibration_n3 <- 40L
 
 # Numerical settings.
-solve_tolerance <- 1e-2
+solve_tolerance <- 1e-12
 
 ordinal_values <- c(
   -2,
