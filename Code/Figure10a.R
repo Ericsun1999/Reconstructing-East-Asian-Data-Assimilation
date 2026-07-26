@@ -19,7 +19,7 @@ aa<-which(na_per_row < 1)
      
 library(tidyverse)
 
-df87 <- read.csv("~/Downloads/DA3/tempBv5.csv")
+df87 <- read.csv(here::here("Data","Valid","tempBv5.csv"))
 df92 <- data.frame(year = ghcn[aa,1], temperature = ghcnave[aa])
 colnames(df92) <- c("year", "GHCN")
 
