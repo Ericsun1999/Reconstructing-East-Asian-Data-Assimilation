@@ -69,18 +69,31 @@ style_figure4_plot <- function(p, base_size = 22) {
 # ------------------------------------------------------------
 
 # Figure 4(a): zoom x-axis to 1.4
-p4a <- vario.fit2$plot1 +
-  coord_cartesian(xlim = c(0, 1.4)) +
-  scale_x_continuous(
-    breaks = c(0, 0.5, 1.0)
-  ) +
-  style_figure4_plot(base_size = 22)
+p4a <- style_figure4_plot(
+  vario.fit2$plot1 +
+    coord_cartesian(
+      xlim = c(0, 1.4)
+    ) +
+    scale_x_continuous(
+      breaks = c(
+        0,
+        0.5,
+        1.0,
+        1.4
+      )
+    ),
+  base_size = 22
+)
 
-p4b <- vario.fit2$plot2 +
-  style_figure4_plot(base_size = 22)
+p4b <- style_figure4_plot(
+  vario.fit2$plot2,
+  base_size = 22
+)
 
-p4c <- vario.fit2$plot3 +
-  style_figure4_plot(base_size = 22)
+p4c <- style_figure4_plot(
+  vario.fit2$plot3,
+  base_size = 22
+)
 
 # ------------------------------------------------------------
 # Save outputs
