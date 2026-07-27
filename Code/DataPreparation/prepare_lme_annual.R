@@ -4,13 +4,15 @@ here::i_am("Code/DataPreparation/prepare_lme_annual.R")
 # Convert the 13 raw monthly LME files to annual data and
 # extract annual LME series for Hong Kong, Shanghai, and Beijing.
 #
-# Raw-file structure after read.csv(..., row.names = 1):
-#   column 1: lati
-#   column 2: long
-#   columns 3:7202: monthly temperatures from
-#                   1350.01 through 1949.12
+# Raw-file structure in a1.csv.gz, ..., a13.csv.gz:
+#   column 1: lon
+#   column 2: lat
+#   columns 3:7202: monthly temperatures named
+#                   T_1350_01, ..., T_1949_12
 #
-# The raw temperatures are retained in Kelvin.
+# The raw temperatures are in degrees Celsius. This script converts
+# the annual means to Kelvin so the existing downstream output names
+# and RDS structure remain unchanged.
 #
 # Inputs:
 #   Data/LME data/a1.csv.gz, ..., a13.csv.gz
@@ -48,6 +50,16 @@ target_years <- target_first_year:target_last_year
 number_of_members <- 13L
 expected_number_of_locations <- 266L
 expected_number_of_months <- length(raw_years) * 12L
+
+expected_month_names <- sprintf(
+  "T_%04d_%02d",
+  rep(raw_years, each = 12L),
+  rep(seq_len(12L), times = length(raw_years))
+)
+
+if (length(expected_month_names) != expected_number_of_months) {
+  stop("The expected monthly-column-name vector has the wrong length.")
+}
 
 # The city coordinates are aligned with the 0.5-degree
 # REACHES prediction grid used in the downstream analysis.
@@ -169,21 +181,19 @@ message(
 read_lme_member <- function(
     input_file) {
 
-  input_connection <- gzfile(
-    input_file,
-    open = "rt"
-  )
-
-  on.exit(
-    close(input_connection),
-    add = TRUE
-  )
-
-  read.csv(
-    input_connection,
-    row.names = 1,
-    check.names = FALSE
-  )
+  # readr::read_csv() reads .csv.gz files directly. Do not use
+  # row.names = 1 because the new files do not contain a row-index
+  # column: their first two columns are lon and lat.
+  readr::read_csv(
+    file = input_file,
+    col_types = readr::cols(
+      .default = readr::col_double()
+    ),
+    name_repair = "minimal",
+    show_col_types = FALSE,
+    progress = FALSE
+  ) %>%
+    as.data.frame()
 }
 
 # ------------------------------------------------------------
@@ -205,29 +215,58 @@ monthly_to_annual <- function(
     )
   }
 
-  if (ncol(raw_data) < 3L) {
+  expected_columns <- c(
+    "lon",
+    "lat",
+    expected_month_names
+  )
+
+  missing_columns <- setdiff(
+    expected_columns,
+    names(raw_data)
+  )
+
+  unexpected_columns <- setdiff(
+    names(raw_data),
+    expected_columns
+  )
+
+  if (length(missing_columns) > 0L) {
     stop(
       member_name,
-      " does not contain coordinate and monthly-data columns."
+      " is missing the following required columns:\n",
+      paste(
+        paste0("  - ", missing_columns),
+        collapse = "\n"
+      )
     )
   }
 
-  coordinates <- raw_data[
-    ,
-    1:2,
-    drop = FALSE
-  ]
-
-  names(coordinates) <- c(
-    "lati",
-    "long"
-  )
-
-  coordinates <- coordinates %>%
-    mutate(
-      lati = as.numeric(lati),
-      long = as.numeric(long)
+  if (length(unexpected_columns) > 0L) {
+    stop(
+      member_name,
+      " contains unexpected columns:\n",
+      paste(
+        paste0("  - ", unexpected_columns),
+        collapse = "\n"
+      )
     )
+  }
+
+  if (!identical(names(raw_data), expected_columns)) {
+    stop(
+      member_name,
+      " has the correct columns but they are not in the expected order ",
+      "lon, lat, T_1350_01, ..., T_1949_12."
+    )
+  }
+
+  # The new raw files use lon then lat. Keep the old downstream
+  # coordinate names and ordering: lati then long.
+  coordinates <- data.frame(
+    lati = as.numeric(raw_data$lat),
+    long = as.numeric(raw_data$lon)
+  )
 
   if (
     any(!is.finite(coordinates$lati)) ||
@@ -239,35 +278,48 @@ monthly_to_annual <- function(
     )
   }
 
-  monthly_values <- data.matrix(
+  monthly_celsius <- data.matrix(
     raw_data[
       ,
-      -c(1, 2),
+      expected_month_names,
       drop = FALSE
     ]
   )
 
-  if (ncol(monthly_values) != expected_number_of_months) {
+  if (ncol(monthly_celsius) != expected_number_of_months) {
     stop(
       member_name,
       " contains ",
-      ncol(monthly_values),
+      ncol(monthly_celsius),
       " monthly columns; expected ",
       expected_number_of_months,
-      " for 1350.01--1949.12."
+      " for 1350-01 through 1949-12."
     )
   }
 
-  if (anyNA(monthly_values)) {
+  if (anyNA(monthly_celsius)) {
     stop(
       member_name,
       " contains missing monthly temperatures."
     )
   }
 
+  if (any(!is.finite(monthly_celsius))) {
+    stop(
+      member_name,
+      " contains non-finite monthly temperatures."
+    )
+  }
+
+  # The a1.csv.gz--a13.csv.gz files generated from TREFHT were
+  # converted from Kelvin to degrees Celsius. Convert them back to
+  # Kelvin here to preserve the current output object names and the
+  # downstream interface of this script.
+  monthly_kelvin <- monthly_celsius + 273.15
+
   annual_all <- matrix(
     NA_real_,
-    nrow = nrow(monthly_values),
+    nrow = nrow(monthly_kelvin),
     ncol = length(raw_years),
     dimnames = list(
       NULL,
@@ -291,7 +343,7 @@ monthly_to_annual <- function(
       ,
       year_index
     ] <- rowMeans(
-      monthly_values[
+      monthly_kelvin[
         ,
         month_start:month_end,
         drop = FALSE
@@ -304,11 +356,27 @@ monthly_to_annual <- function(
     raw_years
   )
 
+  if (anyNA(target_indices)) {
+    stop(
+      "The requested target years are not all present in raw_years."
+    )
+  }
+
   annual_target <- annual_all[
     ,
     target_indices,
     drop = FALSE
   ]
+
+  if (!identical(
+    colnames(annual_target),
+    as.character(target_years)
+  )) {
+    stop(
+      member_name,
+      " did not produce the expected 1368--1911 annual columns."
+    )
+  }
 
   list(
     coordinates = coordinates,
