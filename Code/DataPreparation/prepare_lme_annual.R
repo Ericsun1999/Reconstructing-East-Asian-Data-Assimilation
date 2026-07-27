@@ -1,7 +1,8 @@
 here::i_am("Code/DataPreparation/prepare_lme_annual.R")
 
 # ============================================================
-# Convert the 13 raw monthly LME files to annual data.
+# Convert the 13 raw monthly LME files to annual data and
+# extract annual LME series for Hong Kong, Shanghai, and Beijing.
 #
 # Raw-file structure after read.csv(..., row.names = 1):
 #   column 1: lati
@@ -12,21 +13,24 @@ here::i_am("Code/DataPreparation/prepare_lme_annual.R")
 # The raw temperatures are retained in Kelvin.
 #
 # Inputs:
-#   Data/LME data/population/a1.csv.gz, ..., a13.csv.gz
-#
-# Also accepted:
-#   Data/LME dara/population/
-#   uncompressed a1.csv, ..., a13.csv
+#   Data/LME data/a1.csv.gz, ..., a13.csv.gz
 #
 # Outputs:
 #   Output/Intermediate/LME/lme_annual_1368_1911.rds
-#   Output/Intermediate/LME/lme_ensemble_mean_1368_1911.csv.gz
+#   Output/Intermediate/LME/lme_ensemble_mean_1368_1911.csv
 #   Output/Intermediate/LME/lme_annual_diagnostics.csv
+#   Output/Intermediate/LME/lme_city3_annual_1368_1911.rds
+#   Output/Intermediate/LME/lme_city3_annual_1368_1911.csv
+#   Output/Intermediate/LME/
+#     lme_city3_ensemble_mean_1368_1911.csv
+#   Output/Intermediate/LME/
+#     lme_city3_interpolation_diagnostics.csv
 # ============================================================
 
 library(here)
 library(readr)
 library(dplyr)
+library(mgcv)
 
 # ------------------------------------------------------------
 # 1. Settings
@@ -45,10 +49,32 @@ number_of_members <- 13L
 expected_number_of_locations <- 266L
 expected_number_of_months <- length(raw_years) * 12L
 
-candidate_input_directories <- c(
-  here::here("Data", "LME data", "population"),
-  here::here("Data", "LME dara", "population")
+# The city coordinates are aligned with the 0.5-degree
+# REACHES prediction grid used in the downstream analysis.
+city_locations <- data.frame(
+  city = c(
+    "HongKong",
+    "Shanghai",
+    "Beijing"
+  ),
+  long = c(
+    113.75,
+    121.25,
+    116.25
+  ),
+  lati = c(
+    22.25,
+    31.25,
+    39.75
+  )
 )
+
+# Use a full-rank thin-plate regression-spline basis and a
+# smoothing parameter fixed near zero, so the native LME field
+# is represented as an approximately interpolating point-support
+# surface. Both choices are saved in the output metadata.
+spline_basis_dimension <- expected_number_of_locations
+fixed_smoothing_parameter <- 1e-8
 
 output_directory <- here::here(
   "Output",
@@ -69,12 +95,32 @@ annual_rds_file <- file.path(
 
 ensemble_mean_file <- file.path(
   output_directory,
-  "lme_ensemble_mean_1368_1911.csv.gz"
+  "lme_ensemble_mean_1368_1911.csv"
 )
 
 diagnostic_file <- file.path(
   output_directory,
   "lme_annual_diagnostics.csv"
+)
+
+city_rds_file <- file.path(
+  output_directory,
+  "lme_city3_annual_1368_1911.rds"
+)
+
+city_long_file <- file.path(
+  output_directory,
+  "lme_city3_annual_1368_1911.csv"
+)
+
+city_ensemble_mean_file <- file.path(
+  output_directory,
+  "lme_city3_ensemble_mean_1368_1911.csv"
+)
+
+city_diagnostic_file <- file.path(
+  output_directory,
+  "lme_city3_interpolation_diagnostics.csv"
 )
 
 # ------------------------------------------------------------
@@ -95,7 +141,9 @@ member_files <- file.path(
   )
 )
 
-missing_files <- member_files[!file.exists(member_files)]
+missing_files <- member_files[
+  !file.exists(member_files)
+]
 
 if (length(missing_files) > 0L) {
   stop(
@@ -465,11 +513,7 @@ ensemble_mean_output <- data.frame(
 
 names(
   ensemble_mean_output
-)[
-  4:ncol(
-    ensemble_mean_output
-  )
-] <- paste0(
+)[4:ncol(ensemble_mean_output)] <- paste0(
   "x",
   target_years
 )
@@ -480,7 +524,7 @@ readr::write_csv(
 )
 
 # ------------------------------------------------------------
-# 7. Save diagnostics
+# 7. Save annual-data diagnostics
 # ------------------------------------------------------------
 
 diagnostics <- bind_rows(
@@ -491,6 +535,388 @@ readr::write_csv(
   diagnostics,
   diagnostic_file
 )
+
+# ------------------------------------------------------------
+# 8. Build one reusable thin-plate interpolation operator
+# ------------------------------------------------------------
+
+coordinate_data <- data.frame(
+  long = reference_coordinates$long,
+  lati = reference_coordinates$lati
+)
+
+if (
+  nrow(
+    unique(
+      coordinate_data
+    )
+  ) != expected_number_of_locations
+) {
+  stop(
+    "The native LME coordinates are not all unique."
+  )
+}
+
+smooth_object <- mgcv::smoothCon(
+  object = mgcv::s(
+    long,
+    lati,
+    bs = "tp",
+    k = spline_basis_dimension
+  ),
+  data = coordinate_data,
+  absorb.cons = TRUE,
+  scale.penalty = TRUE
+)[[1]]
+
+if (length(smooth_object$S) != 1L) {
+  stop(
+    "The thin-plate smooth unexpectedly produced more than ",
+    "one penalty matrix."
+  )
+}
+
+training_design <- cbind(
+  intercept = 1,
+  smooth_object$X
+)
+
+city_prediction_design <- cbind(
+  intercept = 1,
+  mgcv::PredictMat(
+    smooth_object,
+    city_locations[
+      ,
+      c(
+        "long",
+        "lati"
+      )
+    ]
+  )
+)
+
+penalty_matrix <- matrix(
+  0,
+  nrow = ncol(
+    training_design
+  ),
+  ncol = ncol(
+    training_design
+  )
+)
+
+penalty_matrix[
+  -1,
+  -1
+] <- smooth_object$S[[1]]
+
+normal_equation_matrix <- crossprod(
+  training_design
+) +
+  fixed_smoothing_parameter *
+    penalty_matrix
+
+reciprocal_condition_number <- rcond(
+  normal_equation_matrix
+)
+
+if (
+  !is.finite(
+    reciprocal_condition_number
+  ) ||
+    reciprocal_condition_number <
+      1e-14
+) {
+  stop(
+    "The thin-plate interpolation system is numerically ",
+    "singular. Increase fixed_smoothing_parameter slightly."
+  )
+}
+
+# With fixed coordinates, basis dimension, and smoothing
+# parameter, the fitted values at the three cities are a fixed
+# linear transformation of every native-grid annual field.
+# Construct that transformation once instead of fitting 7,072
+# separate GAMs.
+city_interpolation_operator <-
+  city_prediction_design %*%
+  solve(
+    normal_equation_matrix,
+    t(
+      training_design
+    )
+  )
+
+# ------------------------------------------------------------
+# 9. Apply the interpolation operator to all years and members
+# ------------------------------------------------------------
+
+annual_field_matrix <- matrix(
+  annual_array,
+  nrow = expected_number_of_locations,
+  ncol = length(
+    target_years
+  ) *
+    number_of_members
+)
+
+city_prediction_matrix <-
+  city_interpolation_operator %*%
+  annual_field_matrix
+
+city_annual_array <- array(
+  city_prediction_matrix,
+  dim = c(
+    nrow(
+      city_locations
+    ),
+    length(
+      target_years
+    ),
+    number_of_members
+  ),
+  dimnames = list(
+    city = city_locations$city,
+    year = as.character(
+      target_years
+    ),
+    member = paste0(
+      "a",
+      seq_len(
+        number_of_members
+      )
+    )
+  )
+)
+
+if (anyNA(city_annual_array)) {
+  stop(
+    "Missing values remain in the three-city LME array."
+  )
+}
+
+# ------------------------------------------------------------
+# 10. Validate the fast operator against one direct mgcv fit
+# ------------------------------------------------------------
+
+validation_data <- coordinate_data
+validation_data$temperature_kelvin <-
+  annual_array[
+    ,
+    1,
+    1
+  ]
+
+direct_validation_fit <- mgcv::gam(
+  temperature_kelvin ~
+    s(
+      long,
+      lati,
+      bs = "tp",
+      k = spline_basis_dimension,
+      sp = fixed_smoothing_parameter
+    ),
+  data = validation_data,
+  method = "REML"
+)
+
+direct_validation_prediction <- as.numeric(
+  predict(
+    direct_validation_fit,
+    newdata = city_locations[
+      ,
+      c(
+        "long",
+        "lati"
+      )
+    ]
+  )
+)
+
+operator_validation_prediction <-
+  as.numeric(
+    city_annual_array[
+      ,
+      1,
+      1
+    ]
+  )
+
+maximum_validation_difference <- max(
+  abs(
+    direct_validation_prediction -
+      operator_validation_prediction
+  )
+)
+
+if (
+  !is.finite(
+    maximum_validation_difference
+  ) ||
+    maximum_validation_difference >
+      1e-5
+) {
+  stop(
+    "The reusable interpolation operator did not reproduce ",
+    "the direct mgcv fit. Maximum difference = ",
+    signif(
+      maximum_validation_difference,
+      6
+    ),
+    "."
+  )
+}
+
+# ------------------------------------------------------------
+# 11. Save the three-city annual products
+# ------------------------------------------------------------
+
+city_archive <- list(
+  coordinates = city_locations,
+  years = target_years,
+  members = paste0(
+    "a",
+    seq_len(
+      number_of_members
+    )
+  ),
+  units = "Kelvin",
+  spatial_method =
+    "thin-plate regression spline evaluated at city grid centres",
+  basis_dimension =
+    spline_basis_dimension,
+  fixed_smoothing_parameter =
+    fixed_smoothing_parameter,
+  annual_kelvin =
+    city_annual_array
+)
+
+saveRDS(
+  city_archive,
+  city_rds_file,
+  compress = "xz"
+)
+
+city_long_output <- expand.grid(
+  city = city_locations$city,
+  year = target_years,
+  member = paste0(
+    "a",
+    seq_len(
+      number_of_members
+    )
+  ),
+  KEEP.OUT.ATTRS = FALSE,
+  stringsAsFactors = FALSE
+)
+
+city_long_output <- city_long_output %>%
+  mutate(
+    long = city_locations$long[
+      match(
+        city,
+        city_locations$city
+      )
+    ],
+    lati = city_locations$lati[
+      match(
+        city,
+        city_locations$city
+      )
+    ],
+    temperature_kelvin =
+      as.vector(
+        city_annual_array
+      )
+  ) %>%
+  dplyr::select(
+    city,
+    long,
+    lati,
+    member,
+    year,
+    temperature_kelvin
+  )
+
+readr::write_csv(
+  city_long_output,
+  city_long_file
+)
+
+city_ensemble_mean <- apply(
+  city_annual_array,
+  c(
+    1,
+    2
+  ),
+  mean
+)
+
+city_ensemble_mean_output <- expand.grid(
+  city = city_locations$city,
+  year = target_years,
+  KEEP.OUT.ATTRS = FALSE,
+  stringsAsFactors = FALSE
+) %>%
+  mutate(
+    long = city_locations$long[
+      match(
+        city,
+        city_locations$city
+      )
+    ],
+    lati = city_locations$lati[
+      match(
+        city,
+        city_locations$city
+      )
+    ],
+    ensemble_mean_kelvin =
+      as.vector(
+        city_ensemble_mean
+      )
+  ) %>%
+  dplyr::select(
+    city,
+    long,
+    lati,
+    year,
+    ensemble_mean_kelvin
+  )
+
+readr::write_csv(
+  city_ensemble_mean_output,
+  city_ensemble_mean_file
+)
+
+city_interpolation_diagnostics <- data.frame(
+  basis_dimension =
+    spline_basis_dimension,
+  fixed_smoothing_parameter =
+    fixed_smoothing_parameter,
+  reciprocal_condition_number =
+    reciprocal_condition_number,
+  validation_member = "a1",
+  validation_year =
+    target_years[1],
+  maximum_validation_difference =
+    maximum_validation_difference,
+  minimum_city_kelvin = min(
+    city_annual_array
+  ),
+  maximum_city_kelvin = max(
+    city_annual_array
+  )
+)
+
+readr::write_csv(
+  city_interpolation_diagnostics,
+  city_diagnostic_file
+)
+
+# ------------------------------------------------------------
+# 12. Completion messages
+# ------------------------------------------------------------
 
 message(
   "Saved annual LME archive: ",
@@ -514,6 +940,26 @@ message(
 )
 
 message(
-  "Saved diagnostics: ",
+  "Saved annual diagnostics: ",
   diagnostic_file
+)
+
+message(
+  "Saved three-city LME archive: ",
+  city_rds_file
+)
+
+message(
+  "Saved three-city long-format data: ",
+  city_long_file
+)
+
+message(
+  "Saved three-city ensemble means: ",
+  city_ensemble_mean_file
+)
+
+message(
+  "Saved interpolation diagnostics: ",
+  city_diagnostic_file
 )
