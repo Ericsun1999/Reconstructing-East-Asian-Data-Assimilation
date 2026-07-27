@@ -96,8 +96,7 @@ p4a <- style_figure4_plot(
       breaks = c(
         0,
         0.5,
-        1.0,
-        1.4
+        1.0
       )
     ),
   base_size = 22
