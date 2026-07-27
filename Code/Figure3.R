@@ -505,11 +505,7 @@ figure3_output_files <- vapply(
   ),
   function(city_name) {
 
-    config <- city_config[
-      [
-        city_name
-      ]
-    ]
+    config <- city_config[[city_name]]
 
     make_figure3(
       city_name = city_name,
