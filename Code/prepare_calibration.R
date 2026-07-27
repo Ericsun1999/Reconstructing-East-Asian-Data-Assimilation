@@ -1213,30 +1213,6 @@ calibrated_range <- monotone_inverse(
   curve_name = "f3"
 )
 
-# Legacy diagnostic:
-# The original code used the calibrated latent process variance
-# rather than the pilot partial sill in Equation (5). This curve
-# is saved only to quantify the consequence of that difference.
-f3_legacy_data <- build_f3_curve(
-  alpha_grid = alpha_grid_initial,
-  target_sill =
-    calibrated_process_variance,
-  calibrated_total_variance =
-    calibrated_total_variance,
-  calibrated_process_variance =
-    calibrated_process_variance,
-  covariance_lookup = covariance_lookup,
-  distances = distance_grid,
-  range_bounds = latent_range_bounds,
-  target_pilot_range = pilot_range
-)
-
-legacy_calibrated_range <- monotone_inverse(
-  x = f3_legacy_data$alpha,
-  y = f3_legacy_data$f3_alpha,
-  target = pilot_range,
-  curve_name = "legacy f3"
-)
 
 elapsed_minutes <- as.numeric(
   difftime(
@@ -1407,7 +1383,6 @@ vario_fit2 <- list(
   psill1 = calibrated_nugget_variance,
   psill2 = calibrated_process_variance,
   range = calibrated_range,
-  range_legacy = legacy_calibrated_range,
   total_variance = calibrated_total_variance,
   calibration_engine = calibration_engine,
   plot1 = plot1,
@@ -1416,8 +1391,6 @@ vario_fit2 <- list(
   calibration_data1 = f1_data,
   calibration_data2 = f2_data,
   calibration_data3 = f3_data,
-  calibration_data3_legacy =
-    f3_legacy_data,
   covariance_lookup =
     covariance_lookup$lookup_table
 )
@@ -1449,15 +1422,6 @@ results <- list(
       total_variance =
         calibrated_total_variance
     ),
-    calibrated_legacy_f3 = c(
-      range = legacy_calibrated_range,
-      process_variance =
-        calibrated_process_variance,
-      nugget_variance =
-        calibrated_nugget_variance,
-      total_variance =
-        calibrated_total_variance
-    ),
     elapsed_minutes =
       elapsed_minutes
   )
@@ -1481,15 +1445,8 @@ calibration_parameter_summary <- bind_rows(
     total_variance = pilot_total_variance
   ),
   tibble(
-    estimation_stage = "calibrated_manuscript",
+    estimation_stage = "calibrated",
     range = calibrated_range,
-    process_variance = calibrated_process_variance,
-    nugget_variance = calibrated_nugget_variance,
-    total_variance = calibrated_total_variance
-  ),
-  tibble(
-    estimation_stage = "calibrated_legacy_f3",
-    range = legacy_calibrated_range,
     process_variance = calibrated_process_variance,
     nugget_variance = calibrated_nugget_variance,
     total_variance = calibrated_total_variance
@@ -1535,14 +1492,6 @@ readr::write_csv(
   )
 )
 
-readr::write_csv(
-  f3_legacy_data,
-  file.path(
-    output_directory,
-    "calibration_f3_legacy.csv"
-  )
-)
-
 message(
   "Calibration results saved to: ",
   calibration_file
@@ -1571,13 +1520,7 @@ message(
   )
 )
 
-message(
-  "Legacy-f3 range for comparison: ",
-  signif(
-    legacy_calibrated_range,
-    6
-  )
-)
+
 
 message(
   "Elapsed time: ",
