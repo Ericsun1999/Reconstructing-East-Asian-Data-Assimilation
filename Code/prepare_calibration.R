@@ -1468,6 +1468,49 @@ saveRDS(
   calibration_file
 )
 
+# ------------------------------------------------------------
+# 11. Save parameter estimates in a human-readable CSV
+# ------------------------------------------------------------
+
+calibration_parameter_summary <- bind_rows(
+  tibble(
+    estimation_stage = "pilot",
+    range = pilot_range,
+    process_variance = pilot_partial_sill,
+    nugget_variance = pilot_nugget,
+    total_variance = pilot_total_variance
+  ),
+  tibble(
+    estimation_stage = "calibrated_manuscript",
+    range = calibrated_range,
+    process_variance = calibrated_process_variance,
+    nugget_variance = calibrated_nugget_variance,
+    total_variance = calibrated_total_variance
+  ),
+  tibble(
+    estimation_stage = "calibrated_legacy_f3",
+    range = legacy_calibrated_range,
+    process_variance = calibrated_process_variance,
+    nugget_variance = calibrated_nugget_variance,
+    total_variance = calibrated_total_variance
+  )
+) %>%
+  mutate(
+    number_of_event_years = length(event_years),
+    calibration_engine = calibration_engine,
+    elapsed_minutes = elapsed_minutes
+  )
+
+calibration_parameter_summary_file <- file.path(
+  output_directory,
+  "calibration_parameter_summary.csv"
+)
+
+readr::write_csv(
+  calibration_parameter_summary,
+  calibration_parameter_summary_file
+)
+
 readr::write_csv(
   f1_data,
   file.path(
@@ -1503,6 +1546,11 @@ readr::write_csv(
 message(
   "Calibration results saved to: ",
   calibration_file
+)
+
+message(
+  "Calibration parameter summary saved to: ",
+  calibration_parameter_summary_file
 )
 
 message(
