@@ -8,8 +8,7 @@ Download Link: [NOAA Paleo Search - Study 37720](https://www.ncei.noaa.gov/acces
 
 A simulated dataset containing information on location (longitude, latitude), temperatures, and time (months).
 
-Download Link: [CESM Community Projects - LME](https://www.cesm.ucar.edu/community-projects/lme)
-(Note: You need to register for an account on the Climate Data Gateway before downloading.)
+Download Link: [CESM Community Projects - LME](https://www.cesm.ucar.edu/community-projects/lme )
 
 Use GetLME.R to aggregate the data used for the analysis.
 
