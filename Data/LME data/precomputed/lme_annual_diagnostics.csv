@@ -1,14 +1,14 @@
 member,input_file,number_of_locations,number_of_years,first_year,last_year,minimum_kelvin,maximum_kelvin,mean_kelvin
-a1,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a1.csv.gz,266,544,1368,1911,263.6301193237304,299.95285034179693,288.21385468974256
-a2,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a2.csv.gz,266,544,1368,1911,263.9826087951661,299.87587229410815,288.24820341114696
-a3,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a3.csv.gz,266,544,1368,1911,263.51026026407874,299.8975270589193,288.2002891791301
-a4,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a4.csv.gz,266,544,1368,1911,262.7671254475912,299.910280863444,288.22217707200406
-a5,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a5.csv.gz,266,544,1368,1911,263.68870798746735,299.8788350423177,288.21862939762434
-a6,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a6.csv.gz,266,544,1368,1911,262.76135381062824,300.0719045003257,288.20795875496873
-a7,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a7.csv.gz,266,544,1368,1911,263.9379501342774,299.929044087728,288.2058202581175
-a8,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a8.csv.gz,266,544,1368,1911,263.5518849690755,299.99863942464185,288.22316258355755
-a9,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a9.csv.gz,266,544,1368,1911,263.38228607177734,299.94509124755876,288.22903932417705
-a10,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a10.csv.gz,266,544,1368,1911,264.29708226521825,299.9013468424478,288.1985160974333
-a11,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a11.csv.gz,266,544,1368,1911,263.18438720703114,299.86804707845056,288.2226963789523
-a12,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a12.csv.gz,266,544,1368,1911,264.869815826416,299.8706563313801,288.1940652922369
-a13,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a13.csv.gz,266,544,1368,1911,264.331766764323,300.0211410522461,288.2291092238612
+a1,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a1.csv.gz,266,544,1368,1911,263.63011932373047,299.9528503417969,288.21385468974256
+a2,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a2.csv.gz,266,544,1368,1911,263.982608795166,299.87587229410804,288.2482034111469
+a3,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a3.csv.gz,266,544,1368,1911,263.51026026407874,299.89752705891925,288.2002891791301
+a4,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a4.csv.gz,266,544,1368,1911,262.7671254475911,299.910280863444,288.222177072004
+a5,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a5.csv.gz,266,544,1368,1911,263.68870798746747,299.8788350423177,288.21862939762434
+a6,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a6.csv.gz,266,544,1368,1911,262.76135381062824,300.0719045003255,288.20795875496873
+a7,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a7.csv.gz,266,544,1368,1911,263.93795013427734,299.92904408772785,288.2058202581175
+a8,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a8.csv.gz,266,544,1368,1911,263.5518849690755,299.9986394246419,288.2231625835575
+a9,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a9.csv.gz,266,544,1368,1911,263.38228607177734,299.9450912475586,288.229039324177
+a10,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a10.csv.gz,266,544,1368,1911,264.2970822652181,299.9013468424479,288.1985160974333
+a11,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a11.csv.gz,266,544,1368,1911,263.18438720703125,299.8680470784505,288.2226963789523
+a12,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a12.csv.gz,266,544,1368,1911,264.869815826416,299.8706563313802,288.1940652922369
+a13,/Users/admin/Documents/GitHub/Reconstructing-East-Asian-Data-Assimilation/Data/LME data/a13.csv.gz,266,544,1368,1911,264.3317667643229,300.0211410522461,288.22910922386114
