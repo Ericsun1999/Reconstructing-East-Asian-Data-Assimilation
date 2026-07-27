@@ -68,55 +68,67 @@ select_input_file <- function(
     input_mode,
     input_files) {
 
-  file_available <- file.exists(
-    input_files
+  generated_file <- unname(
+    input_files["generated"]
+  )
+
+  precomputed_file <- unname(
+    input_files["precomputed"]
+  )
+
+  generated_available <- file.exists(
+    generated_file
+  )
+
+  precomputed_available <- file.exists(
+    precomputed_file
   )
 
   if (input_mode == "generated") {
-    if (!file_available[["generated"]]) {
+    if (!generated_available) {
       stop(
         "The generated Figure 3 input was not found:\n  ",
-        input_files[["generated"]],
+        generated_file,
         "\nRun Code/DataPreparation/prepare_lme_annual.R first."
       )
     }
 
     return(
       unname(
-        input_files[["generated"]]
+        generated_file
       )
     )
   }
 
   if (input_mode == "precomputed") {
-    if (!file_available[["precomputed"]]) {
+    if (!precomputed_available) {
       stop(
         "The precomputed Figure 3 input was not found:\n  ",
-        input_files[["precomputed"]]
+        precomputed_file
       )
     }
 
     return(
       unname(
-        input_files[["precomputed"]]
+        precomputed_file
       )
     )
   }
 
   # For "auto", prefer a freshly generated file. If it is not
   # available, fall back to the precomputed repository copy.
-  if (file_available[["generated"]]) {
+  if (generated_available) {
     return(
       unname(
-        input_files[["generated"]]
+        generated_file
       )
     )
   }
 
-  if (file_available[["precomputed"]]) {
+  if (precomputed_available) {
     return(
       unname(
-        input_files[["precomputed"]]
+        precomputed_file
       )
     )
   }
@@ -124,9 +136,9 @@ select_input_file <- function(
   stop(
     "Neither Figure 3 input file was found.\n",
     "Generated location:\n  ",
-    input_files[["generated"]],
+    generated_file,
     "\nPrecomputed location:\n  ",
-    input_files[["precomputed"]],
+    precomputed_file,
     "\nRun Code/DataPreparation/prepare_lme_annual.R or ",
     "add the precomputed file to Data/LME data/precomputed/."
   )
@@ -361,7 +373,7 @@ figure3_plot_data_file <- file.path(
 
 readr::write_csv(
   plot_data %>%
-    select(
+    dplyr::select(
       city,
       long,
       lati,
