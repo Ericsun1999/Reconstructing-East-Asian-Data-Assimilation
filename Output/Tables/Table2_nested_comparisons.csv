@@ -1,0 +1,5 @@
+Comparison,Added_terms,Df,Deviance_reduction,p_value
+M2 versus M1,Climate,3.023850334,129.7051549,6.58E-28
+M3 versus M1,Population,-0.178665242,86.22972101,NA
+M4 versus M2,Population,0.307888869,92.96861368,4.09E-23
+M4 versus M3,Climate,3.510404445,136.4440475,6.27E-29

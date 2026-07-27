@@ -1,0 +1,192 @@
+Documentary coverage and historical-population GAM analysis
+===========================================================
+
+Analysis years: 1368 -- 1911 
+LME grid cells: 266 
+Common complete-case cell-years: 63104 
+Cold anomaly threshold: -0.6669857 
+Warm anomaly threshold: 0.6851021 
+
+  Model     Additional terms      n      AIC      BIC Dev. expl.
+1    M1                 None 63,104 29705.96 30303.58     27.19%
+2    M2              Climate 63,104 29582.11 30206.27     27.51%
+3    M3           Population 63,104 29618.39 30209.97     27.40%
+4    M4 Climate + Population 63,104 29488.77 30111.25     27.73%
+
+Nested comparisons
+    Comparison Added_terms         Df Deviance_reduction      p_value
+1 M2 versus M1     Climate  3.0238503          129.70515 6.577815e-28
+2 M3 versus M1  Population -0.1786652           86.22972           NA
+3 M4 versus M2  Population  0.3078889           92.96861 4.091458e-23
+4 M4 versus M3     Climate  3.5104044          136.44405 6.271785e-29
+
+Hgu coefficient in M4
+  Term  Estimate Standard_error Test_statistic      p_value
+1  Hgu 0.6579484     0.05834066        11.2777 1.691101e-29
+
+M1 summary
+
+Family: binomial 
+Link function: logit 
+
+Formula:
+R ~ s(long, lat, k = 50) + s(year, k = 20)
+
+Parametric coefficients:
+            Estimate Std. Error z value Pr(>|z|)    
+(Intercept)  -4.5659     0.2087  -21.88   <2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+              edf Ref.df Chi.sq p-value    
+s(long,lat) 45.86  47.34   4285  <2e-16 ***
+s(year)     17.73  18.74   1740  <2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.198   Deviance explained = 27.2%
+-REML =  14986  Scale est. = 1         n = 63104
+
+M2 summary
+
+Family: binomial 
+Link function: logit 
+
+Formula:
+R ~ s(long, lat, k = 50) + s(year, k = 20) + Lbar_g + sigma_g + 
+    pcold_g + pwarm_g
+
+Parametric coefficients:
+             Estimate Std. Error z value Pr(>|z|)    
+(Intercept) 131.42522   15.57066   8.441  < 2e-16 ***
+Lbar_g       -0.44434    0.05436  -8.174 2.99e-16 ***
+sigma_g     -26.37928    6.33335  -4.165 3.11e-05 ***
+pcold_g     -17.36923   10.45546  -1.661   0.0967 .  
+pwarm_g      64.09432   10.00310   6.407 1.48e-10 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+              edf Ref.df Chi.sq p-value    
+s(long,lat) 45.35  46.92   2921  <2e-16 ***
+s(year)     17.74  18.75   1746  <2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =    0.2   Deviance explained = 27.5%
+-REML =  14916  Scale est. = 1         n = 63104
+
+M3 summary
+
+Family: binomial 
+Link function: logit 
+
+Formula:
+R ~ s(long, lat, k = 50) + s(year, k = 20) + Hgu
+
+Parametric coefficients:
+            Estimate Std. Error z value Pr(>|z|)    
+(Intercept) -6.46975    0.25547  -25.32   <2e-16 ***
+Hgu          0.62907    0.05736   10.97   <2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+              edf Ref.df Chi.sq p-value    
+s(long,lat) 44.84  46.83   2222  <2e-16 ***
+s(year)     17.77  18.76   1504  <2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.201   Deviance explained = 27.4%
+-REML =  14929  Scale est. = 1         n = 63104
+
+M4 summary
+
+Family: binomial 
+Link function: logit 
+
+Formula:
+R ~ s(long, lat, k = 50) + s(year, k = 20) + Lbar_g + sigma_g + 
+    pcold_g + pwarm_g + Hgu
+
+Parametric coefficients:
+             Estimate Std. Error z value Pr(>|z|)    
+(Intercept) 111.38308   14.91511   7.468 8.15e-14 ***
+Lbar_g       -0.37869    0.05179  -7.312 2.63e-13 ***
+sigma_g     -28.45211    6.19341  -4.594 4.35e-06 ***
+pcold_g     -25.42481   10.29366  -2.470   0.0135 *  
+pwarm_g      78.29959    9.90084   7.908 2.61e-15 ***
+Hgu           0.65795    0.05834  11.278  < 2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+              edf Ref.df Chi.sq p-value    
+s(long,lat) 44.32  46.41   1768  <2e-16 ***
+s(year)     17.77  18.76   1502  <2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.203   Deviance explained = 27.7%
+-REML =  14857  Scale est. = 1         n = 63104
+
+Session information
+R version 4.3.1 (2023-06-16)
+Platform: x86_64-apple-darwin20 (64-bit)
+Running under: macOS 15.3
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.3-x86_64/Resources/lib/libRlapack.dylib;  LAPACK version 3.11.0
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/Chicago
+tzcode source: internal
+
+attached base packages:
+[1] splines   stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] terra_1.8-60        here_1.0.1          lubridate_1.9.2    
+ [4] forcats_1.0.0       purrr_1.0.2         readr_2.1.4        
+ [7] tidyr_1.3.0         tibble_3.2.1        tidyverse_2.0.0    
+[10] stringr_1.5.1       maps_3.4.1          mclust_6.0.0       
+[13] fda_6.1.4           deSolve_1.38        fds_1.8            
+[16] RCurl_1.98-1.12     rainbow_3.7         pcaPP_2.0-3        
+[19] rnaturalearth_1.1.0 sf_1.0-21           MASS_7.3-60        
+[22] mvtnorm_1.2-3       mgcv_1.8-42         nlme_3.1-162       
+[25] gstat_2.1-1         zoo_1.8-12          spacetime_1.3-0    
+[28] sp_2.0-0            RColorBrewer_1.1-3  dplyr_1.1.4        
+[31] readxl_1.4.3        np_0.60-18          ggplot2_3.5.2      
+
+loaded via a namespace (and not attached):
+ [1] DBI_1.1.3               bitops_1.0-7            s2_1.1.4               
+ [4] rlang_1.1.6             magrittr_2.0.3          e1071_1.7-13           
+ [7] compiler_4.3.1          systemfonts_1.2.3       vctrs_0.6.5            
+[10] quantreg_5.97           quadprog_1.5-8          pkgconfig_2.0.3        
+[13] wk_0.8.0                crayon_1.5.2            fastmap_1.2.0          
+[16] labeling_0.4.3          utf8_1.2.3              rmarkdown_2.29         
+[19] tzdb_0.5.0              pracma_2.4.2            ragg_1.4.0             
+[22] MatrixModels_0.5-3      bit_4.0.5               xfun_0.52              
+[25] parallel_4.3.1          cluster_2.1.4           R6_2.6.1               
+[28] stringi_1.7.12          boot_1.3-28.1           cellranger_1.1.0       
+[31] Rcpp_1.0.11             knitr_1.44              hdrcde_3.4             
+[34] FNN_1.1.3.2             Matrix_1.6-4            timechange_0.2.0       
+[37] tidyselect_1.2.0        rstudioapi_0.15.0       dichromat_2.0-0.1      
+[40] yaml_2.3.10             codetools_0.2-19        lattice_0.21-8         
+[43] intervals_0.15.4        ks_1.14.1               withr_3.0.2            
+[46] evaluate_1.0.4          survival_3.5-5          rnaturalearthdata_1.0.0
+[49] units_0.8-4             proxy_0.4-27            xts_0.13.1             
+[52] pillar_1.9.0            KernSmooth_2.23-21      generics_0.1.3         
+[55] vroom_1.6.3             rprojroot_2.1.0         hms_1.1.3              
+[58] scales_1.4.0            class_7.3-22            glue_1.6.2             
+[61] cubature_2.1.0          mapproj_1.2.11          tools_4.3.1            
+[64] SparseM_1.81            grid_4.3.1              colorspace_2.1-0       
+[67] cli_3.6.5               textshaping_1.0.1       fansi_1.0.4            
+[70] gtable_0.3.6            digest_0.6.33           classInt_0.4-10        
+[73] farver_2.1.1            htmltools_0.5.8.1       lifecycle_1.0.4        
+[76] bit64_4.0.5            
