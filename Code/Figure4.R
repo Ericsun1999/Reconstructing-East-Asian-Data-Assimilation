@@ -51,16 +51,34 @@ dir.create(
 # ------------------------------------------------------------
 # Styling helper
 # ------------------------------------------------------------
-style_figure4_plot <- function(p, base_size = 22) {
+style_figure4_plot <- function(
+    p,
+    base_size = 22) {
+
   p +
-    theme_gray(base_size = base_size) +
+    theme_gray(
+      base_size = base_size
+    ) +
     theme(
-      text = element_text(size = base_size),
-      axis.title = element_text(size = base_size),
-      axis.text = element_text(size = base_size * 0.8, colour = "black"),
+      text = element_text(
+        size = base_size
+      ),
+      axis.title = element_text(
+        size = base_size
+      ),
+      axis.text = element_text(
+        size = base_size * 0.8,
+        colour = "black"
+      ),
       legend.position = "none",
-      panel.grid.major = element_line(colour = "white", linewidth = 0.7),
-      panel.grid.minor = element_line(colour = "white", linewidth = 0.35)
+      panel.grid.major = element_line(
+        colour = "white",
+        linewidth = 0.7
+      ),
+      panel.grid.minor = element_line(
+        colour = "white",
+        linewidth = 0.35
+      )
     )
 }
 
