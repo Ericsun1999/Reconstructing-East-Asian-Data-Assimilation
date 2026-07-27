@@ -46,8 +46,7 @@ expected_number_of_locations <- 266L
 expected_number_of_months <- length(raw_years) * 12L
 
 candidate_input_directories <- c(
-  here::here("Data", "LME data", "population"),
-  here::here("Data", "LME dara", "population")
+  here::here("Data", "LME data")
 )
 
 output_directory <- here::here(
@@ -104,16 +103,14 @@ find_member_file <- function(
     )
   )
 
-  existing <- candidates[
-    file.exists(candidates)
-  ]
+  existing <- candidates[file.exists(candidates)]
 
   if (length(existing) == 0L) {
     return(NA_character_)
   }
 
   # Prefer the compressed file when both exist.
-  existing[1]
+  existing1]
 }
 
 
@@ -156,9 +153,7 @@ if (!any(valid_input_directory)) {
   )
 }
 
-input_directory <- candidate_input_directories[
-  which(valid_input_directory)[1]
-]
+input_directory <- candidate_input_directories[which(valid_input_directory)[1]]
 
 message(
   "Using raw LME files from: ",
@@ -425,9 +420,7 @@ for (member_id in seq_len(number_of_members)) {
     member_id
   ] <- converted$annual_kelvin
 
-  diagnostic_rows[
-    [member_id]
-  ] <- data.frame(
+  diagnostic_rows[[member_id]] <- data.frame(
     member = member_name,
     input_file = normalizePath(
       input_file,
