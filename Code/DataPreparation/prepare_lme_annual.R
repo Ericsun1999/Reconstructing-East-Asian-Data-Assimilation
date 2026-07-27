@@ -46,7 +46,8 @@ expected_number_of_locations <- 266L
 expected_number_of_months <- length(raw_years) * 12L
 
 candidate_input_directories <- c(
-  here::here("Data", "LME data")
+  here::here("Data", "LME data", "population"),
+  here::here("Data", "LME dara", "population")
 )
 
 output_directory <- here::here(
@@ -77,83 +78,39 @@ diagnostic_file <- file.path(
 )
 
 # ------------------------------------------------------------
-# 2. File helpers
+# 2. Locate the 13 raw member files
 # ------------------------------------------------------------
 
-find_member_file <- function(
-    directory,
-    member_id) {
-
-  candidates <- c(
-    file.path(
-      directory,
-      paste0(
-        "a",
-        member_id,
-        ".csv.gz"
-      )
-    ),
-    file.path(
-      directory,
-      paste0(
-        "a",
-        member_id,
-        ".csv"
-      )
-    )
-  )
-
-  existing <- candidates[file.exists(candidates)]
-
-  if (length(existing) == 0L) {
-    return(NA_character_)
-  }
-
-  # Prefer the compressed file when both exist.
-  # existing1
-}
-
-
-valid_input_directory <- vapply(
-  candidate_input_directories,
-  function(directory) {
-
-    member_files <- vapply(
-      seq_len(number_of_members),
-      function(member_id) {
-        find_member_file(
-          directory,
-          member_id
-        )
-      },
-      character(1)
-    )
-
-    all(
-      !is.na(member_files)
-    )
-  },
-  logical(1)
+input_directory <- here::here(
+  "Data",
+  "LME data"
 )
 
-if (!any(valid_input_directory)) {
+member_files <- file.path(
+  input_directory,
+  paste0(
+    "a",
+    seq_len(number_of_members),
+    ".csv.gz"
+  )
+)
+
+missing_files <- member_files[!file.exists(member_files)]
+
+if (length(missing_files) > 0L) {
   stop(
     paste0(
-      "Could not find all 13 LME member files in one directory.\n",
-      "Each member may be stored as a*.csv.gz or a*.csv.\n",
-      "Directories searched:\n",
+      "The following raw LME files were not found:\n",
       paste(
         paste0(
           "  - ",
-          candidate_input_directories
+          missing_files
         ),
         collapse = "\n"
       )
     )
   )
 }
-
-input_directory <- candidate_input_directories[which(valid_input_directory)[1]]
 
 message(
   "Using raw LME files from: ",
@@ -164,23 +121,10 @@ message(
 read_lme_member <- function(
     input_file) {
 
-  input_connection <- if (
-    grepl(
-      "\\.gz$",
-      input_file,
-      ignore.case = TRUE
-    )
-  ) {
-    gzfile(
-      input_file,
-      open = "rt"
-    )
-  } else {
-    file(
-      input_file,
-      open = "rt"
-    )
-  }
+  input_connection <- gzfile(
+    input_file,
+    open = "rt"
+  )
 
   on.exit(
     close(input_connection),
@@ -366,10 +310,9 @@ for (member_id in seq_len(number_of_members)) {
     member_id
   )
 
-  input_file <- find_member_file(
-    input_directory,
+  input_file <- member_files[
     member_id
-  )
+  ]
 
   message(
     "Processing ",
