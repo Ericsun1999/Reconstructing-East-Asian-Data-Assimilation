@@ -45,20 +45,26 @@ vario.fit2 <- calibration_results$vario_fit2
 # 1. Select years and define the 0.5 x 0.5 grid
 # ------------------------------------------------------------
 
-year_start <- min(temp2$year, na.rm = TRUE)
-year_end <- max(temp2$year, na.rm = TRUE)
-year_all <- year_start:year_end
+year2 <- c(
+  1465L,
+  1851L
+)
 
-year_positions <- c(98L, 484L)
+missing_figure_years <- setdiff(
+  year2,
+  unique(temp2$year)
+)
 
-if (max(year_positions) > length(year_all)) {
+if (length(missing_figure_years) > 0L) {
   stop(
-    "The available year range is too short for the original ",
-    "Figure 5 year positions 98 and 484."
+    "The following Figure 5 years are absent from the ",
+    "REACHES data: ",
+    paste(
+      missing_figure_years,
+      collapse = ", "
+    )
   )
 }
-
-year2 <- year_all[year_positions]
 
 loc <- expand.grid(
   long = seq(98.25, 124.25, by = 0.5),
@@ -152,6 +158,7 @@ for (i in seq_along(year2)) {
         )
       ),
       limits = c(-2, 2),
+      oob = scales::squish,
       na.value = "transparent",
       guide = "colourbar"
     ) +
@@ -186,12 +193,34 @@ for (i in seq_along(year2)) {
 # 3. Kriging helper functions
 # ------------------------------------------------------------
 
-# These definitions preserve the original calculation used in
-# Figure 5. The square-root transformation is intentionally kept
-# because it is part of the original analysis code.
-sigmay <- sqrt(vario.fit2$psill2)
-sigmae <- sqrt(vario.fit2$psill1)
-alpha <- vario.fit2$range / 100
+# vario.fit2$psill2 and vario.fit2$psill1 are variances.
+# Keep them on the variance scale throughout the kriging code.
+sigma_Y2 <- vario.fit2$psill2
+sigma_E2 <- vario.fit2$psill1
+
+# Use great-circle distances in kilometres in the prediction
+# step, matching the longitude/latitude variogram fit.
+alpha_km <- vario.fit2$range
+
+if (
+  any(
+    !is.finite(
+      c(
+        sigma_Y2,
+        sigma_E2,
+        alpha_km
+      )
+    )
+  ) ||
+    sigma_Y2 <= 0 ||
+    sigma_E2 < 0 ||
+    alpha_km <= 0
+) {
+  stop(
+    "Invalid calibrated covariance parameters were read from ",
+    calibration_file
+  )
+}
 
 cuts <- c(-Inf, -1.5, -0.5, 0.5, Inf)
 vals <- c(-2, -1, 0, 1)
@@ -352,17 +381,14 @@ cZY_vector <- function(
     vals
   )
 
-  dists <- sqrt(
-    rowSums(
-      (
-        s_coords -
-          matrix(
-            s0,
-            nrow(s_coords),
-            ncol(s_coords),
-            byrow = TRUE
-          )
-      )^2
+  dists <- drop(
+    sp::spDists(
+      x = s_coords,
+      y = matrix(
+        s0,
+        nrow = 1
+      ),
+      longlat = TRUE
     )
   )
 
@@ -390,13 +416,9 @@ SigmaZ_matrix <- function(
     vals
   )
 
-  dmat <- as.matrix(
-    dist(
-      s_coords,
-      method = "euclidean",
-      upper = TRUE,
-      diag = TRUE
-    )
+  dmat <- sp::spDists(
+    s_coords,
+    longlat = TRUE
   )
 
   rho <- (
@@ -406,25 +428,38 @@ SigmaZ_matrix <- function(
 
   diag(rho) <- 1
 
+  category_probabilities <- diff(
+    pnorm(
+      cuts / sigma
+    )
+  )
+
+  variance_z <- sum(
+    vals^2 *
+      category_probabilities
+  ) -
+    Eh^2
+
   Sig <- matrix(
     NA_real_,
     n,
     n
   )
 
-  for (i in seq_len(n)) {
-    for (j in i:n) {
-      cij <- cov_Z_pair(
-        rho[i, j],
-        sigma,
-        cuts,
-        vals,
-        Eh = Eh
-      )
+  diag(Sig) <- variance_z
 
-      Sig[i, j] <- cij
+  if (n >= 2L) {
+    for (i in seq_len(n - 1L)) {
+      for (j in seq.int(i + 1L, n)) {
+        cij <- cov_Z_pair(
+          rho[i, j],
+          sigma,
+          cuts,
+          vals,
+          Eh = Eh
+        )
 
-      if (j != i) {
+        Sig[i, j] <- cij
         Sig[j, i] <- cij
       }
     }
@@ -442,7 +477,7 @@ predict_grid_one_year <- function(
     alpha,
     cuts = c(-Inf, -1.5, -0.5, 0.5, Inf),
     vals = c(-2, -1, 0, 1),
-    tol = 1e-2) {
+    tol = 1e-10) {
 
   temp14 <- observation_data[
     observation_data$year == current_year,
@@ -589,10 +624,6 @@ for (i in seq_along(year2)) {
 
    current_year <- year2[i]
 
-  set.seed(
-    500000L + as.integer(current_year)
-  )
-
   message(
     "Kriging year ",
     current_year,
@@ -607,16 +638,21 @@ for (i in seq_along(year2)) {
     current_year = current_year,
     observation_data = y2,
     prediction_coordinates = loc@coords,
-    sigma_Y2 = sigmay,
-    sigma_E2 = sigmae,
-    alpha = alpha,
+    sigma_Y2 = sigma_Y2,
+    sigma_E2 = sigma_E2,
+    alpha = alpha_km,
     cuts = cuts,
     vals = vals,
     tol = 1e-2
   )
 
   temp15 <- yearly_result$mean
-  temp16 <- yearly_result$variance
+  temp16 <- sqrt(
+    pmax(
+      yearly_result$variance,
+      0
+    )
+  )
 
   arr.pred[, , i] <- matrix(
     temp15,
@@ -659,6 +695,7 @@ for (i in seq_along(year2)) {
         )
       ),
       limits = c(-2, 2),
+      oob = scales::squish,
       na.value = "transparent",
       guide = "colourbar"
     ) +
@@ -698,6 +735,7 @@ for (i in seq_along(year2)) {
       low = "skyblue3",
       high = "white",
       limits = c(0, 1),
+      oob = scales::squish,
       na.value = "transparent",
       guide = "colourbar"
     ) +
@@ -737,7 +775,35 @@ for (i in seq_along(year2)) {
   )
 }
 
+figure5_values <- do.call(
+  rbind,
+  lapply(
+    seq_along(year2),
+    function(i) {
+      data.frame(
+        year = year2[i],
+        long = loc@coords[, 1],
+        lat = loc@coords[, 2],
+        prediction_mean = c(
+          arr.pred[, , i]
+        ),
+        prediction_sd = c(
+          arr.std[, , i]
+        )
+      )
+    }
+  )
+)
+
+readr::write_csv(
+  figure5_values,
+  file.path(
+    figure5_output_dir,
+    "Figure5_kriging_values.csv"
+  )
+)
+
 message(
-  "All Figure 5 panels were saved to: ",
+  "All Figure 5 panels and kriging values were saved to: ",
   figure5_output_dir
 )
