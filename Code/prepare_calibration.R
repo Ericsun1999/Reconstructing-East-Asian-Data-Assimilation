@@ -38,7 +38,7 @@ library(mvtnorm)
 # 1. Numerical settings
 # ------------------------------------------------------------
 
-calibration_engine <- "analytic"
+calibration_engine <- "monte_carlo"
 stopifnot(
   calibration_engine %in% c(
     "analytic",
