@@ -1,9 +1,10 @@
 here::i_am("Code/Get_tempe_all_data.R")
 
 # ============================================================
-# Generate interval-censored REACHES kriging products for the
-# complete 53 x 49 grid and extract the three locations used in
-# Figures 7--10.
+# Generate interval-censored REACHES kriging products for:
+#   1. the complete 53 x 49 REACHES grid;
+#   2. the 266 native LME grid locations used in Figure 6;
+#   3. the three locations used in Figures 7--10.
 #
 # Required input:
 #   Output/Intermediate/calibration_parameters.rds
@@ -12,6 +13,8 @@ here::i_am("Code/Get_tempe_all_data.R")
 #   Output/Intermediate/REACHES/
 #     reaches_kriging_grid53x49_mean.csv.gz
 #     reaches_kriging_grid53x49_variance.csv.gz
+#     reaches_kriging_lme_grid_mean.csv
+#     reaches_kriging_lme_grid_variance.csv
 #     reaches_kriging_city3_mean.csv.gz
 #     reaches_kriging_city3_sd.csv.gz
 #     reaches_kriging_metadata.csv
@@ -47,6 +50,13 @@ calibration_file <- here::here(
   "Output",
   "Intermediate",
   "calibration_parameters.rds"
+)
+
+lme_annual_file <- here::here(
+  "Output",
+  "Intermediate",
+  "LME",
+  "lme_annual_1368_1911.rds"
 )
 
 output_directory <- here::here(
@@ -214,7 +224,138 @@ if (
 }
 
 # ------------------------------------------------------------
-# 4. Interval-censored Gaussian moment helpers
+# 4. Load the native LME grid used in Figure 6
+# ------------------------------------------------------------
+
+if (!file.exists(lme_annual_file)) {
+  stop(
+    "The annual LME archive was not found: ",
+    lme_annual_file,
+    "\nRun Code/DataPreparation/prepare_lme_annual.R first."
+  )
+}
+
+lme_annual_archive <- readRDS(
+  lme_annual_file
+)
+
+if (
+  !"coordinates" %in%
+    names(lme_annual_archive)
+) {
+  stop(
+    "The annual LME archive does not contain coordinates."
+  )
+}
+
+lme_coordinates <- lme_annual_archive$coordinates
+
+required_lme_coordinate_columns <- c(
+  "location_id",
+  "lati",
+  "long"
+)
+
+if (!all(
+  required_lme_coordinate_columns %in%
+    names(lme_coordinates)
+)) {
+  stop(
+    "The annual LME coordinate table must contain: ",
+    paste(
+      required_lme_coordinate_columns,
+      collapse = ", "
+    ),
+    "."
+  )
+}
+
+lme_coordinates <- lme_coordinates[
+  ,
+  required_lme_coordinate_columns
+]
+
+lme_coordinates$location_id <- as.integer(
+  lme_coordinates$location_id
+)
+
+lme_coordinates$lati <- as.numeric(
+  lme_coordinates$lati
+)
+
+lme_coordinates$long <- as.numeric(
+  lme_coordinates$long
+)
+
+if (
+  anyNA(lme_coordinates) ||
+    any(!is.finite(lme_coordinates$lati)) ||
+    any(!is.finite(lme_coordinates$long))
+) {
+  stop(
+    "The annual LME coordinate table contains invalid values."
+  )
+}
+
+if (anyDuplicated(
+  lme_coordinates[
+    ,
+    c(
+      "long",
+      "lati"
+    )
+  ]
+)) {
+  stop(
+    "The annual LME coordinate table contains duplicated ",
+    "locations."
+  )
+}
+
+n_lme_grid <- nrow(
+  lme_coordinates
+)
+
+if (n_lme_grid != 266L) {
+  warning(
+    "Expected 266 native LME locations, but found ",
+    n_lme_grid,
+    "."
+  )
+}
+
+all_prediction_coordinates <- rbind(
+  unname(
+    loc@coords[
+      ,
+      c(
+        "long",
+        "lat"
+      )
+    ]
+  ),
+  as.matrix(
+    lme_coordinates[
+      ,
+      c(
+        "long",
+        "lati"
+      )
+    ]
+  )
+)
+
+grid_prediction_rows <- seq_len(
+  n_grid
+)
+
+lme_prediction_rows <- n_grid +
+  seq_len(
+    n_lme_grid
+  )
+
+# ------------------------------------------------------------
+# 5. Interval-censored Gaussian moment helpers
 # ------------------------------------------------------------
 
 cuts <- c(
@@ -448,12 +589,8 @@ ordinal_covariance <- function(
 
       covariance_sum <- covariance_sum +
         joint_exceedance_probability -
-        exceedance_probabilities[
-          threshold_1_index
-        ] *
-        exceedance_probabilities[
-          threshold_2_index
-        ]
+        exceedance_probabilities[threshold_1_index] *
+        exceedance_probabilities[threshold_2_index]
     }
   }
 
@@ -510,7 +647,7 @@ build_covariance_lookup <- function(
 }
 
 # ------------------------------------------------------------
-# 5. Precompute fixed marginal quantities and covariance lookup
+# 6. Precompute fixed marginal quantities and covariance lookup
 # ------------------------------------------------------------
 
 total_variance <- sigma_Y2 +
@@ -555,7 +692,7 @@ readr::write_csv(
 )
 
 # ------------------------------------------------------------
-# 6. Fast and stable linear-system solver
+# 7. Fast and stable linear-system solver
 # ------------------------------------------------------------
 
 solve_symmetric_system <- function(
@@ -633,7 +770,7 @@ solve_symmetric_system <- function(
 }
 
 # ------------------------------------------------------------
-# 7. Krige one event year
+# 8. Krige one event year
 # ------------------------------------------------------------
 
 predict_grid_one_year <- function(
@@ -649,10 +786,7 @@ predict_grid_one_year <- function(
     ezstar_h,
     covariance_lookup_function) {
 
-  current_data <- observation_data[
-    observation_data$year ==
-      current_year,
-  ]
+  current_data <- observation_data[observation_data$year == current_year, ]
 
   if (nrow(current_data) == 0L) {
     stop(
@@ -797,7 +931,7 @@ predict_grid_one_year <- function(
 }
 
 # ------------------------------------------------------------
-# 8. Initialise or resume the full-grid calculation
+# 9. Initialise or resume the full-grid calculation
 # ------------------------------------------------------------
 
 mean_matrix <- matrix(
@@ -818,6 +952,34 @@ variance_matrix <- matrix(
   ncol = length(year2),
   dimnames = list(
     NULL,
+    as.character(
+      year2
+    )
+  )
+)
+
+lme_mean_matrix <- matrix(
+  NA_real_,
+  nrow = n_lme_grid,
+  ncol = length(year2),
+  dimnames = list(
+    as.character(
+      lme_coordinates$location_id
+    ),
+    as.character(
+      year2
+    )
+  )
+)
+
+lme_variance_matrix <- matrix(
+  NA_real_,
+  nrow = n_lme_grid,
+  ncol = length(year2),
+  dimnames = list(
+    as.character(
+      lme_coordinates$location_id
+    ),
     as.character(
       year2
     )
@@ -866,6 +1028,14 @@ if (
       dim(
         mean_matrix
       )
+    ) &&
+    identical(
+      dim(
+        checkpoint$lme_mean_matrix
+      ),
+      dim(
+        lme_mean_matrix
+      )
     )
 
   if (checkpoint_is_compatible) {
@@ -873,6 +1043,10 @@ if (
     mean_matrix <- checkpoint$mean_matrix
     variance_matrix <-
       checkpoint$variance_matrix
+    lme_mean_matrix <-
+      checkpoint$lme_mean_matrix
+    lme_variance_matrix <-
+      checkpoint$lme_variance_matrix
     year_diagnostics <-
       checkpoint$year_diagnostics
     completed_indices <-
@@ -896,7 +1070,7 @@ if (
 }
 
 # ------------------------------------------------------------
-# 9. Generate predictions for every event year
+# 10. Generate predictions for every event year
 # ------------------------------------------------------------
 
 start_time <- Sys.time()
@@ -944,7 +1118,7 @@ for (
     current_year = current_year,
     observation_data = y2,
     prediction_coordinates =
-      loc@coords,
+      all_prediction_coordinates,
     sigma_Y2 = sigma_Y2,
     sigma_E2 = sigma_E2,
     alpha_km = alpha_km,
@@ -960,12 +1134,30 @@ for (
   mean_matrix[
     ,
     i
-  ] <- yearly_result$mean
+  ] <- yearly_result$mean[
+    grid_prediction_rows
+  ]
 
   variance_matrix[
     ,
     i
-  ] <- yearly_result$variance
+  ] <- yearly_result$variance[
+    grid_prediction_rows
+  ]
+
+  lme_mean_matrix[
+    ,
+    i
+  ] <- yearly_result$mean[
+    lme_prediction_rows
+  ]
+
+  lme_variance_matrix[
+    ,
+    i
+  ] <- yearly_result$variance[
+    lme_prediction_rows
+  ]
 
   year_diagnostics$number_of_observations[
     i
@@ -1002,6 +1194,10 @@ for (
         mean_matrix = mean_matrix,
         variance_matrix =
           variance_matrix,
+        lme_mean_matrix =
+          lme_mean_matrix,
+        lme_variance_matrix =
+          lme_variance_matrix,
         year_diagnostics =
           year_diagnostics,
         completed_indices =
@@ -1021,7 +1217,7 @@ elapsed_minutes <- as.numeric(
 )
 
 # ------------------------------------------------------------
-# 10. Assemble complete-grid outputs
+# 11. Assemble complete-grid outputs
 # ------------------------------------------------------------
 
 grid_coordinates <- as.data.frame(
@@ -1072,7 +1268,71 @@ readr::write_csv(
 )
 
 # ------------------------------------------------------------
-# 11. Extract Hong Kong, Shanghai, and Beijing
+# 12. Save REACHES predictions at native LME grid locations
+# ------------------------------------------------------------
+
+lme_grid_mean <- cbind(
+  lme_coordinates,
+  as.data.frame(
+    lme_mean_matrix,
+    check.names = FALSE
+  )
+)
+
+lme_grid_variance <- cbind(
+  lme_coordinates,
+  as.data.frame(
+    lme_variance_matrix,
+    check.names = FALSE
+  )
+)
+
+lme_year_columns <- as.character(
+  year2
+)
+
+names(
+  lme_grid_mean
+)[
+  names(lme_grid_mean) %in%
+    lme_year_columns
+] <- paste0(
+  "x",
+  lme_year_columns
+)
+
+names(
+  lme_grid_variance
+)[
+  names(lme_grid_variance) %in%
+    lme_year_columns
+] <- paste0(
+  "x",
+  lme_year_columns
+)
+
+lme_grid_mean_file <- file.path(
+  output_directory,
+  "reaches_kriging_lme_grid_mean.csv"
+)
+
+lme_grid_variance_file <- file.path(
+  output_directory,
+  "reaches_kriging_lme_grid_variance.csv"
+)
+
+readr::write_csv(
+  lme_grid_mean,
+  lme_grid_mean_file
+)
+
+readr::write_csv(
+  lme_grid_variance,
+  lme_grid_variance_file
+)
+
+# ------------------------------------------------------------
+# 13. Extract Hong Kong, Shanghai, and Beijing
 # ------------------------------------------------------------
 
 city_locations <- data.frame(
@@ -1187,7 +1447,7 @@ readr::write_csv(
 )
 
 # ------------------------------------------------------------
-# 12. Save diagnostics and metadata
+# 14. Save diagnostics and metadata
 # ------------------------------------------------------------
 
 metadata <- data.frame(
@@ -1197,6 +1457,8 @@ metadata <- data.frame(
     ),
   number_of_grid_locations =
     n_grid,
+  number_of_lme_grid_locations =
+    n_lme_grid,
   process_variance =
     sigma_Y2,
   nugget_variance =
@@ -1247,6 +1509,16 @@ message(
 message(
   "Complete-grid prediction variances saved to: ",
   grid_variance_file
+)
+
+message(
+  "LME-grid kriging means saved to: ",
+  lme_grid_mean_file
+)
+
+message(
+  "LME-grid prediction variances saved to: ",
+  lme_grid_variance_file
 )
 
 message(
