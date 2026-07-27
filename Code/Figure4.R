@@ -40,10 +40,7 @@ if (!all(required_plots %in% names(vario.fit2))) {
   )
 }
 
-figure4_output_dir <- here::here(
-  "Output",
-  "Figure4"
-)
+figure4_output_dir <- here::here("Output", "Figure4")
 
 dir.create(
   figure4_output_dir,
@@ -51,12 +48,46 @@ dir.create(
   showWarnings = FALSE
 )
 
+# ------------------------------------------------------------
+# Styling helper
+# ------------------------------------------------------------
+style_figure4_plot <- function(p, base_size = 22) {
+  p +
+    theme_gray(base_size = base_size) +
+    theme(
+      text = element_text(size = base_size),
+      axis.title = element_text(size = base_size),
+      axis.text = element_text(size = base_size * 0.8, colour = "black"),
+      legend.position = "none",
+      panel.grid.major = element_line(colour = "white", linewidth = 0.7),
+      panel.grid.minor = element_line(colour = "white", linewidth = 0.35)
+    )
+}
+
+# ------------------------------------------------------------
+# Restyle plots
+# ------------------------------------------------------------
+
+# Figure 4(a): zoom x-axis to 1.4
+p4a <- vario.fit2$plot1 +
+  coord_cartesian(xlim = c(0, 1.4)) +
+  scale_x_continuous(
+    breaks = c(0, 0.5, 1.0)
+  ) +
+  style_figure4_plot(base_size = 22)
+
+p4b <- vario.fit2$plot2 +
+  style_figure4_plot(base_size = 22)
+
+p4c <- vario.fit2$plot3 +
+  style_figure4_plot(base_size = 22)
+
+# ------------------------------------------------------------
+# Save outputs
+# ------------------------------------------------------------
 ggsave(
-  filename = file.path(
-    figure4_output_dir,
-    "Figure4(a).png"
-  ),
-  plot = vario.fit2$plot1,
+  filename = file.path(figure4_output_dir, "Figure4(a).png"),
+  plot = p4a,
   width = 6,
   height = 6,
   units = "in",
@@ -64,11 +95,8 @@ ggsave(
 )
 
 ggsave(
-  filename = file.path(
-    figure4_output_dir,
-    "Figure4(b).png"
-  ),
-  plot = vario.fit2$plot2,
+  filename = file.path(figure4_output_dir, "Figure4(b).png"),
+  plot = p4b,
   width = 6,
   height = 6,
   units = "in",
@@ -76,11 +104,8 @@ ggsave(
 )
 
 ggsave(
-  filename = file.path(
-    figure4_output_dir,
-    "Figure4(c).png"
-  ),
-  plot = vario.fit2$plot3,
+  filename = file.path(figure4_output_dir, "Figure4(c).png"),
+  plot = p4c,
   width = 5,
   height = 6,
   units = "in",
