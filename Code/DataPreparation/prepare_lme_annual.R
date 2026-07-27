@@ -110,7 +110,7 @@ find_member_file <- function(
   }
 
   # Prefer the compressed file when both exist.
-  existing1
+  # existing1
 }
 
 
