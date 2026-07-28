@@ -1,0 +1,2 @@
+number_of_event_years,number_of_grid_locations,number_of_lme_grid_locations,process_variance,nugget_variance,total_variance,range_km,covariance_lookup_size,elapsed_minutes
+523,2597,266,0.7948861045449167,0.19314071245933462,0.9880268170042513,442.1301678990517,4001,0.44626343647638955
