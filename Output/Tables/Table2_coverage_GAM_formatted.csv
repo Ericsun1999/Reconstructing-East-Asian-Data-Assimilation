@@ -1,5 +1,0 @@
-Model,Additional terms,n,AIC,BIC,Dev. expl.
-M1,None,"63,104",29705.96,30303.58,27.19%
-M2,Climate,"63,104",29582.11,30206.27,27.51%
-M3,Population,"63,104",29618.39,30209.97,27.40%
-M4,Climate + Population,"63,104",29488.77,30111.25,27.73%
