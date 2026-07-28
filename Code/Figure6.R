@@ -664,11 +664,7 @@ draw_reaches_cluster <- function(k) {
     )
   }
 
-  cluster_indices <- reaches_cluster_indices[
-    [
-      k
-    ]
-  ]
+  cluster_indices <- reaches_cluster_indices[[k]]
 
   if (length(cluster_indices) == 0L) {
     plot.new()
@@ -817,11 +813,7 @@ get_grid_size <- function(
 
   coordinate_values <- sort(
     unique(
-      data[
-        [
-          coordinate
-        ]
-      ]
+      data[[coordinate]]
     )
   )
 
