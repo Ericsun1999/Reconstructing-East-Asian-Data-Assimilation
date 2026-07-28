@@ -20,9 +20,7 @@ analysis_years <- 1368:1911
 # used to keep the reproducibility run computationally feasible.
 #
 # For a finer search, increase length.out (for example to 13 or
-# 25) and/or expand the exponent range. If a selected lambda lies
-# on 10^0 or 10^3, the boundary warning below indicates that the
-# grid should be expanded or refined.
+# 25) and/or expand the exponent range.
 
 
 lambda1_grid <- 10^seq(0, 3, length.out = 7)
@@ -1249,23 +1247,6 @@ estimate_city <- function(
       CV
     )
 
-  saveRDS(
-    list(
-      city = city_name,
-      input_file = lme_input_file,
-      years = analysis_years,
-      penalized = penalized_fit,
-      unpenalized = unpenalized_fit
-    ),
-    file.path(
-      output_dir,
-      paste0(
-        "prior_",
-        city_name,
-        ".rds"
-      )
-    )
-  )
 
   selected_lambdas <- unname(
     penalized_fit$lambdas[
@@ -1277,32 +1258,11 @@ estimate_city <- function(
     ]
   )
 
-  lambda_on_boundary <- c(
-    selected_lambdas[1] %in%
-      range(
-        lambda1_grid
-      ),
-    selected_lambdas[2] %in%
-      range(
-        lambda2_grid
-      ),
-    selected_lambdas[3] %in%
-      range(
-        lambda3_grid
-      )
-  )
-
   best_lambdas <- data.frame(
     city = city_name,
     lambda1 = selected_lambdas[1],
     lambda2 = selected_lambdas[2],
     lambda3 = selected_lambdas[3],
-    lambda1_on_grid_boundary =
-      lambda_on_boundary[1],
-    lambda2_on_grid_boundary =
-      lambda_on_boundary[2],
-    lambda3_on_grid_boundary =
-      lambda_on_boundary[3],
     CV = penalized_fit$CV,
     iterations =
       penalized_fit$optimization$iters,
@@ -1310,24 +1270,6 @@ estimate_city <- function(
       penalized_fit$optimization$converged
   )
 
-  if (any(
-    lambda_on_boundary
-  )) {
-    warning(
-      city_name,
-      ": at least one selected lambda lies on the edge of ",
-      "the search grid [",
-      min(
-        lambda1_grid
-      ),
-      ", ",
-      max(
-        lambda1_grid
-      ),
-      "]. Consider expanding or refining that grid before the ",
-      "final manuscript run."
-    )
-  }
 
   message(
     "Completed ",
@@ -1390,14 +1332,6 @@ readr::write_csv(
   file.path(
     output_dir,
     "prior_best_lambdas.csv"
-  )
-)
-
-saveRDS(
-  prior_results,
-  file.path(
-    output_dir,
-    "prior_results_all_cities.rds"
   )
 )
 
