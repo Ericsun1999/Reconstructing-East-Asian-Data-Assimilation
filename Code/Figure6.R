@@ -24,8 +24,14 @@ here::i_am("Code/Figure6.R")
 #   Output/Figure6/Figure6_cluster_map.jpg
 #   Output/Figure6/Figure6_cluster_1.jpg
 #   ...
-#   Output/Figure6/Figure6_cluster_5.jpg
+#   Output/Figure6/Figure6_cluster_K.jpg
 #   Output/Figure6/Figure6_cluster_assignments.csv
+#   Output/Figure6/Figure6_mclust_bic.csv
+#   Output/Figure6/Figure6_cluster_selection.csv
+#
+# K is selected by BIC by default. Set cluster_selection_mode
+# to "fixed" only when a prespecified number of clusters is
+# scientifically required.
 # ============================================================
 
 library(dplyr)
@@ -43,6 +49,26 @@ library(readxl)
 # ------------------------------------------------------------
 
 input_mode <- "auto"
+
+cluster_selection_mode <- "bic"
+fixed_number_of_clusters <- 5L
+candidate_numbers_of_clusters <- 1:8
+
+allowed_cluster_selection_modes <- c(
+  "bic",
+  "fixed"
+)
+
+if (!cluster_selection_mode %in%
+    allowed_cluster_selection_modes) {
+  stop(
+    "cluster_selection_mode must be one of: ",
+    paste(
+      allowed_cluster_selection_modes,
+      collapse = ", "
+    )
+  )
+}
 
 allowed_input_modes <- c(
   "auto",
@@ -69,6 +95,8 @@ input_files <- c(
   ),
   precomputed = here::here(
     "Data",
+    "REACHES",
+    "precomputed",
     "reaches_kriging_lme_grid_mean.csv"
   )
 )
@@ -515,10 +543,26 @@ reaches_grid <- tempe_all_v4 %>%
     )
   )
 
-if (nrow(reaches_grid) < 5L) {
+minimum_required_locations <- max(
+  5L,
+  if (
+    cluster_selection_mode == "fixed"
+  ) {
+    as.integer(
+      fixed_number_of_clusters
+    )
+  } else {
+    1L
+  }
+)
+
+if (
+  nrow(reaches_grid) <
+    minimum_required_locations
+) {
   stop(
-    "Too few LME-grid locations remained for five-cluster ",
-    "functional clustering."
+    "Too few LME-grid locations remained for functional ",
+    "clustering."
   )
 }
 
@@ -568,32 +612,84 @@ pca_R <- fda::pca.fd(
 
 scores_R <- pca_R$scores
 
-mc_R <- mclust::Mclust(
+# First fit the complete candidate set so the BIC-selected
+# solution and the full BIC table are always retained.
+mc_R_bic <- mclust::Mclust(
   scores_R,
-  G = 1:8
+  G = candidate_numbers_of_clusters
 )
 
-if (
-  length(mc_R$G) != 1L ||
-    mc_R$G != 5L
-) {
-  stop(
-    "Expected Mclust to select five clusters, but it selected ",
-    mc_R$G,
-    "."
+bic_selected_number_of_clusters <- as.integer(
+  mc_R_bic$G
+)
+
+if (cluster_selection_mode == "bic") {
+
+  mc_R <- mc_R_bic
+
+} else {
+
+  if (
+    length(fixed_number_of_clusters) != 1L ||
+      !is.finite(fixed_number_of_clusters) ||
+      fixed_number_of_clusters < 1L
+  ) {
+    stop(
+      "fixed_number_of_clusters must be one positive integer."
+    )
+  }
+
+  mc_R <- mclust::Mclust(
+    scores_R,
+    G = as.integer(
+      fixed_number_of_clusters
+    )
   )
 }
 
-cl_R <- mc_R$classification
+number_of_clusters <- as.integer(
+  mc_R$G
+)
 
-# Relabel the mixture components to match manuscript Figure 6:
-# old 5, 4, 3, 1, 2 -> new 1, 2, 3, 4, 5.
-relabel_R <- c(
-  "5" = 1L,
-  "4" = 2L,
-  "3" = 3L,
-  "1" = 4L,
-  "2" = 5L
+cl_R <- as.integer(
+  mc_R$classification
+)
+
+# Evaluate the fitted functions before relabeling. Mixture
+# component labels are arbitrary, so assign reproducible Figure 6
+# labels by ordering components from the lowest to the highest
+# overall fitted REACHES temperature index.
+eval_R <- t(
+  fda::eval.fd(
+    time_grid,
+    fd_R
+  )
+)
+
+overall_curve_mean <- rowMeans(
+  eval_R
+)
+
+component_mean_index <- tapply(
+  overall_curve_mean,
+  cl_R,
+  mean
+)
+
+component_order <- as.integer(
+  names(
+    sort(
+      component_mean_index,
+      decreasing = FALSE
+    )
+  )
+)
+
+relabel_R <- setNames(
+  seq_len(
+    number_of_clusters
+  ),
+  component_order
 )
 
 cl_R_geo <- unname(
@@ -604,22 +700,23 @@ cl_R_geo <- unname(
   ]
 )
 
-if (anyNA(cl_R_geo)) {
+if (
+  anyNA(cl_R_geo) ||
+    length(
+      unique(
+        cl_R_geo
+      )
+    ) != number_of_clusters
+) {
   stop(
-    "Cluster relabeling produced missing values. Check the ",
-    "Mclust labels and relabel_R."
+    "Deterministic cluster relabeling failed."
   )
 }
 
-eval_R <- t(
-  fda::eval.fd(
-    time_grid,
-    fd_R
-  )
-)
-
 reaches_cluster_indices <- lapply(
-  1:5,
+  seq_len(
+    number_of_clusters
+  ),
   function(k) {
     which(
       cl_R_geo == k
@@ -631,11 +728,23 @@ names(
   reaches_cluster_indices
 ) <- paste0(
   "cluster_",
-  1:5
+  seq_len(
+    number_of_clusters
+  )
+)
+
+message(
+  "BIC selected ",
+  bic_selected_number_of_clusters,
+  " clusters. Figure 6 is using ",
+  number_of_clusters,
+  " clusters under cluster_selection_mode = \"",
+  cluster_selection_mode,
+  "\"."
 )
 
 # ------------------------------------------------------------
-# 8. Draw the five functional boxplots
+# 8. Draw the functional boxplots
 # ------------------------------------------------------------
 
 year_ticks <- seq(
@@ -658,9 +767,14 @@ ytick_R <- c(
 
 draw_reaches_cluster <- function(k) {
 
-  if (!k %in% 1:5) {
+  if (!k %in%
+      seq_len(
+        number_of_clusters
+      )) {
     stop(
-      "k must be one of 1, 2, 3, 4, or 5."
+      "k must be an integer from 1 to ",
+      number_of_clusters,
+      "."
     )
   }
 
@@ -740,7 +854,11 @@ save_reaches_clusters_separately <- function(
     recursive = TRUE
   )
 
-  for (k in 1:5) {
+  for (
+    k in seq_len(
+      number_of_clusters
+    )
+  ) {
 
     filename <- file.path(
       output_dir,
@@ -804,7 +922,7 @@ save_reaches_clusters_separately <- function(
 }
 
 # ------------------------------------------------------------
-# 9. Create the five-cluster map
+# 9. Create the cluster map
 # ------------------------------------------------------------
 
 get_grid_size <- function(
@@ -843,7 +961,9 @@ df_map_reach <- data.frame(
   lat = reaches_grid$lati,
   cluster = factor(
     cl_R_geo,
-    levels = 1:5
+    levels = seq_len(
+      number_of_clusters
+    )
   )
 )
 
@@ -957,7 +1077,79 @@ readr::write_csv(
   )
 )
 
+bic_matrix <- as.matrix(
+  mc_R_bic$BIC
+)
+
+bic_output <- as.data.frame(
+  as.table(
+    bic_matrix
+  ),
+  stringsAsFactors = FALSE
+)
+
+names(
+  bic_output
+) <- c(
+  "number_of_clusters",
+  "model_name",
+  "BIC"
+)
+
+bic_output <- bic_output %>%
+  mutate(
+    number_of_clusters =
+      as.integer(
+        as.character(
+          number_of_clusters
+        )
+      ),
+    BIC = as.numeric(
+      BIC
+    )
+  ) %>%
+  filter(
+    is.finite(
+      BIC
+    )
+  ) %>%
+  arrange(
+    desc(
+      BIC
+    )
+  )
+
+readr::write_csv(
+  bic_output,
+  file.path(
+    figure6_output_dir,
+    "Figure6_mclust_bic.csv"
+  )
+)
+
+cluster_selection_output <- data.frame(
+  cluster_selection_mode =
+    cluster_selection_mode,
+  bic_selected_number_of_clusters =
+    bic_selected_number_of_clusters,
+  figure_number_of_clusters =
+    number_of_clusters,
+  selected_model_name =
+    mc_R$modelName,
+  relabeling_rule =
+    "ascending overall fitted REACHES temperature index"
+)
+
+readr::write_csv(
+  cluster_selection_output,
+  file.path(
+    figure6_output_dir,
+    "Figure6_cluster_selection.csv"
+  )
+)
+
 message(
-  "All Figure 6 panels and cluster assignments were saved to: ",
+  "All Figure 6 panels, BIC values, and cluster assignments ",
+  "were saved to: ",
   figure6_output_dir
 )
