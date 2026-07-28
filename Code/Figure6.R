@@ -698,6 +698,16 @@ cl_R_geo <- unname(
   ]
 )
 
+cl_R_geo <- dplyr::recode(
+  as.character(cl_R_geo),
+  "1" = "4",
+  "2" = "2",
+  "3" = "3",
+  "4" = "1"
+)
+
+cl_R_geo <- as.integer(cl_R_geo)
+
 if (
   anyNA(cl_R_geo) ||
     length(
