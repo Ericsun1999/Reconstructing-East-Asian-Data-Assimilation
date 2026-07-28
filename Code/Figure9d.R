@@ -1,62 +1,101 @@
 here::i_am("Code/Figure9d.R")
 
 # ============================================================
-# Generate:
+# Annual Kalman assimilation for:
 #   Figure 9(d)  -- Beijing
 #   Figure S3(d) -- Shanghai
 #   Figure S4(d) -- Hong Kong
 #
-# Required inputs:
-#   Data/reaches_kriging_city3_mean.csv
-#   Data/reaches_kriging_city3_sd.csv
+# Major implementation points:
+#   1. The filter and smoother run on every year from 1368 to
+#      1911. Years without REACHES information use a
+#      prediction-only Kalman step.
+#   2. Latent Gaussian variables are never rounded or clipped
+#      to the observed REACHES category range [-2, 1].
+#   3. The kriging SD is used in the quantile-mapping CDF, while
+#      its square (MSPE) is used to obtain Var(Yhat_t).
+#   4. The latent-process variance is read from the kriging
+#      metadata rather than hard-coded.
+#   5. REACHES, LME, and prior parameters are checked against
+#      the same city coordinates and complete annual grid.
 #
-#   Data/par/mtB.csv, muB.csv, rtB.csv
-#   Data/par/mtS.csv, muS.csv, rtS.csv
-#   Data/par/mtH.csv, muH.csv, rtH.csv
+# Supported input modes:
+#   "generated":
+#     Output/Intermediate/REACHES/
+#     Output/Intermediate/LME/
+#     Output/Intermediate/Prior/
 #
-#   Data/LME data/Figure9/d1.csv  (Hong Kong)
-#   Data/LME data/Figure9/d2.csv  (Shanghai)
-#   Data/LME data/Figure9/d3.csv  (Beijing)
+#   "precomputed":
+#     Data/REACHES/precomputed/
+#     Data/LME data/precomputed/
+#     Data/par/
 #
-# Outputs:
+#   "auto" (default):
+#     Use the complete generated set when available; otherwise
+#     use the complete precomputed set.
+#
+# Main outputs:
 #   Output/Figure9/Figure9d.png
 #   Output/Supplementary/FigureS3d.png
 #   Output/Supplementary/FigureS4d.png
 #
-#   Data/Valid/tempBv5.csv
-#   Data/Valid/tempSv5.csv
-#   Data/Valid/tempHv5.csv
+# Numerical and diagnostic outputs:
+#   Output/Intermediate/Assimilation/
+#     assimilation_Beijing.csv
+#     assimilation_Shanghai.csv
+#     assimilation_HongKong.csv
+#     assimilation_metrics.csv
+#     assimilation_metadata.csv
+#     diagnostic_Beijing.png
+#     diagnostic_Shanghai.png
+#     diagnostic_HongKong.png
+#     Figure9d_sessionInfo.txt
 # ============================================================
 
-library(here)
-library(ggplot2)
-library(mvtnorm)
-library(np)
+library(dplyr)
+library(tidyr)
 library(readr)
+library(np)
+library(ggplot2)
 
 # ------------------------------------------------------------
-# 1. Paths and analysis settings
+# 1. Configuration
 # ------------------------------------------------------------
 
-kriging_mean_file <- here::here(
-  "Data",
-  "reaches_kriging_city3_mean.csv"
+analysis_years <- 1368:1911
+
+input_mode <- "auto"
+
+allowed_input_modes <- c(
+  "auto",
+  "generated",
+  "precomputed"
 )
 
-kriging_sd_file <- here::here(
-  "Data",
-  "reaches_kriging_city3_sd.csv"
-)
+if (!input_mode %in% allowed_input_modes) {
+  stop(
+    "input_mode must be one of: ",
+    paste(
+      allowed_input_modes,
+      collapse = ", "
+    )
+  )
+}
 
-parameter_dir <- here::here(
-  "Data",
-  "par"
-)
+measurement_mc_size <- 10000L
+measurement_mc_seed <- 1L
 
-validation_dir <- here::here(
-  "Data",
-  "Valid"
-)
+# The numerical representation of g(y) is constructed over a
+# very wide latent-Gaussian range. Increase grid_size for a finer
+# interpolation at additional computational cost.
+mapping_grid_size <- 2001L
+latent_tail_probability <- 1e-14
+lme_cdf_grid_size <- 5001L
+
+coordinate_tolerance <- 1e-8
+variance_tolerance <- 1e-10
+beta_tolerance <- 1e-10
+identity_tolerance <- 1e-8
 
 figure9_dir <- here::here(
   "Output",
@@ -68,10 +107,10 @@ supplementary_dir <- here::here(
   "Supplementary"
 )
 
-dir.create(
-  validation_dir,
-  recursive = TRUE,
-  showWarnings = FALSE
+assimilation_output_dir <- here::here(
+  "Output",
+  "Intermediate",
+  "Assimilation"
 )
 
 dir.create(
@@ -86,267 +125,536 @@ dir.create(
   showWarnings = FALSE
 )
 
-analysis_years <- 1368:1911
-lme_columns <- 21:564
-
-# Marginal variance of the latent REACHES process used in the
-# original Figure 9(d) analysis.
-sigmaY2 <- 0.887
-
-measurement_mc_size <- 10000
-measurement_mc_seed <- 1
-
-# Preserve the original behavior of saving and plotting all
-# available kriging years except the final one.
-drop_final_output_year <- FALSE
-
-candidate_lme_dirs <- c(
-  here::here(
-    "Data",
-    "LME data",
-    "Figure9"
-  ),
-  here::here(
-    "Data",
-    "LME data"
-  )
+dir.create(
+  assimilation_output_dir,
+  recursive = TRUE,
+  showWarnings = FALSE
 )
-
-required_lme_files <- c(
-  "d1.csv",
-  "d2.csv",
-  "d3.csv"
-)
-
-valid_lme_dir <- vapply(
-  candidate_lme_dirs,
-  function(directory) {
-    all(
-      file.exists(
-        file.path(
-          directory,
-          required_lme_files
-        )
-      )
-    )
-  },
-  logical(1)
-)
-
-if (!any(valid_lme_dir)) {
-  stop(
-    "Could not find d1.csv, d2.csv, and d3.csv together in:\n",
-    paste(
-      paste0(
-        "  - ",
-        candidate_lme_dirs
-      ),
-      collapse = "\n"
-    )
-  )
-}
-
-lme_dir <- candidate_lme_dirs[
-  which(valid_lme_dir)[1]
-]
 
 city_config <- list(
   HongKong = list(
     code = "H",
-    lme_file = file.path(
-      lme_dir,
-      "d1.csv"
-    ),
     long = 113.75,
     lat = 22.25,
     figure_file = file.path(
       supplementary_dir,
       "FigureS4d.png"
-    ),
-    valid_file = file.path(
-      validation_dir,
-      "tempHv5.csv"
     )
   ),
   Shanghai = list(
     code = "S",
-    lme_file = file.path(
-      lme_dir,
-      "d2.csv"
-    ),
     long = 121.25,
     lat = 31.25,
     figure_file = file.path(
       supplementary_dir,
       "FigureS3d.png"
-    ),
-    valid_file = file.path(
-      validation_dir,
-      "tempSv5.csv"
     )
   ),
   Beijing = list(
     code = "B",
-    lme_file = file.path(
-      lme_dir,
-      "d3.csv"
-    ),
     long = 116.25,
     lat = 39.75,
     figure_file = file.path(
       figure9_dir,
       "Figure9d.png"
-    ),
-    valid_file = file.path(
-      validation_dir,
-      "tempBv5.csv"
     )
   )
 )
 
 # ------------------------------------------------------------
-# 2. Input helpers
+# 2. Select one complete input set
 # ------------------------------------------------------------
 
-extract_year_columns <- function(data) {
+generated_inputs <- list(
+  reaches_mean = here::here(
+    "Output",
+    "Intermediate",
+    "REACHES",
+    "reaches_kriging_city3_mean.csv"
+  ),
+  reaches_sd = here::here(
+    "Output",
+    "Intermediate",
+    "REACHES",
+    "reaches_kriging_city3_sd.csv"
+  ),
+  reaches_metadata = here::here(
+    "Output",
+    "Intermediate",
+    "REACHES",
+    "reaches_kriging_metadata.csv"
+  ),
+  lme_city3 = here::here(
+    "Output",
+    "Intermediate",
+    "LME",
+    "lme_city3_annual_1368_1911.csv"
+  ),
+  parameter_dir = here::here(
+    "Output",
+    "Intermediate",
+    "Prior"
+  )
+)
 
-  column_names <- names(data)
+precomputed_inputs <- list(
+  reaches_mean = here::here(
+    "Data",
+    "REACHES",
+    "precomputed",
+    "reaches_kriging_city3_mean.csv"
+  ),
+  reaches_sd = here::here(
+    "Data",
+    "REACHES",
+    "precomputed",
+    "reaches_kriging_city3_sd.csv"
+  ),
+  reaches_metadata = here::here(
+    "Data",
+    "REACHES",
+    "precomputed",
+    "reaches_kriging_metadata.csv"
+  ),
+  lme_city3 = here::here(
+    "Data",
+    "LME data",
+    "precomputed",
+    "lme_city3_annual_1368_1911.csv"
+  ),
+  parameter_dir = here::here(
+    "Data",
+    "par"
+  )
+)
 
-  year_values <- suppressWarnings(
-    as.integer(
-      sub(
-        "^X",
-        "",
-        column_names
-      )
+required_parameter_files <- c(
+  "mtB.csv",
+  "muB.csv",
+  "rtB.csv",
+  "mtS.csv",
+  "muS.csv",
+  "rtS.csv",
+  "mtH.csv",
+  "muH.csv",
+  "rtH.csv"
+)
+
+input_set_is_complete <- function(input_set) {
+
+  required_files <- c(
+    input_set$reaches_mean,
+    input_set$reaches_sd,
+    input_set$reaches_metadata,
+    input_set$lme_city3,
+    file.path(
+      input_set$parameter_dir,
+      required_parameter_files
     )
   )
 
-  valid <- !is.na(year_values) &
-    year_values >= 1000L &
-    year_values <= 3000L
-
-  if (!any(valid)) {
-    stop(
-      "No year columns were found. Expected names such as ",
-      "'1368' or 'X1368'."
+  all(
+    file.exists(
+      required_files
     )
-  }
-
-  data.frame(
-    column = column_names[valid],
-    year = year_values[valid],
-    stringsAsFactors = FALSE
   )
 }
 
+missing_input_files <- function(input_set) {
+
+  required_files <- c(
+    input_set$reaches_mean,
+    input_set$reaches_sd,
+    input_set$reaches_metadata,
+    input_set$lme_city3,
+    file.path(
+      input_set$parameter_dir,
+      required_parameter_files
+    )
+  )
+
+  required_files[
+    !file.exists(
+      required_files
+    )
+  ]
+}
+
+select_input_set <- function(
+    input_mode,
+    generated_inputs,
+    precomputed_inputs) {
+
+  generated_complete <- input_set_is_complete(
+    generated_inputs
+  )
+
+  precomputed_complete <- input_set_is_complete(
+    precomputed_inputs
+  )
+
+  if (input_mode == "generated") {
+    if (!generated_complete) {
+      stop(
+        "The generated Figure 9(d) input set is incomplete. ",
+        "Missing:\n  ",
+        paste(
+          missing_input_files(
+            generated_inputs
+          ),
+          collapse = "\n  "
+        )
+      )
+    }
+
+    return(
+      generated_inputs
+    )
+  }
+
+  if (input_mode == "precomputed") {
+    if (!precomputed_complete) {
+      stop(
+        "The precomputed Figure 9(d) input set is incomplete. ",
+        "Missing:\n  ",
+        paste(
+          missing_input_files(
+            precomputed_inputs
+          ),
+          collapse = "\n  "
+        )
+      )
+    }
+
+    return(
+      precomputed_inputs
+    )
+  }
+
+  if (generated_complete) {
+    return(
+      generated_inputs
+    )
+  }
+
+  if (precomputed_complete) {
+    return(
+      precomputed_inputs
+    )
+  }
+
+  stop(
+    "Neither a complete generated nor a complete precomputed ",
+    "Figure 9(d) input set was found."
+  )
+}
+
+input_files <- select_input_set(
+  input_mode = input_mode,
+  generated_inputs = generated_inputs,
+  precomputed_inputs = precomputed_inputs
+)
+
+message(
+  "Figure 9(d) input mode: ",
+  input_mode
+)
+
+message(
+  "REACHES input selected from: ",
+  dirname(
+    input_files$reaches_mean
+  )
+)
+
+message(
+  "Prior parameters selected from: ",
+  input_files$parameter_dir
+)
+
+# ------------------------------------------------------------
+# 3. General input helpers
+# ------------------------------------------------------------
 
 coordinate_key <- function(
     long,
     lat) {
 
   sprintf(
-    "%.2f_%.2f",
-    long,
-    lat
+    "%.8f_%.8f",
+    as.numeric(
+      long
+    ),
+    as.numeric(
+      lat
+    )
   )
 }
 
+extract_year_columns <- function(data) {
 
-read_kriging_files <- function(
-    mean_file,
-    sd_file) {
+  column_names <- names(
+    data
+  )
 
-  if (!file.exists(mean_file)) {
+  year_values <- suppressWarnings(
+    as.integer(
+      sub(
+        "^[Xx]",
+        "",
+        column_names
+      )
+    )
+  )
+
+  valid <- !is.na(
+    year_values
+  ) &
+    year_values >= 1000L &
+    year_values <= 3000L
+
+  if (!any(
+    valid
+  )) {
     stop(
-      "Kriging mean file was not found: ",
-      mean_file
+      "No annual columns were found. Expected names such as ",
+      "'1368', 'X1368', or 'x1368'."
     )
   }
 
-  if (!file.exists(sd_file)) {
-    stop(
-      "Kriging SD file was not found: ",
-      sd_file
+  output <- column_names[valid]
+
+  names(
+    output
+  ) <- as.character(
+    year_values[valid]
+  )
+
+  output
+}
+
+normalize_city_name <- function(city) {
+
+  normalized <- tolower(
+    gsub(
+      "[[:space:]_-]",
+      "",
+      as.character(
+        city
+      )
     )
+  )
+
+  dplyr::recode(
+    normalized,
+    hongkong = "HongKong",
+    shanghai = "Shanghai",
+    beijing = "Beijing",
+    .default = NA_character_
+  )
+}
+
+# ------------------------------------------------------------
+# 4. Read REACHES means, SDs, and process variance
+# ------------------------------------------------------------
+
+read_kriging_city_file <- function(
+    input_file,
+    value_type) {
+
+  data <- readr::read_csv(
+    input_file,
+    show_col_types = FALSE,
+    name_repair = "minimal"
+  )
+
+  if (
+    !"lat" %in%
+      names(
+        data
+      ) &&
+      "lati" %in%
+        names(
+          data
+        )
+  ) {
+    data <- data %>%
+      rename(
+        lat = lati
+      )
   }
 
-  mean_data <- read.csv(
-    mean_file,
-    check.names = FALSE
-  )
-
-  sd_data <- read.csv(
-    sd_file,
-    check.names = FALSE
-  )
-
-  required_coordinates <- c(
+  required_columns <- c(
     "long",
     "lat"
   )
 
-  if (
-    !all(required_coordinates %in% names(mean_data)) ||
-      !all(required_coordinates %in% names(sd_data))
-  ) {
+  missing_columns <- setdiff(
+    required_columns,
+    names(
+      data
+    )
+  )
+
+  if (length(
+    missing_columns
+  ) > 0L) {
     stop(
-      "Both kriging files must contain 'long' and 'lat' columns."
+      input_file,
+      " is missing coordinate columns: ",
+      paste(
+        missing_columns,
+        collapse = ", "
+      )
     )
   }
 
-  mean_year_map <- extract_year_columns(
-    mean_data
+  year_map <- extract_year_columns(
+    data
   )
 
-  sd_year_map <- extract_year_columns(
-    sd_data
-  )
+  data <- data %>%
+    mutate(
+      long = as.numeric(
+        long
+      ),
+      lat = as.numeric(
+        lat
+      )
+    )
 
-  common_years <- intersect(
-    mean_year_map$year,
-    sd_year_map$year
-  )
-
-  common_years <- sort(
-    common_years
-  )
-
-  if (length(common_years) < 2L) {
+  if (
+    any(!is.finite(
+      data$long
+    )) ||
+      any(!is.finite(
+        data$lat
+      )) ||
+      anyDuplicated(
+        coordinate_key(
+          data$long,
+          data$lat
+        )
+      )
+  ) {
     stop(
-      "The kriging mean and SD files do not share at least two years."
+      "Invalid or duplicated coordinates were found in ",
+      input_file,
+      "."
     )
   }
 
   list(
-    mean = mean_data,
-    sd = sd_data,
-    mean_year_map = mean_year_map,
-    sd_year_map = sd_year_map,
-    years = common_years
+    data = data,
+    year_map = year_map,
+    value_type = value_type
   )
 }
 
+kriging_mean_object <- read_kriging_city_file(
+  input_files$reaches_mean,
+  value_type = "mean"
+)
+
+kriging_sd_object <- read_kriging_city_file(
+  input_files$reaches_sd,
+  value_type = "standard deviation"
+)
+
+common_reaches_years <- intersect(
+  names(
+    kriging_mean_object$year_map
+  ),
+  names(
+    kriging_sd_object$year_map
+  )
+)
+
+common_reaches_years <- sort(
+  as.integer(
+    common_reaches_years
+  )
+)
+
+common_reaches_years <- intersect(
+  common_reaches_years,
+  analysis_years
+)
+
+if (length(
+  common_reaches_years
+) < 2L) {
+  stop(
+    "The REACHES mean and SD files do not share at least two ",
+    "analysis years."
+  )
+}
+
+kriging_metadata <- readr::read_csv(
+  input_files$reaches_metadata,
+  show_col_types = FALSE
+)
+
+if (
+  !"process_variance" %in%
+    names(
+      kriging_metadata
+    ) ||
+    nrow(
+      kriging_metadata
+    ) != 1L
+) {
+  stop(
+    "The REACHES metadata file must contain one ",
+    "'process_variance' value."
+  )
+}
+
+sigmaY2 <- as.numeric(kriging_metadata$process_variance[1])
+
+if (
+  length(
+    sigmaY2
+  ) != 1L ||
+    !is.finite(
+      sigmaY2
+    ) ||
+    sigmaY2 <= 0
+) {
+  stop(
+    "The process variance in the REACHES metadata is invalid."
+  )
+}
+
+message(
+  "Latent REACHES process variance: ",
+  signif(
+    sigmaY2,
+    8
+  )
+)
 
 extract_city_kriging <- function(
-    kriging_data,
     city_name,
     long,
-    lat) {
-
-  mean_keys <- coordinate_key(
-    kriging_data$mean$long,
-    kriging_data$mean$lat
-  )
-
-  sd_keys <- coordinate_key(
-    kriging_data$sd$long,
-    kriging_data$sd$lat
-  )
+    lat,
+    mean_object,
+    sd_object,
+    years) {
 
   target_key <- coordinate_key(
     long,
     lat
+  )
+
+  mean_keys <- coordinate_key(
+    mean_object$data$long,
+    mean_object$data$lat
+  )
+
+  sd_keys <- coordinate_key(
+    sd_object$data$long,
+    sd_object$data$lat
   )
 
   mean_row <- match(
@@ -359,9 +667,16 @@ extract_city_kriging <- function(
     sd_keys
   )
 
-  if (is.na(mean_row) || is.na(sd_row)) {
+  if (
+    is.na(
+      mean_row
+    ) ||
+      is.na(
+        sd_row
+      )
+  ) {
     stop(
-      "The kriging location for ",
+      "The REACHES location for ",
       city_name,
       " was not found at (",
       long,
@@ -371,24 +686,40 @@ extract_city_kriging <- function(
     )
   }
 
-  years <- kriging_data$years
+  mean_columns <- unname(
+    mean_object$year_map[
+      as.character(
+        years
+      )
+    ]
+  )
 
-  mean_columns <- kriging_data$mean_year_map$column[
-    match(
-      years,
-      kriging_data$mean_year_map$year
-    )
-  ]
+  sd_columns <- unname(
+    sd_object$year_map[
+      as.character(
+        years
+      )
+    ]
+  )
 
-  sd_columns <- kriging_data$sd_year_map$column[
-    match(
-      years,
-      kriging_data$sd_year_map$year
+  if (
+    anyNA(
+      mean_columns
+    ) ||
+      anyNA(
+        sd_columns
+      )
+  ) {
+    stop(
+      "The REACHES files could not be aligned to all requested ",
+      "event years for ",
+      city_name,
+      "."
     )
-  ]
+  }
 
   yhat <- as.numeric(
-    kriging_data$mean[
+    mean_object$data[
       mean_row,
       mean_columns,
       drop = TRUE
@@ -396,7 +727,7 @@ extract_city_kriging <- function(
   )
 
   nu <- as.numeric(
-    kriging_data$sd[
+    sd_object$data[
       sd_row,
       sd_columns,
       drop = TRUE
@@ -404,130 +735,280 @@ extract_city_kriging <- function(
   )
 
   if (
-    any(!is.finite(yhat)) ||
-      any(!is.finite(nu))
+    any(!is.finite(
+      yhat
+    )) ||
+      any(!is.finite(
+        nu
+      )) ||
+      any(
+        nu < 0
+      )
   ) {
     stop(
-      "Non-finite kriging values were found for ",
+      "Invalid REACHES means or standard deviations were found ",
+      "for ",
       city_name,
       "."
     )
   }
 
-  if (any(nu < 0)) {
-    stop(
-      "Negative kriging standard deviations were found for ",
-      city_name,
-      "."
-    )
-  }
-
-  list(
-    years = years,
-    yhat = yhat,
-    nu = nu
+  data.frame(
+    year = as.integer(
+      years
+    ),
+    reaches_index_mean = yhat,
+    reaches_index_sd = nu
   )
 }
 
+# ------------------------------------------------------------
+# 5. Read the common long-format LME city file
+# ------------------------------------------------------------
+
+lme_city_data <- readr::read_csv(
+  input_files$lme_city3,
+  show_col_types = FALSE
+)
+
+required_lme_columns <- c(
+  "city",
+  "long",
+  "lati",
+  "member",
+  "year",
+  "temperature_kelvin"
+)
+
+missing_lme_columns <- setdiff(
+  required_lme_columns,
+  names(
+    lme_city_data
+  )
+)
+
+if (length(
+  missing_lme_columns
+) > 0L) {
+  stop(
+    "The LME city file is missing columns: ",
+    paste(
+      missing_lme_columns,
+      collapse = ", "
+    )
+  )
+}
+
+lme_city_data <- lme_city_data %>%
+  transmute(
+    city = normalize_city_name(
+      city
+    ),
+    long = as.numeric(
+      long
+    ),
+    lat = as.numeric(
+      lati
+    ),
+    member = as.character(
+      member
+    ),
+    year = as.integer(
+      year
+    ),
+    temperature_celsius =
+      as.numeric(
+        temperature_kelvin
+      ) -
+      273.15
+  ) %>%
+  filter(
+    year %in%
+      analysis_years
+  ) %>%
+  arrange(
+    city,
+    member,
+    year
+  )
+
+if (
+  anyNA(
+    lme_city_data
+  ) ||
+    any(!is.finite(
+      lme_city_data$temperature_celsius
+    ))
+) {
+  stop(
+    "The LME city file contains missing or invalid values."
+  )
+}
+
+duplicate_lme_rows <- lme_city_data %>%
+  count(
+    city,
+    member,
+    year,
+    name = "number_of_rows"
+  ) %>%
+  filter(
+    number_of_rows != 1L
+  )
+
+if (nrow(
+  duplicate_lme_rows
+) > 0L) {
+  stop(
+    "Each LME city-member-year combination must occur exactly ",
+    "once."
+  )
+}
 
 read_lme_city <- function(
-    input_file,
-    city_name) {
+    city_name,
+    config,
+    lme_city_data) {
 
-  if (!file.exists(input_file)) {
+  city_data <- lme_city_data %>%
+    filter(
+      city == city_name
+    )
+
+  if (nrow(
+    city_data
+  ) == 0L) {
     stop(
-      "LME file for ",
+      "No LME data were found for ",
       city_name,
-      " was not found: ",
-      input_file
+      "."
     )
   }
 
-  raw_data <- read.csv(
-    input_file,
-    row.names = 1,
-    check.names = FALSE
+  city_coordinates <- city_data %>%
+    distinct(
+      long,
+      lat
+    )
+
+  if (nrow(
+    city_coordinates
+  ) != 1L) {
+    stop(
+      "The LME input contains multiple coordinates for ",
+      city_name,
+      "."
+    )
+  }
+
+  coordinate_difference <- max(
+    abs(
+      city_coordinates$long -
+        config$long
+    ),
+    abs(
+      city_coordinates$lat -
+        config$lat
+    )
   )
-
-  if (max(lme_columns) > ncol(raw_data)) {
-    stop(
-      city_name,
-      " LME file contains only ",
-      ncol(raw_data),
-      " data columns after removing row names; ",
-      "columns 21:564 are required."
-    )
-  }
-
-  selected_data <- raw_data[
-    ,
-    lme_columns,
-    drop = FALSE
-  ]
-
-  X <- t(
-    data.matrix(
-      selected_data
-    )
-  ) -
-    273.15
-
-  storage.mode(X) <- "double"
 
   if (
-    nrow(X) != length(analysis_years) ||
-      ncol(X) != 13L
+    !is.finite(
+      coordinate_difference
+    ) ||
+      coordinate_difference >
+        coordinate_tolerance
   ) {
     stop(
+      "The LME coordinate for ",
       city_name,
-      " LME data should produce a ",
-      length(analysis_years),
-      " x 13 matrix, but produced ",
-      nrow(X),
-      " x ",
-      ncol(X),
-      "."
+      " is (",
+      city_coordinates$long,
+      ", ",
+      city_coordinates$lat,
+      "), but the required common coordinate is (",
+      config$long,
+      ", ",
+      config$lat,
+      ")."
     )
   }
 
-  if (any(!is.finite(X))) {
-    stop(
-      "Non-finite LME temperatures were found for ",
-      city_name,
-      "."
+  member_names <- sort(
+    unique(
+      city_data$member
     )
-  }
-
-  rownames(X) <- as.character(
-    analysis_years
   )
 
-  list(
-    matrix = X,
-    sample = as.numeric(X),
-    annual_mean = setNames(
-      rowMeans(X),
+  if (length(
+    member_names
+  ) != 13L) {
+    stop(
+      city_name,
+      " should contain 13 LME ensemble members, but contains ",
+      length(
+        member_names
+      ),
+      "."
+    )
+  }
+
+  annual_mean <- city_data %>%
+    group_by(
+      year
+    ) %>%
+    summarise(
+      lme_ensemble_mean_celsius = mean(
+        temperature_celsius
+      ),
+      .groups = "drop"
+    ) %>%
+    arrange(
+      year
+    )
+
+  if (!identical(
+    annual_mean$year,
+    as.integer(
       analysis_years
     )
+  )) {
+    stop(
+      "The LME annual grid for ",
+      city_name,
+      " is incomplete or misaligned."
+    )
+  }
+
+  list(
+    sample = city_data$temperature_celsius,
+    annual_mean = annual_mean,
+    members = member_names,
+    coordinates = city_coordinates
   )
 }
 
+# ------------------------------------------------------------
+# 6. Read penalized annual prior parameters
+# ------------------------------------------------------------
 
 read_penalized_parameter <- function(
     filename,
     parameter_name,
-    years) {
+    expected_years) {
 
-  if (!file.exists(filename)) {
+  if (!file.exists(
+    filename
+  )) {
     stop(
       "Parameter file was not found: ",
       filename
     )
   }
 
-  data <- read.csv(
+  data <- readr::read_csv(
     filename,
-    check.names = FALSE
+    show_col_types = FALSE
   )
 
   required_columns <- c(
@@ -536,51 +1017,95 @@ read_penalized_parameter <- function(
     "value"
   )
 
-  if (!all(required_columns %in% names(data))) {
+  missing_columns <- setdiff(
+    required_columns,
+    names(
+      data
+    )
+  )
+
+  if (length(
+    missing_columns
+  ) > 0L) {
     stop(
       filename,
-      " must contain: ",
+      " is missing columns: ",
       paste(
-        required_columns,
+        missing_columns,
         collapse = ", "
-      ),
-      "."
+      )
     )
   }
 
-  penalized <- data[
-    data$coefficient == "Penalized ML",
-    required_columns,
-    drop = FALSE
-  ]
+  penalized <- data %>%
+    transmute(
+      year = as.integer(
+        year
+      ),
+      coefficient = as.character(
+        coefficient
+      ),
+      value = as.numeric(
+        value
+      )
+    ) %>%
+    filter(
+      coefficient ==
+        "Penalized ML"
+    )
 
-  if (nrow(penalized) == 0L) {
+  duplicate_rows <- penalized %>%
+    count(
+      year,
+      name = "number_of_rows"
+    ) %>%
+    filter(
+      number_of_rows != 1L
+    )
+
+  if (
+    nrow(
+      duplicate_rows
+    ) > 0L ||
+      !identical(
+        sort(
+          penalized$year
+        ),
+        as.integer(
+          expected_years
+        )
+      )
+  ) {
     stop(
-      "No 'Penalized ML' rows were found in ",
+      parameter_name,
+      " in ",
       filename,
-      "."
+      " is not aligned to the expected annual grid."
     )
   }
 
   values <- penalized$value[
     match(
-      years,
+      expected_years,
       penalized$year
     )
   ]
 
-  values <- as.numeric(
-    values
-  )
-
   if (
-    length(values) != length(years) ||
-      any(!is.finite(values))
+    length(
+      values
+    ) !=
+      length(
+        expected_years
+      ) ||
+      any(!is.finite(
+        values
+      ))
   ) {
     stop(
-      "Could not align ",
+      "Invalid ",
       parameter_name,
-      " with all requested years in ",
+      " values were found in ",
       filename,
       "."
     )
@@ -589,342 +1114,488 @@ read_penalized_parameter <- function(
   values
 }
 
+read_city_prior <- function(
+    city_code,
+    parameter_dir) {
+
+  M <- read_penalized_parameter(
+    file.path(
+      parameter_dir,
+      paste0(
+        "mt",
+        city_code,
+        ".csv"
+      )
+    ),
+    parameter_name = "M",
+    expected_years =
+      analysis_years[
+        -length(
+          analysis_years
+        )
+      ]
+  )
+
+  mu <- read_penalized_parameter(
+    file.path(
+      parameter_dir,
+      paste0(
+        "mu",
+        city_code,
+        ".csv"
+      )
+    ),
+    parameter_name = "mu",
+    expected_years = analysis_years
+  )
+
+  r2 <- read_penalized_parameter(
+    file.path(
+      parameter_dir,
+      paste0(
+        "rt",
+        city_code,
+        ".csv"
+      )
+    ),
+    parameter_name = "r2",
+    expected_years = analysis_years
+  )
+
+  if (any(
+    r2 <= 0
+  )) {
+    stop(
+      "All prior innovation variances must be positive."
+    )
+  }
+
+  list(
+    M = M,
+    mu = mu,
+    r2 = r2
+  )
+}
+
 # ------------------------------------------------------------
-# 3. Quantile-mapping helpers
+# 7. Quantile-mapping construction
 # ------------------------------------------------------------
 
-make_quantile_mapping <- function(
+build_quantile_mapping <- function(
     lme_sample,
     yhat,
     nu,
-    bandwidth_seed = 10L) {
+    sigmaY2,
+    bandwidth_seed,
+    mapping_grid_size,
+    lme_cdf_grid_size,
+    latent_tail_probability) {
+
+  lme_sample <- as.numeric(
+    lme_sample
+  )
+
+  yhat <- as.numeric(
+    yhat
+  )
+
+  nu <- as.numeric(
+    nu
+  )
+
+  if (
+    length(
+      yhat
+    ) !=
+      length(
+        nu
+      ) ||
+      any(!is.finite(
+        lme_sample
+      )) ||
+      any(!is.finite(
+        yhat
+      )) ||
+      any(!is.finite(
+        nu
+      )) ||
+      any(
+        nu < 0
+      )
+  ) {
+    stop(
+      "Invalid inputs were supplied to the quantile-mapping ",
+      "construction."
+    )
+  }
+
+  lme_sd <- stats::sd(
+    lme_sample
+  )
+
+  if (
+    !is.finite(
+      lme_sd
+    ) ||
+      lme_sd <= 0
+  ) {
+    stop(
+      "The LME calibration sample has zero or invalid ",
+      "variation."
+    )
+  }
 
   set.seed(
     bandwidth_seed
   )
 
-  fx_bw <- npudistbw(
-    dat = lme_sample
+  fx_bandwidth <- np::npudistbw(
+    dat = data.frame(
+      x = lme_sample
+    )
   )
 
-  Fx_hat <- function(q) {
+  lme_grid <- seq(
+    min(
+      lme_sample
+    ) -
+      8 *
+        lme_sd,
+    max(
+      lme_sample
+    ) +
+      8 *
+        lme_sd,
+    length.out = lme_cdf_grid_size
+  )
 
+  fx_grid <- as.numeric(
     fitted(
-      npudist(
-        bws = fx_bw,
+      np::npudist(
+        bws = fx_bandwidth,
         edat = data.frame(
-          x = q
+          x = lme_grid
         )
+      )
+    )
+  )
+
+  # Numerical monotonicity protection for the estimated CDF.
+  fx_grid <- cummax(
+    pmin(
+      pmax(
+        fx_grid,
+        0
+      ),
+      1
+    )
+  )
+
+  keep_unique_probability <- !duplicated(
+    fx_grid
+  )
+
+  fx_probability_unique <- fx_grid[
+    keep_unique_probability
+  ]
+
+  lme_grid_unique <- lme_grid[
+    keep_unique_probability
+  ]
+
+  if (length(
+    fx_probability_unique
+  ) < 2L) {
+    stop(
+      "The estimated LME CDF could not be inverted."
+    )
+  }
+
+  Fx_inv <- stats::approxfun(
+    x = fx_probability_unique,
+    y = lme_grid_unique,
+    rule = 2,
+    ties = "ordered"
+  )
+
+  nu_safe <- pmax(
+    nu,
+    1e-8
+  )
+
+  FY_hat <- function(y) {
+
+    y <- as.numeric(
+      y
+    )
+
+    standardized <- outer(
+      y,
+      yhat,
+      "-"
+    )
+
+    standardized <- sweep(
+      standardized,
+      2,
+      nu_safe,
+      "/"
+    )
+
+    rowMeans(
+      pnorm(
+        standardized
       )
     )
   }
 
-  FY_hat <- function(
-      y,
-      yhat,
-      nu) {
+  latent_sd <- sqrt(
+    sigmaY2
+  )
 
-    yhat <- as.numeric(
-      yhat
-    )
+  gaussian_limit <- qnorm(
+    1 -
+      latent_tail_probability /
+        2
+  ) *
+    latent_sd
 
-    nu <- pmax(
-      as.numeric(nu),
-      1e-8
-    )
+  proxy_limit_lower <- min(
+    yhat -
+      8 *
+        nu_safe
+  )
 
-    stopifnot(
-      length(yhat) ==
-        length(nu)
-    )
+  proxy_limit_upper <- max(
+    yhat +
+      8 *
+        nu_safe
+  )
 
-    vapply(
-      y,
-      function(yy) {
-        mean(
-          pnorm(
-            (
-              yy -
-                yhat
-            ) /
-              nu
-          )
-        )
-      },
-      numeric(1)
-    )
-  }
+  latent_lower <- min(
+    -gaussian_limit,
+    proxy_limit_lower
+  )
 
-  qx_min <- min(
-    lme_sample
-  ) -
-    5 *
-    sd(
-      lme_sample
-    )
+  latent_upper <- max(
+    gaussian_limit,
+    proxy_limit_upper
+  )
 
-  qx_max <- max(
-    lme_sample
-  ) +
-    5 *
-    sd(
-      lme_sample
-    )
+  latent_grid <- seq(
+    latent_lower,
+    latent_upper,
+    length.out = mapping_grid_size
+  )
 
-  Fx_inv <- function(u) {
+  mapping_probability <- FY_hat(
+    latent_grid
+  )
 
-    u <- pmin(
+  mapped_grid <- Fx_inv(
+    pmin(
       pmax(
-        u,
-        1e-8
+        mapping_probability,
+        1e-12
       ),
       1 -
-        1e-8
-    )
-
-    vapply(
-      u,
-      function(uu) {
-
-        uniroot(
-          function(q) {
-            Fx_hat(q) -
-              uu
-          },
-          interval = c(
-            qx_min,
-            qx_max
-          ),
-          tol = 1e-6
-        )$root
-      },
-      numeric(1)
-    )
-  }
-
-  ycorrected <- Fx_inv(
-    FY_hat(
-      yhat,
-      yhat,
-      nu
+        1e-12
     )
   )
 
-  bandwidth <- as.numeric(
-    fx_bw$bw
+  g <- stats::approxfun(
+    x = latent_grid,
+    y = mapped_grid,
+    rule = 2,
+    ties = "ordered"
   )
 
-  if (
-    length(bandwidth) != 1L ||
-      !is.finite(bandwidth) ||
-      bandwidth <= 0
-  ) {
-    stop(
-      "The estimated univariate np bandwidth is invalid."
-    )
-  }
-
-  g_of <- function(y) {
-
-    u <- FY_hat(
-      y,
-      yhat = yhat,
-      nu = nu
-    )
-
-    lower <- min(
-      lme_sample
-    ) -
-      5 *
-      bandwidth
-
-    upper <- max(
-      lme_sample
-    ) +
-      5 *
-      bandwidth
-
-    uniroot(
-      function(q) {
-        Fx_hat(q) -
-          u
-      },
-      lower = lower,
-      upper = upper,
-      tol = 1e-8
-    )$root
-  }
-
-  y_grid <- seq(
-    -2.5,
-    2.5,
-    length.out = 1000
-  )
-
-  g_grid <- vapply(
-    y_grid,
-    g_of,
-    numeric(1)
-  )
-
-  g_fast <- approxfun(
-    y_grid,
-    g_grid,
-    rule = 2
+  corrected <- g(
+    yhat
   )
 
   list(
-    corrected = ycorrected,
-    g = g_fast,
-    bandwidth = bandwidth
-  )
-}
-
-# ------------------------------------------------------------
-# 4. Measurement-model Monte Carlo
-# ------------------------------------------------------------
-
-round_and_clip <- function(
-    x,
-    lower = -2,
-    upper = 1,
-    digits = 2) {
-
-  x <- round(
-    x,
-    digits = digits
-  )
-
-  pmin(
-    pmax(
-      x,
-      lower
+    corrected = corrected,
+    g = g,
+    latent_range = range(
+      latent_grid
     ),
-    upper
+    fx_bandwidth = as.numeric(
+      fx_bandwidth$bw
+    ),
+    lme_range = range(
+      lme_sample
+    )
   )
 }
 
+# ------------------------------------------------------------
+# 8. Measurement-equation Monte Carlo
+# ------------------------------------------------------------
 
-compute_meas_params_mc <- function(
+compute_measurement_parameters_mc <- function(
     sigmaY2,
-    v,
+    vhat,
     g,
-    n_mc = 50000,
-    seed = 1) {
+    n_mc,
+    seed) {
 
-  set.seed(seed)
-
-  v <- as.numeric(v)
+  vhat <- as.numeric(
+    vhat
+  )
 
   if (
-    any(!is.finite(v)) ||
-      any(v < 0) ||
-      any(v > sigmaY2)
+    any(!is.finite(
+      vhat
+    )) ||
+      any(
+        vhat <
+          -variance_tolerance
+      ) ||
+      any(
+        vhat >
+          sigmaY2 +
+            variance_tolerance
+      )
   ) {
     stop(
-      "All values of v must lie between 0 and sigmaY2."
+      "All Var(Yhat_t) values must lie in [0, sigmaY2]."
     )
   }
 
-  N <- length(v)
+  vhat <- pmin(
+    pmax(
+      vhat,
+      0
+    ),
+    sigmaY2
+  )
 
-  alpha <- numeric(N)
-  beta <- numeric(N)
-  vdelta <- numeric(N)
+  set.seed(
+    seed
+  )
 
-  for (t in seq_len(N)) {
+  number_of_years <- length(
+    vhat
+  )
 
-    vt <- v[t]
+  alpha <- numeric(
+    number_of_years
+  )
 
-    Sigma <- matrix(
-      c(
-        sigmaY2,
-        vt,
-        vt,
-        vt
-      ),
-      nrow = 2,
-      byrow = TRUE
+  beta <- numeric(
+    number_of_years
+  )
+
+  vdelta <- numeric(
+    number_of_years
+  )
+
+  maximum_absolute_latent_draw <- 0
+
+  for (
+    t in seq_len(
+      number_of_years
     )
+  ) {
 
-    eigenvalues <- eigen(
-      Sigma,
-      symmetric = TRUE,
-      only.values = TRUE
-    )$values
+    current_vhat <- vhat[t]
 
-    if (min(eigenvalues) <= 0) {
-      Sigma <- Sigma +
-        diag(
-          abs(
-            min(eigenvalues)
-          ) +
-            1e-10,
-          2
+    # This exact representation gives:
+    #   Var(Yhat) = current_vhat
+    #   Var(Y)    = sigmaY2
+    #   Cov(Y, Yhat) = current_vhat
+    #
+    # No rounding or clipping is applied because Y and Yhat are
+    # continuous latent Gaussian variables.
+    Yhat <- sqrt(
+      current_vhat
+    ) *
+      rnorm(
+        n_mc
+      )
+
+    Y <- Yhat +
+      sqrt(
+        pmax(
+          sigmaY2 -
+            current_vhat,
+          0
         )
-    }
+      ) *
+      rnorm(
+        n_mc
+      )
 
-    sample_values <- rmvnorm(
-      n = n_mc,
-      mean = c(
-        0,
-        0
+    maximum_absolute_latent_draw <- max(
+      maximum_absolute_latent_draw,
+      abs(
+        Y
       ),
-      sigma = Sigma
+      abs(
+        Yhat
+      )
     )
 
-    Y <- round_and_clip(
-      sample_values[, 1],
-      lower = -2,
-      upper = 1,
-      digits = 3
+    X <- g(
+      Y
     )
 
-    Yhat <- round_and_clip(
-      sample_values[, 2],
-      lower = -2,
-      upper = 1,
-      digits = 3
+    Xstar <- g(
+      Yhat
     )
 
-    X <- g(Y)
-    Xstar <- g(Yhat)
-
-    EX <- mean(X)
-    EXstar <- mean(Xstar)
-    VX <- var(X)
-    covariance <- cov(
-      Xstar,
+    variance_X <- stats::var(
       X
     )
 
     if (
-      !is.finite(VX) ||
-        VX <= 0
+      !is.finite(
+        variance_X
+      ) ||
+        variance_X <= 0
     ) {
       stop(
-        "A non-positive Monte Carlo variance was obtained at index ",
+        "A non-positive Monte Carlo variance was obtained at ",
+        "measurement year index ",
         t,
         "."
       )
     }
 
-    beta_t <- covariance /
-      VX
+    beta_t <- stats::cov(
+      Xstar,
+      X
+    ) /
+      variance_X
 
-    alpha_t <- EXstar -
+    alpha_t <- mean(
+      Xstar
+    ) -
       beta_t *
-      EX
+        mean(
+          X
+        )
 
     delta <- Xstar -
       alpha_t -
       beta_t *
-      X
+        X
 
-    alpha[t] <- alpha_t
-    beta[t] <- beta_t
-    vdelta[t] <- max(
-      var(delta),
+    alpha[
+      t
+    ] <- alpha_t
+
+    beta[
+      t
+    ] <- beta_t
+
+    vdelta[
+      t
+    ] <- pmax(
+      stats::var(
+        delta
+      ),
       1e-10
     )
   }
@@ -932,15 +1603,17 @@ compute_meas_params_mc <- function(
   list(
     alpha = alpha,
     beta = beta,
-    vdelta = vdelta
+    vdelta = vdelta,
+    maximum_absolute_latent_draw =
+      maximum_absolute_latent_draw
   )
 }
 
 # ------------------------------------------------------------
-# 5. Kalman filter and RTS smoother
+# 9. Full-annual Kalman filter and RTS smoother
 # ------------------------------------------------------------
 
-kalman_filter_smoother <- function(
+kalman_filter_smoother_annual <- function(
     mu,
     M,
     r2,
@@ -949,124 +1622,407 @@ kalman_filter_smoother <- function(
     beta,
     vdelta) {
 
-  N <- length(mu)
-
-  stopifnot(
-    length(r2) == N,
-    length(Xstar) == N,
-    length(alpha) == N,
-    length(beta) == N,
-    length(vdelta) == N,
-    length(M) == N - 1L
+  number_of_years <- length(
+    mu
   )
 
-  X_pred <- numeric(N)
-  P_pred <- numeric(N)
-  X_filt <- numeric(N)
-  P_filt <- numeric(N)
-
-  X_pred[1] <- mu[1]
-  P_pred[1] <- r2[1]
-
-  denominator_1 <- beta[1]^2 *
-    P_pred[1] +
-    vdelta[1]
-
-  K1 <- beta[1] *
-    P_pred[1] /
-    denominator_1
-
-  X_filt[1] <- X_pred[1] +
-    K1 *
-    (
-      Xstar[1] -
-        alpha[1] -
-        beta[1] *
-        X_pred[1]
+  if (
+    length(
+      M
+    ) !=
+      number_of_years -
+        1L ||
+      length(
+        r2
+      ) !=
+        number_of_years ||
+      length(
+        Xstar
+      ) !=
+        number_of_years ||
+      length(
+        alpha
+      ) !=
+        number_of_years ||
+      length(
+        beta
+      ) !=
+        number_of_years ||
+      length(
+        vdelta
+      ) !=
+        number_of_years
+  ) {
+    stop(
+      "The state and observation vectors are not aligned to the ",
+      "same annual grid."
     )
-
-  P_filt[1] <- (
-    1 -
-      beta[1] *
-      K1
-  ) *
-    P_pred[1]
-
-  for (t in 2:N) {
-
-    transition <- M[
-      t - 1
-    ]
-
-    X_pred[t] <- mu[t] +
-      transition *
-      (
-        X_filt[t - 1] -
-          mu[t - 1]
-      )
-
-    P_pred[t] <- transition^2 *
-      P_filt[t - 1] +
-      r2[t]
-
-    denominator_t <- beta[t]^2 *
-      P_pred[t] +
-      vdelta[t]
-
-    gain <- beta[t] *
-      P_pred[t] /
-      denominator_t
-
-    X_filt[t] <- X_pred[t] +
-      gain *
-      (
-        Xstar[t] -
-          alpha[t] -
-          beta[t] *
-          X_pred[t]
-      )
-
-    P_filt[t] <- (
-      1 -
-        beta[t] *
-        gain
-    ) *
-      P_pred[t]
   }
 
-  X_smooth <- numeric(N)
-  P_smooth <- numeric(N)
-  J <- numeric(N - 1)
+  has_observation <- is.finite(
+    Xstar
+  )
 
-  X_smooth[N] <- X_filt[N]
-  P_smooth[N] <- P_filt[N]
-
-  if (N >= 2L) {
-    for (t in seq(
-      from = N - 1L,
-      to = 1L,
-      by = -1L
-    )) {
-
-      transition <- M[t]
-
-      J[t] <- P_filt[t] *
-        transition /
-        P_pred[t + 1]
-
-      X_smooth[t] <- X_filt[t] +
-        J[t] *
+  if (
+    any(
+      has_observation &
         (
-          X_smooth[t + 1] -
-            X_pred[t + 1]
+          !is.finite(
+            alpha
+          ) |
+            !is.finite(
+              beta
+            ) |
+            !is.finite(
+              vdelta
+            ) |
+            vdelta <= 0
         )
+    )
+  ) {
+    stop(
+      "At least one observed year has invalid measurement ",
+      "parameters."
+    )
+  }
 
-      P_smooth[t] <- P_filt[t] +
-        J[t]^2 *
-        (
-          P_smooth[t + 1] -
-            P_pred[t + 1]
+  X_pred <- numeric(
+    number_of_years
+  )
+
+  P_pred <- numeric(
+    number_of_years
+  )
+
+  X_filt <- numeric(
+    number_of_years
+  )
+
+  P_filt <- numeric(
+    number_of_years
+  )
+
+  kalman_gain <- rep(
+    NA_real_,
+    number_of_years
+  )
+
+  effective_proxy <- rep(
+    NA_real_,
+    number_of_years
+  )
+
+  observation_weight <- rep(
+    NA_real_,
+    number_of_years
+  )
+
+  innovation <- rep(
+    NA_real_,
+    number_of_years
+  )
+
+  X_pred[
+    1
+  ] <- mu[
+    1
+  ]
+
+  P_pred[
+    1
+  ] <- r2[
+    1
+  ]
+
+  for (
+    t in seq_len(
+      number_of_years
+    )
+  ) {
+
+    if (t >= 2L) {
+
+      transition <- M[
+        t -
+          1L
+      ]
+
+      X_pred[
+        t
+      ] <- mu[
+        t
+      ] +
+        transition *
+          (
+            X_filt[
+              t -
+                1L
+            ] -
+              mu[
+                t -
+                  1L
+              ]
+          )
+
+      P_pred[
+        t
+      ] <- transition^2 *
+        P_filt[
+          t -
+            1L
+        ] +
+        r2[
+          t
+        ]
+    }
+
+    if (!has_observation[
+      t
+    ]) {
+
+      # Prediction-only step for a year without documentary
+      # information.
+      X_filt[
+        t
+      ] <- X_pred[
+        t
+      ]
+
+      P_filt[
+        t
+      ] <- P_pred[
+        t
+      ]
+
+      next
+    }
+
+    denominator <- beta[
+      t
+    ]^2 *
+      P_pred[
+        t
+      ] +
+      vdelta[
+        t
+      ]
+
+    if (
+      !is.finite(
+        denominator
+      ) ||
+        denominator <= 0
+    ) {
+      stop(
+        "A non-positive Kalman update denominator was obtained ",
+        "at year index ",
+        t,
+        "."
+      )
+    }
+
+    kalman_gain[
+      t
+    ] <- beta[
+      t
+    ] *
+      P_pred[
+        t
+      ] /
+      denominator
+
+    innovation[
+      t
+    ] <- Xstar[
+      t
+    ] -
+      alpha[
+        t
+      ] -
+      beta[
+        t
+      ] *
+        X_pred[
+          t
+        ]
+
+    X_filt[
+      t
+    ] <- X_pred[
+      t
+    ] +
+      kalman_gain[
+        t
+      ] *
+        innovation[
+          t
+        ]
+
+    P_filt[
+      t
+    ] <- (
+      1 -
+        beta[
+          t
+        ] *
+          kalman_gain[
+            t
+          ]
+    ) *
+      P_pred[
+        t
+      ]
+
+    P_filt[
+      t
+    ] <- pmax(
+      P_filt[
+        t
+      ],
+      0
+    )
+
+    if (
+      abs(
+        beta[
+          t
+        ]
+      ) >
+        beta_tolerance
+    ) {
+      effective_proxy[
+        t
+      ] <- (
+        Xstar[
+          t
+        ] -
+          alpha[
+            t
+          ]
+      ) /
+        beta[
+          t
+        ]
+
+      observation_weight[
+        t
+      ] <- beta[
+        t
+      ]^2 *
+        P_pred[
+          t
+        ] /
+        denominator
+    }
+  }
+
+  X_smooth <- numeric(
+    number_of_years
+  )
+
+  P_smooth <- numeric(
+    number_of_years
+  )
+
+  smoother_gain <- numeric(
+    number_of_years -
+      1L
+  )
+
+  X_smooth[
+    number_of_years
+  ] <- X_filt[
+    number_of_years
+  ]
+
+  P_smooth[
+    number_of_years
+  ] <- P_filt[
+    number_of_years
+  ]
+
+  if (number_of_years >= 2L) {
+
+    for (
+      t in seq(
+        from = number_of_years -
+          1L,
+        to = 1L,
+        by = -1L
+      )
+    ) {
+
+      if (
+        !is.finite(
+          P_pred[
+            t +
+              1L
+          ]
+        ) ||
+          P_pred[
+            t +
+              1L
+          ] <= 0
+      ) {
+        stop(
+          "A non-positive predicted variance was obtained before ",
+          "RTS smoothing at year index ",
+          t +
+            1L,
+          "."
         )
+      }
+
+      smoother_gain[
+        t
+      ] <- P_filt[
+        t
+      ] *
+        M[
+          t
+        ] /
+        P_pred[
+          t +
+            1L
+        ]
+
+      X_smooth[
+        t
+      ] <- X_filt[
+        t
+      ] +
+        smoother_gain[
+          t
+        ] *
+          (
+            X_smooth[
+              t +
+                1L
+            ] -
+              X_pred[
+                t +
+                  1L
+              ]
+          )
+
+      P_smooth[
+        t
+      ] <- P_filt[
+        t
+      ] +
+        smoother_gain[
+          t
+        ]^2 *
+          (
+            P_smooth[
+              t +
+                1L
+            ] -
+              P_pred[
+                t +
+                  1L
+              ]
+          )
     }
   }
 
@@ -1075,25 +2031,191 @@ kalman_filter_smoother <- function(
     0
   )
 
+  filtered_check <- rep(
+    NA_real_,
+    number_of_years
+  )
+
+  check_years <- which(
+    has_observation &
+      is.finite(
+        effective_proxy
+      ) &
+      is.finite(
+        observation_weight
+      )
+  )
+
+  filtered_check[
+    check_years
+  ] <- (
+    1 -
+      observation_weight[
+        check_years
+      ]
+  ) *
+    X_pred[
+      check_years
+    ] +
+    observation_weight[
+      check_years
+    ] *
+    effective_proxy[
+      check_years
+    ]
+
+  maximum_filter_identity_error <- max(
+    abs(
+      X_filt[
+        check_years
+      ] -
+        filtered_check[
+          check_years
+        ]
+    ),
+    na.rm = TRUE
+  )
+
+  if (
+    length(
+      check_years
+    ) > 0L &&
+      (
+        !is.finite(
+          maximum_filter_identity_error
+        ) ||
+          maximum_filter_identity_error >
+            identity_tolerance
+      )
+  ) {
+    stop(
+      "The filtered-mean weighted-average identity failed. ",
+      "Maximum absolute error: ",
+      maximum_filter_identity_error
+    )
+  }
+
   list(
+    has_observation = has_observation,
     X_pred = X_pred,
     P_pred = P_pred,
     X_filt = X_filt,
     P_filt = P_filt,
     X_smooth = X_smooth,
     P_smooth = P_smooth,
-    J = J
+    kalman_gain = kalman_gain,
+    smoother_gain = smoother_gain,
+    innovation = innovation,
+    effective_proxy = effective_proxy,
+    observation_weight = observation_weight,
+    filtered_check = filtered_check,
+    maximum_filter_identity_error =
+      maximum_filter_identity_error
   )
 }
 
 # ------------------------------------------------------------
-# 6. Process one city
+# 10. Accuracy and displacement diagnostics
+# ------------------------------------------------------------
+
+compute_pair_metrics <- function(
+    city,
+    reference_name,
+    estimate_name,
+    reference,
+    estimate) {
+
+  valid <- is.finite(
+    reference
+  ) &
+    is.finite(
+      estimate
+    )
+
+  reference <- reference[
+    valid
+  ]
+
+  estimate <- estimate[
+    valid
+  ]
+
+  if (length(
+    reference
+  ) < 2L) {
+    return(
+      data.frame(
+        city = city,
+        reference = reference_name,
+        estimate = estimate_name,
+        number_of_years = length(
+          reference
+        ),
+        correlation = NA_real_,
+        mean_bias_estimate_minus_reference =
+          NA_real_,
+        RMSE = NA_real_,
+        anomaly_correlation = NA_real_,
+        anomaly_RMSE = NA_real_
+      )
+    )
+  }
+
+  reference_anomaly <- reference -
+    mean(
+      reference
+    )
+
+  estimate_anomaly <- estimate -
+    mean(
+      estimate
+    )
+
+  data.frame(
+    city = city,
+    reference = reference_name,
+    estimate = estimate_name,
+    number_of_years = length(
+      reference
+    ),
+    correlation = stats::cor(
+      estimate,
+      reference
+    ),
+    mean_bias_estimate_minus_reference = mean(
+      estimate -
+        reference
+    ),
+    RMSE = sqrt(
+      mean(
+        (
+          estimate -
+            reference
+        )^2
+      )
+    ),
+    anomaly_correlation = stats::cor(
+      estimate_anomaly,
+      reference_anomaly
+    ),
+    anomaly_RMSE = sqrt(
+      mean(
+        (
+          estimate_anomaly -
+            reference_anomaly
+        )^2
+      )
+    )
+  )
+}
+
+# ------------------------------------------------------------
+# 11. Process one city
 # ------------------------------------------------------------
 
 process_city <- function(
     city_name,
     config,
-    kriging_data,
     city_index) {
 
   message(
@@ -1103,209 +2225,255 @@ process_city <- function(
   )
 
   city_kriging <- extract_city_kriging(
-    kriging_data = kriging_data,
     city_name = city_name,
     long = config$long,
-    lat = config$lat
+    lat = config$lat,
+    mean_object = kriging_mean_object,
+    sd_object = kriging_sd_object,
+    years = common_reaches_years
   )
-
-  # Restrict to years represented in the LME prior.
-  keep <- city_kriging$years %in%
-    analysis_years
-
-  years <- city_kriging$years[
-    keep
-  ]
-
-  yhat <- city_kriging$yhat[
-    keep
-  ]
-
-  nu <- city_kriging$nu[
-    keep
-  ]
-
-  if (length(years) < 2L) {
-    stop(
-      "Fewer than two common years were found for ",
-      city_name,
-      "."
-    )
-  }
 
   lme <- read_lme_city(
-    input_file = config$lme_file,
-    city_name = city_name
+    city_name = city_name,
+    config = config,
+    lme_city_data = lme_city_data
   )
 
-  quantile_mapping <- make_quantile_mapping(
+  prior <- read_city_prior(
+    city_code = config$code,
+    parameter_dir =
+      input_files$parameter_dir
+  )
+
+  quantile_mapping <- build_quantile_mapping(
     lme_sample = lme$sample,
-    yhat = yhat,
-    nu = nu,
-    bandwidth_seed = 10L +
-      city_index
+    yhat =
+      city_kriging$reaches_index_mean,
+    nu =
+      city_kriging$reaches_index_sd,
+    sigmaY2 = sigmaY2,
+    bandwidth_seed =
+      10L +
+      city_index,
+    mapping_grid_size =
+      mapping_grid_size,
+    lme_cdf_grid_size =
+      lme_cdf_grid_size,
+    latent_tail_probability =
+      latent_tail_probability
   )
 
-  ycorrected <- quantile_mapping$corrected
-
-  mt_file <- file.path(
-    parameter_dir,
-    paste0(
-      "mt",
-      config$code,
-      ".csv"
+  city_kriging <- city_kriging %>%
+    mutate(
+      reaches_mspe =
+        reaches_index_sd^2,
+      calibrated_reaches_celsius =
+        quantile_mapping$corrected
     )
-  )
 
-  mu_file <- file.path(
-    parameter_dir,
-    paste0(
-      "mu",
-      config$code,
-      ".csv"
-    )
-  )
+  implied_vhat_raw <- sigmaY2 -
+    city_kriging$reaches_mspe
 
-  rt_file <- file.path(
-    parameter_dir,
-    paste0(
-      "rt",
-      config$code,
-      ".csv"
-    )
-  )
-
-  mu_values <- read_penalized_parameter(
-    filename = mu_file,
-    parameter_name = "mu",
-    years = years
-  )
-
-  r2_values <- read_penalized_parameter(
-    filename = rt_file,
-    parameter_name = "r2",
-    years = years
-  )
-
-  transition_years <- years[
-    -length(years)
-  ]
-
-  M_values <- read_penalized_parameter(
-    filename = mt_file,
-    parameter_name = "M",
-    years = transition_years
-  )
-
-  # The kriging uncertainty input is a standard deviation.
-  # Therefore, prediction error variance is nu^2, and
-  # Var(Yhat_t) = Var(Y_t) - Var(Y_t - Yhat_t).
-  prediction_error_variance <- nu^2
-
-  v <- sigmaY2 -
-    prediction_error_variance
-
-  tolerance <- 1e-10
-
-  if (
-    any(
-      v < -tolerance |
-        v > sigmaY2 +
-        tolerance
-    )
-  ) {
-    warning(
-      city_name,
-      ": some implied Var(Yhat_t) values were outside ",
-      "[0, sigmaY2] and were clipped to that interval."
-    )
-  }
-
-  v <- pmin(
+  clipped_vhat <- pmin(
     pmax(
-      v,
+      implied_vhat_raw,
       0
     ),
     sigmaY2
   )
 
-  measurement_parameters <- compute_meas_params_mc(
-    sigmaY2 = sigmaY2,
-    v = v,
-    g = quantile_mapping$g,
-    n_mc = measurement_mc_size,
-    seed = measurement_mc_seed
+  number_vhat_clipped <- sum(
+    abs(
+      clipped_vhat -
+        implied_vhat_raw
+    ) >
+      variance_tolerance
   )
 
-  smoother_output <- kalman_filter_smoother(
-    mu = mu_values,
-    M = M_values,
-    r2 = r2_values,
-    Xstar = ycorrected,
-    alpha = measurement_parameters$alpha,
-    beta = measurement_parameters$beta,
-    vdelta = measurement_parameters$vdelta
-  )
-
-  lme_mean <- as.numeric(
-    lme$annual_mean[
-      as.character(years)
-    ]
-  )
-
-  result <- data.frame(
-    year = years,
-    predicted = smoother_output$X_smooth,
-    sigmasmooth2 = smoother_output$P_smooth,
-    REACHES = ycorrected,
-    alpha = measurement_parameters$alpha,
-    beta = measurement_parameters$beta,
-    vdelata = measurement_parameters$vdelta,
-    LME = lme_mean,
-    check.names = FALSE
-  )
-
-  if (drop_final_output_year) {
-    result_for_output <- result[
-      -nrow(result),
-      ,
-      drop = FALSE
-    ]
-  } else {
-    result_for_output <- result
+  if (
+    number_vhat_clipped >
+      0L
+  ) {
+    warning(
+      city_name,
+      ": ",
+      number_vhat_clipped,
+      " implied Var(Yhat_t) values were outside [0, sigmaY2] ",
+      "and were clipped to that interval."
+    )
   }
 
-  figure <- ggplot(
-    data = result_for_output,
+  measurement_parameters <-
+    compute_measurement_parameters_mc(
+      sigmaY2 = sigmaY2,
+      vhat = clipped_vhat,
+      g = quantile_mapping$g,
+      n_mc = measurement_mc_size,
+      seed =
+        measurement_mc_seed +
+        city_index
+    )
+
+  annual_data <- data.frame(
+    year = analysis_years
+  ) %>%
+    left_join(
+      city_kriging,
+      by = "year"
+    ) %>%
+    left_join(
+      lme$annual_mean,
+      by = "year"
+    )
+
+  event_indices <- match(
+    city_kriging$year,
+    annual_data$year
+  )
+
+  annual_data$implied_latent_kriging_variance <-
+    NA_real_
+
+  annual_data$alpha <- NA_real_
+  annual_data$beta <- NA_real_
+  annual_data$vdelta <- NA_real_
+
+  annual_data$implied_latent_kriging_variance[
+    event_indices
+  ] <- clipped_vhat
+
+  annual_data$alpha[
+    event_indices
+  ] <- measurement_parameters$alpha
+
+  annual_data$beta[
+    event_indices
+  ] <- measurement_parameters$beta
+
+  annual_data$vdelta[
+    event_indices
+  ] <- measurement_parameters$vdelta
+
+  smoother_output <- kalman_filter_smoother_annual(
+    mu = prior$mu,
+    M = prior$M,
+    r2 = prior$r2,
+    Xstar =
+      annual_data$calibrated_reaches_celsius,
+    alpha =
+      annual_data$alpha,
+    beta =
+      annual_data$beta,
+    vdelta =
+      annual_data$vdelta
+  )
+
+  result <- annual_data %>%
+    mutate(
+      has_reaches_observation =
+        smoother_output$has_observation,
+      prior_mean = prior$mu,
+      prior_innovation_variance =
+        prior$r2,
+      transition_M = c(
+        prior$M,
+        NA_real_
+      ),
+      dynamic_prior_prediction =
+        smoother_output$X_pred,
+      dynamic_prior_prediction_variance =
+        smoother_output$P_pred,
+      filtered_temperature_celsius =
+        smoother_output$X_filt,
+      filtered_variance =
+        smoother_output$P_filt,
+      smoothed_temperature_celsius =
+        smoother_output$X_smooth,
+      smoothed_variance =
+        smoother_output$P_smooth,
+      kalman_gain =
+        smoother_output$kalman_gain,
+      effective_proxy_temperature_celsius =
+        smoother_output$effective_proxy,
+      observation_weight =
+        smoother_output$observation_weight,
+      innovation =
+        smoother_output$innovation,
+      filtered_identity_check =
+        smoother_output$filtered_check
+    ) %>%
+    relocate(
+      year,
+      has_reaches_observation,
+      reaches_index_mean,
+      reaches_index_sd,
+      reaches_mspe,
+      calibrated_reaches_celsius,
+      alpha,
+      beta,
+      vdelta,
+      effective_proxy_temperature_celsius,
+      observation_weight,
+      dynamic_prior_prediction,
+      filtered_temperature_celsius,
+      smoothed_temperature_celsius,
+      lme_ensemble_mean_celsius
+    )
+
+  result_file <- file.path(
+    assimilation_output_dir,
+    paste0(
+      "assimilation_",
+      city_name,
+      ".csv"
+    )
+  )
+
+  readr::write_csv(
+    result,
+    result_file
+  )
+
+  main_figure <- ggplot(
+    result,
     aes(
       x = year,
-      y = predicted
+      y =
+        smoothed_temperature_celsius
     )
   ) +
-    geom_line(
-      color = "red"
-    ) +
     geom_ribbon(
       aes(
-        ymin = predicted -
-          sqrt(sigmasmooth2),
-        ymax = predicted +
-          sqrt(sigmasmooth2)
+        ymin =
+          smoothed_temperature_celsius -
+          sqrt(
+            smoothed_variance
+          ),
+        ymax =
+          smoothed_temperature_celsius +
+          sqrt(
+            smoothed_variance
+          )
       ),
       alpha = 0.5,
-      fill = "grey3"
+      fill = "grey30"
     ) +
-    xlab("year") +
-    ylab("temperature") +
+    geom_line(
+      colour = "red"
+    ) +
+    labs(
+      x = "Year",
+      y = expression(
+        "Temperature (" *
+          degree *
+          "C)"
+      )
+    ) +
     theme(
       text = element_text(
         size = 11
       ),
-      legend.position = "right",
-      legend.key.height = grid::unit(
-        1.5,
-        "cm"
-      ),
+      legend.position = "none",
       plot.title = element_text(
         hjust = 0.5
       )
@@ -1313,16 +2481,223 @@ process_city <- function(
 
   ggsave(
     filename = config$figure_file,
-    plot = figure,
+    plot = main_figure,
     width = 6,
     height = 3,
     units = "in",
     dpi = 300
   )
 
-  readr::write_excel_csv(
-    result_for_output,
-    config$valid_file
+  diagnostic_long <- result %>%
+    dplyr::select(
+      year,
+      `Calibrated REACHES` =
+        calibrated_reaches_celsius,
+      `Effective proxy` =
+        effective_proxy_temperature_celsius,
+      `Dynamic prior prediction` =
+        dynamic_prior_prediction,
+      `Filtered estimate` =
+        filtered_temperature_celsius,
+      `Smoothed estimate` =
+        smoothed_temperature_celsius,
+      `LME ensemble mean` =
+        lme_ensemble_mean_celsius
+    ) %>%
+    pivot_longer(
+      cols = -year,
+      names_to = "series",
+      values_to = "temperature_celsius"
+    )
+
+  diagnostic_figure <- ggplot(
+    diagnostic_long,
+    aes(
+      x = year,
+      y = temperature_celsius,
+      colour = series,
+      linetype = series
+    )
+  ) +
+    geom_line(
+      linewidth = 0.45,
+      na.rm = TRUE
+    ) +
+    labs(
+      x = "Year",
+      y = expression(
+        "Temperature (" *
+          degree *
+          "C)"
+      ),
+      colour = NULL,
+      linetype = NULL
+    ) +
+    theme(
+      text = element_text(
+        size = 10
+      ),
+      legend.position = "bottom"
+    )
+
+  diagnostic_file <- file.path(
+    assimilation_output_dir,
+    paste0(
+      "diagnostic_",
+      city_name,
+      ".png"
+    )
+  )
+
+  ggsave(
+    filename = diagnostic_file,
+    plot = diagnostic_figure,
+    width = 8,
+    height = 5,
+    units = "in",
+    dpi = 300
+  )
+
+  overlap <- result %>%
+    filter(
+      has_reaches_observation
+    )
+
+  pair_metrics <- bind_rows(
+    compute_pair_metrics(
+      city = city_name,
+      reference_name =
+        "Calibrated REACHES",
+      estimate_name =
+        "Smoothed estimate",
+      reference =
+        overlap$calibrated_reaches_celsius,
+      estimate =
+        overlap$smoothed_temperature_celsius
+    ),
+    compute_pair_metrics(
+      city = city_name,
+      reference_name =
+        "LME ensemble mean",
+      estimate_name =
+        "Smoothed estimate",
+      reference =
+        overlap$lme_ensemble_mean_celsius,
+      estimate =
+        overlap$smoothed_temperature_celsius
+    ),
+    compute_pair_metrics(
+      city = city_name,
+      reference_name =
+        "LME ensemble mean",
+      estimate_name =
+        "Calibrated REACHES",
+      reference =
+        overlap$lme_ensemble_mean_celsius,
+      estimate =
+        overlap$calibrated_reaches_celsius
+    )
+  )
+
+  displacement_summary <- data.frame(
+    city = city_name,
+    reference = "Displayed-input interval",
+    estimate = "Smoothed estimate",
+    number_of_years = nrow(
+      overlap
+    ),
+    correlation = NA_real_,
+    mean_bias_estimate_minus_reference =
+      NA_real_,
+    RMSE = NA_real_,
+    anomaly_correlation = NA_real_,
+    anomaly_RMSE = NA_real_,
+    proportion_below_both_inputs = mean(
+      overlap$smoothed_temperature_celsius <
+        pmin(
+          overlap$calibrated_reaches_celsius,
+          overlap$lme_ensemble_mean_celsius
+        )
+    ),
+    proportion_above_both_inputs = mean(
+      overlap$smoothed_temperature_celsius >
+        pmax(
+          overlap$calibrated_reaches_celsius,
+          overlap$lme_ensemble_mean_celsius
+        )
+    )
+  )
+
+  pair_metrics$proportion_below_both_inputs <-
+    NA_real_
+
+  pair_metrics$proportion_above_both_inputs <-
+    NA_real_
+
+  metrics <- bind_rows(
+    pair_metrics,
+    displacement_summary
+  )
+
+  metadata <- data.frame(
+    city = city_name,
+    longitude = config$long,
+    latitude = config$lat,
+    process_variance = sigmaY2,
+    number_of_annual_years =
+      length(
+        analysis_years
+      ),
+    number_of_reaches_event_years =
+      nrow(
+        city_kriging
+      ),
+    number_of_prediction_only_years =
+      sum(
+        !result$has_reaches_observation
+      ),
+    number_of_vhat_values_clipped =
+      number_vhat_clipped,
+    measurement_mc_size =
+      measurement_mc_size,
+    mapping_latent_lower =
+      quantile_mapping$latent_range[
+        1
+      ],
+    mapping_latent_upper =
+      quantile_mapping$latent_range[
+        2
+      ],
+    maximum_absolute_mc_latent_draw =
+      measurement_parameters$
+        maximum_absolute_latent_draw,
+    maximum_filter_identity_error =
+      smoother_output$
+        maximum_filter_identity_error,
+    minimum_beta = min(
+      result$beta,
+      na.rm = TRUE
+    ),
+    median_beta = median(
+      result$beta,
+      na.rm = TRUE
+    ),
+    maximum_beta = max(
+      result$beta,
+      na.rm = TRUE
+    ),
+    minimum_observation_weight = min(
+      result$observation_weight,
+      na.rm = TRUE
+    ),
+    median_observation_weight = median(
+      result$observation_weight,
+      na.rm = TRUE
+    ),
+    maximum_observation_weight = max(
+      result$observation_weight,
+      na.rm = TRUE
+    )
   )
 
   message(
@@ -1331,60 +2706,110 @@ process_city <- function(
   )
 
   message(
-    "Saved validation data: ",
-    config$valid_file
+    "Saved annual assimilation diagnostics: ",
+    result_file
   )
 
   list(
-    full_result = result,
-    output_result = result_for_output,
-    figure = figure,
-    bandwidth = quantile_mapping$bandwidth
+    result = result,
+    metrics = metrics,
+    metadata = metadata,
+    main_figure = main_figure,
+    diagnostic_figure = diagnostic_figure
   )
 }
 
 # ------------------------------------------------------------
-# 7. Run all three cities
+# 12. Run all cities and save combined diagnostics
 # ------------------------------------------------------------
-
-kriging_data <- read_kriging_files(
-  mean_file = kriging_mean_file,
-  sd_file = kriging_sd_file
-)
-
-figure9d_results <- vector(
-  "list",
-  length(city_config)
-)
-
-names(figure9d_results) <- names(
-  city_config
-)
 
 city_names <- names(
   city_config
 )
 
-for (i in seq_along(city_names)) {
+figure9d_results <- vector(
+  "list",
+  length(
+    city_names
+  )
+)
 
-  city_name <- city_names[i]
+names(
+  figure9d_results
+) <- city_names
+
+for (
+  city_index in seq_along(
+    city_names
+  )
+) {
+
+  city_name <- city_names[city_index]
 
   figure9d_results[[city_name]] <- process_city(
     city_name = city_name,
     config = city_config[[city_name]],
-    kriging_data = kriging_data,
-    city_index = i
+    city_index = city_index
   )
+
+  gc()
 }
+
+combined_metrics <- bind_rows(
+  lapply(
+    figure9d_results,
+    function(result) {
+      result$metrics
+    }
+  )
+)
+
+combined_metadata <- bind_rows(
+  lapply(
+    figure9d_results,
+    function(result) {
+      result$metadata
+    }
+  )
+)
+
+readr::write_csv(
+  combined_metrics,
+  file.path(
+    assimilation_output_dir,
+    "assimilation_metrics.csv"
+  )
+)
+
+readr::write_csv(
+  combined_metadata,
+  file.path(
+    assimilation_output_dir,
+    "assimilation_metadata.csv"
+  )
+)
+
+saveRDS(
+  figure9d_results,
+  file.path(
+    assimilation_output_dir,
+    "assimilation_results_all_cities.rds"
+  )
+)
 
 capture.output(
   sessionInfo(),
   file = file.path(
-    validation_dir,
+    assimilation_output_dir,
     "Figure9d_sessionInfo.txt"
   )
 )
 
 message(
   "\nCompleted Figure 9(d), Figure S3(d), and Figure S4(d)."
+)
+
+message(
+  "All assimilation diagnostics were saved to: ",
+  assimilation_output_dir
 )
