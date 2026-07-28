@@ -3,21 +3,43 @@ here::i_am("Code/Prior.R")
 library(here)
 library(readr)
 library(tidyr)
+library(dplyr)
 
 # ============================================================
 # Configuration
 # ============================================================
 
 analysis_years <- 1368:1911
-lme_columns <- 21:564
 
-lambda1_grid <- 10^seq(-3, 3, length.out = 25)
-lambda2_grid <- 10^seq(-3, 3, length.out = 25)
-lambda3_grid <- 10^seq(-3, 3, length.out = 25)
+# The three smoothing parameters are selected by leave-one-
+# ensemble-member-out cross-validation over a logarithmic grid.
+#
+# A direct closed-form minimizer is not available because every
+# CV evaluation requires refitting the nonlinear penalized model.
+# This coarse grid contains 7^3 = 343 candidate triples and is
+# used to keep the reproducibility run computationally feasible.
+#
+# For a finer search, increase length.out (for example to 13 or
+# 25) and/or expand the exponent range. If a selected lambda lies
+# on 10^0 or 10^3, the boundary warning below indicates that the
+# grid should be expanded or refined.
 
-max_iter <- 100
+
+lambda1_grid <- 10^seq(2, 3, length.out = 3)
+lambda2_grid <- 10^seq(1, 3, length.out = 5)
+lambda3_grid <- 10^seq(2, 3, length.out = 3)
+
+max_iter <- 50
 tol <- 1e-8
 verbose <- TRUE
+
+input_mode <- "auto"
+
+allowed_input_modes <- c(
+  "auto",
+  "generated",
+  "precomputed"
+)
 
 output_dir <- here::here(
   "Output",
@@ -31,50 +53,205 @@ dir.create(
   showWarnings = FALSE
 )
 
-candidate_input_dirs <- c(
-  here::here("Data", "LME data", "Figure9"),
-  here::here("Data", "LME data")
-)
-
-required_files <- c("d1.csv", "d2.csv", "d3.csv")
-
-valid_input_dir <- vapply(
-  candidate_input_dirs,
-  function(x) {
-    all(
-      file.exists(
-        file.path(x, required_files)
-      )
-    )
-  },
-  logical(1)
-)
-
-if (!any(valid_input_dir)) {
+if (!input_mode %in% allowed_input_modes) {
   stop(
-    "Could not find d1.csv, d2.csv, and d3.csv together in:\n",
+    "input_mode must be one of: ",
     paste(
-      paste0("  - ", candidate_input_dirs),
-      collapse = "\n"
+      allowed_input_modes,
+      collapse = ", "
     )
   )
 }
 
-input_dir <- candidate_input_dirs[
-  which(valid_input_dir)[1]
-]
+lme_input_files <- c(
+  generated = here::here(
+    "Output",
+    "Intermediate",
+    "LME",
+    "lme_city3_annual_1368_1911.csv"
+  ),
+  precomputed = here::here(
+    "Data",
+    "LME data",
+    "precomputed",
+    "lme_city3_annual_1368_1911.csv"
+  )
+)
+
+select_lme_input_file <- function(
+    input_mode,
+    input_files) {
+
+  generated_file <- unname(
+    input_files["generated"]
+  )
+
+  precomputed_file <- unname(
+    input_files["precomputed"]
+  )
+
+  generated_available <- file.exists(
+    generated_file
+  )
+
+  precomputed_available <- file.exists(
+    precomputed_file
+  )
+
+  if (input_mode == "generated") {
+    if (!generated_available) {
+      stop(
+        "Generated LME city input was not found: ",
+        generated_file,
+        "\nRun Code/DataPreparation/prepare_lme_annual.R first."
+      )
+    }
+
+    return(
+      generated_file
+    )
+  }
+
+  if (input_mode == "precomputed") {
+    if (!precomputed_available) {
+      stop(
+        "Precomputed LME city input was not found: ",
+        precomputed_file
+      )
+    }
+
+    return(
+      precomputed_file
+    )
+  }
+
+  if (generated_available) {
+    return(
+      generated_file
+    )
+  }
+
+  if (precomputed_available) {
+    return(
+      precomputed_file
+    )
+  }
+
+  stop(
+    "Neither generated nor precomputed LME city input was found."
+  )
+}
+
+lme_input_file <- select_lme_input_file(
+  input_mode = input_mode,
+  input_files = lme_input_files
+)
+
+message(
+  "Prior input selected: ",
+  lme_input_file
+)
+
+lme_city_data <- readr::read_csv(
+  lme_input_file,
+  show_col_types = FALSE
+)
+
+required_lme_columns <- c(
+  "city",
+  "member",
+  "year",
+  "temperature_kelvin"
+)
+
+missing_lme_columns <- setdiff(
+  required_lme_columns,
+  names(
+    lme_city_data
+  )
+)
+
+if (length(missing_lme_columns) > 0L) {
+  stop(
+    "The LME city input is missing columns: ",
+    paste(
+      missing_lme_columns,
+      collapse = ", "
+    )
+  )
+}
+
+normalize_city_name <- function(city) {
+
+  city <- tolower(
+    gsub(
+      "[[:space:]_-]",
+      "",
+      as.character(
+        city
+      )
+    )
+  )
+
+  dplyr::recode(
+    city,
+    hongkong = "HongKong",
+    shanghai = "Shanghai",
+    beijing = "Beijing",
+    .default = NA_character_
+  )
+}
+
+lme_city_data <- lme_city_data %>%
+  transmute(
+    city = normalize_city_name(
+      city
+    ),
+    member = as.character(
+      member
+    ),
+    year = as.integer(
+      year
+    ),
+    temperature_celsius =
+      as.numeric(
+        temperature_kelvin
+      ) -
+      273.15
+  ) %>%
+  filter(
+    year %in%
+      analysis_years
+  ) %>%
+  arrange(
+    city,
+    member,
+    year
+  )
+
+if (
+  anyNA(
+    lme_city_data
+  ) ||
+    any(
+      !is.finite(
+        lme_city_data$temperature_celsius
+      )
+    )
+) {
+  stop(
+    "The LME city input contains invalid or missing values."
+  )
+}
 
 city_config <- list(
   HongKong = list(
-    input = file.path(input_dir, "d1.csv"),
     code = "H"
   ),
   Shanghai = list(
-    input = file.path(input_dir, "d2.csv"),
     code = "S"
   ),
   Beijing = list(
-    input = file.path(input_dir, "d3.csv"),
     code = "B"
   )
 )
@@ -361,21 +538,16 @@ update_mu <- function(
 
   b <- numeric(N)
 
-  B[1, 1] <- B[1, 1] +
-    J / r2[1]
+  B[1, 1] <- B[1, 1] + J / r2[1]
 
-  b[1] <- b[1] +
-    sum(X[1, ]) /
-      r2[1]
+  b[1] <- b[1] + sum(X[1, ]) / r2[1]
 
   for (t in 2:N) {
 
     weight <- J /
       r2[t]
 
-    m <- M[
-      t - 1
-    ]
+    m <- M[t - 1]
 
     B[t, t] <- B[t, t] +
       weight
@@ -827,80 +999,141 @@ fit_LME_fusedridge <- function(
 # ============================================================
 
 read_city_lme <- function(
-    input_file,
+    lme_city_data,
     city_name) {
 
-  if (!file.exists(input_file)) {
-    stop(
-      "Missing LME input for ",
-      city_name,
-      ": ",
-      input_file
+  city_data <- lme_city_data %>%
+    filter(
+      city == city_name
+    ) %>%
+    dplyr::select(
+      member,
+      year,
+      temperature_celsius
     )
-  }
 
-  raw_data <- read.csv(
-    input_file,
-    row.names = 1,
-    check.names = FALSE
-  )
-
-  if (max(lme_columns) > ncol(raw_data)) {
+  if (nrow(city_data) == 0L) {
     stop(
+      "No LME data were found for ",
       city_name,
-      " input has only ",
-      ncol(raw_data),
-      " columns after removing row names; ",
-      "columns 21:564 are required."
-    )
-  }
-
-  selected_data <- raw_data[
-    ,
-    lme_columns,
-    drop = FALSE
-  ]
-
-  X <- t(
-    data.matrix(
-      selected_data
-    )
-  ) -
-    273.15
-
-  storage.mode(X) <- "double"
-
-  if (nrow(X) != length(analysis_years)) {
-    stop(
-      city_name,
-      " should have ",
-      length(analysis_years),
-      " annual rows after transposition, but has ",
-      nrow(X),
       "."
     )
   }
 
-  if (ncol(X) != 13L) {
+  duplicate_rows <- city_data %>%
+    count(
+      member,
+      year,
+      name = "number_of_rows"
+    ) %>%
+    filter(
+      number_of_rows != 1L
+    )
+
+  if (nrow(duplicate_rows) > 0L) {
+    stop(
+      "Each member-year combination must occur exactly once ",
+      "for ",
+      city_name,
+      "."
+    )
+  }
+
+  member_names <- sort(
+    unique(
+      city_data$member
+    )
+  )
+
+  if (length(member_names) != 13L) {
     stop(
       city_name,
       " should have 13 ensemble members, but has ",
-      ncol(X),
+      length(member_names),
       "."
     )
   }
 
-  if (any(!is.finite(X))) {
+  missing_years <- setdiff(
+    analysis_years,
+    unique(
+      city_data$year
+    )
+  )
+
+  if (length(missing_years) > 0L) {
     stop(
-      "Non-finite LME values found for ",
+      city_name,
+      " is missing ",
+      length(missing_years),
+      " analysis years. First missing year: ",
+      missing_years[1],
+      "."
+    )
+  }
+
+  wide_data <- city_data %>%
+    filter(
+      year %in%
+        analysis_years
+    ) %>%
+    tidyr::pivot_wider(
+      names_from = member,
+      values_from = temperature_celsius
+    ) %>%
+    arrange(
+      year
+    )
+
+  if (!identical(
+    wide_data$year,
+    as.integer(
+      analysis_years
+    )
+  )) {
+    stop(
+      "The LME years are not aligned correctly for ",
       city_name,
       "."
     )
   }
 
-  rownames(X) <- as.character(
+  X <- as.matrix(
+    wide_data[
+      ,
+      member_names,
+      drop = FALSE
+    ]
+  )
+
+  storage.mode(
+    X
+  ) <- "double"
+
+  if (
+    nrow(X) !=
+      length(
+        analysis_years
+      ) ||
+      ncol(X) != 13L ||
+      any(!is.finite(X))
+  ) {
+    stop(
+      "The LME matrix has invalid dimensions or values for ",
+      city_name,
+      "."
+    )
+  }
+
+  rownames(
+    X
+  ) <- as.character(
     analysis_years
   )
+
+  colnames(
+    X
+  ) <- member_names
 
   X
 }
@@ -929,7 +1162,7 @@ make_parameter_table <- function(
 
 estimate_city <- function(
     city_name,
-    input_file,
+    lme_city_data,
     city_code) {
 
   message(
@@ -939,7 +1172,7 @@ estimate_city <- function(
   )
 
   X <- read_city_lme(
-    input_file = input_file,
+    lme_city_data = lme_city_data,
     city_name = city_name
   )
 
@@ -1007,11 +1240,31 @@ estimate_city <- function(
     )
   )
 
+  city_cv_table <- penalized_fit$cv_table %>%
+    mutate(
+      city = city_name,
+      .before = 1
+    ) %>%
+    arrange(
+      CV
+    )
+
+  readr::write_csv(
+    city_cv_table,
+    file.path(
+      output_dir,
+      paste0(
+        "prior_cv_",
+        city_name,
+        ".csv"
+      )
+    )
+  )
 
   saveRDS(
     list(
       city = city_name,
-      input_file = input_file,
+      input_file = lme_input_file,
       years = analysis_years,
       penalized = penalized_fit,
       unpenalized = unpenalized_fit
@@ -1026,21 +1279,67 @@ estimate_city <- function(
     )
   )
 
+  selected_lambdas <- unname(
+    penalized_fit$lambdas[
+      c(
+        "lambda1",
+        "lambda2",
+        "lambda3"
+      )
+    ]
+  )
+
+  lambda_on_boundary <- c(
+    selected_lambdas[1] %in%
+      range(
+        lambda1_grid
+      ),
+    selected_lambdas[2] %in%
+      range(
+        lambda2_grid
+      ),
+    selected_lambdas[3] %in%
+      range(
+        lambda3_grid
+      )
+  )
+
   best_lambdas <- data.frame(
     city = city_name,
-    lambda1 = unname(
-      penalized_fit$lambdas["lambda1"]
-    ),
-    lambda2 = unname(
-      penalized_fit$lambdas["lambda2"]
-    ),
-    lambda3 = unname(
-      penalized_fit$lambdas["lambda3"]
-    ),
+    lambda1 = selected_lambdas[1],
+    lambda2 = selected_lambdas[2],
+    lambda3 = selected_lambdas[3],
+    lambda1_on_grid_boundary =
+      lambda_on_boundary[1],
+    lambda2_on_grid_boundary =
+      lambda_on_boundary[2],
+    lambda3_on_grid_boundary =
+      lambda_on_boundary[3],
     CV = penalized_fit$CV,
-    iterations = penalized_fit$optimization$iters,
-    converged = penalized_fit$optimization$converged
+    iterations =
+      penalized_fit$optimization$iters,
+    converged =
+      penalized_fit$optimization$converged
   )
+
+  if (any(
+    lambda_on_boundary
+  )) {
+    warning(
+      city_name,
+      ": at least one selected lambda lies on the edge of ",
+      "the search grid [",
+      min(
+        lambda1_grid
+      ),
+      ", ",
+      max(
+        lambda1_grid
+      ),
+      "]. Consider expanding or refining that grid before the ",
+      "final manuscript run."
+    )
+  }
 
   message(
     "Completed ",
@@ -1072,7 +1371,7 @@ prior_results <- lapply(
 
     result <- estimate_city(
       city_name = city_name,
-      input_file = config$input,
+      lme_city_data = lme_city_data,
       city_code = config$code
     )
 
@@ -1097,6 +1396,14 @@ best_lambda_summary <- do.call(
 )
 
 rownames(best_lambda_summary) <- NULL
+
+readr::write_csv(
+  best_lambda_summary,
+  file.path(
+    output_dir,
+    "prior_best_lambdas.csv"
+  )
+)
 
 saveRDS(
   prior_results,
