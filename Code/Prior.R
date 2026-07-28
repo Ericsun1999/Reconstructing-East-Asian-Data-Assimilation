@@ -1249,18 +1249,6 @@ estimate_city <- function(
       CV
     )
 
-  readr::write_csv(
-    city_cv_table,
-    file.path(
-      output_dir,
-      paste0(
-        "prior_cv_",
-        city_name,
-        ".csv"
-      )
-    )
-  )
-
   saveRDS(
     list(
       city = city_name,
