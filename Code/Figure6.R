@@ -95,8 +95,6 @@ input_files <- c(
   ),
   precomputed = here::here(
     "Data",
-    "REACHES",
-    "precomputed",
     "reaches_kriging_lme_grid_mean.csv"
   )
 )
