@@ -914,7 +914,7 @@ readr::write_csv(
 # previous workflow.
 readr::write_csv(
   figure10_metrics %>%
-    select(
+    dplyr::select(
       city,
       method = Method,
       correlation
