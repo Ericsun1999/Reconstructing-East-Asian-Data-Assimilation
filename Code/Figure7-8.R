@@ -1257,8 +1257,8 @@ save_png(
         )
       ),
       breaks = seq(
-        9,
-        14,
+        4.5,
+        9.5,
         by = 0.1
       ),
       colour = "white",
@@ -1270,8 +1270,8 @@ save_png(
     ) +
     coord_cartesian(
       xlim = c(
-        9,
-        14
+        4.5,
+        9.5
       )
     ) +
     labs(
