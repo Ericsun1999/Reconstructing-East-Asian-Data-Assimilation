@@ -801,11 +801,7 @@ for (
   )
 ) {
 
-  config <- city_config[
-    [
-      city_name
-    ]
-  ]
+  config <- city_config[[city_name]]
 
   ghcn_city <- prepare_ghcn_city(
     ghcn_data = ghcn_all,
@@ -856,23 +852,11 @@ for (
     plot_limits = plot_limits
   )
 
-  figure10_plots[
-    [
-      city_name
-    ]
-  ] <- plot_object
+  figure10_plots[[city_name]] <- plot_object
 
-  metric_tables[
-    [
-      city_name
-    ]
-  ] <- metrics
+  metric_tables[[city_name]] <- metrics
 
-  plot_data_tables[
-    [
-      city_name
-    ]
-  ] <- plot_data
+  plot_data_tables[[city_name]] <- plot_data
 
   ggsave(
     filename = config$output_file,
