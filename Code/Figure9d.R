@@ -97,6 +97,8 @@ variance_tolerance <- 1e-10
 beta_tolerance <- 1e-10
 identity_tolerance <- 1e-8
 
+save_diagnostic_plots <- FALSE
+
 figure9_dir <- here::here(
   "Output",
   "Figure9"
@@ -2540,7 +2542,26 @@ process_city <- function(
       legend.position = "bottom"
     )
 
-
+  diagnostic_file <- file.path(
+    assimilation_output_dir,
+    paste0(
+      "diagnostic_",
+      city_name,
+      ".png"
+    )
+  )
+  
+  if (save_diagnostic_plots) {
+  ggsave(
+    filename = diagnostic_file,
+    plot = diagnostic_figure,
+    width = 8,
+    height = 5,
+    units = "in",
+    dpi = 300
+  )
+}
+  
   overlap <- result %>%
     filter(
       has_reaches_observation
