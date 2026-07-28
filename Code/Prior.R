@@ -25,9 +25,9 @@ analysis_years <- 1368:1911
 # grid should be expanded or refined.
 
 
-lambda1_grid <- 10^seq(2, 3, length.out = 3)
-lambda2_grid <- 10^seq(1, 3, length.out = 5)
-lambda3_grid <- 10^seq(2, 3, length.out = 3)
+lambda1_grid <- 10^seq(0, 3, length.out = 7)
+lambda2_grid <- 10^seq(0, 3, length.out = 7)
+lambda3_grid <- 10^seq(0, 3, length.out = 7)
 
 max_iter <- 100
 tol <- 1e-6
