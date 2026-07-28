@@ -23,9 +23,9 @@ analysis_years <- 1368:1911
 # 25) and/or expand the exponent range.
 
 
-lambda1_grid <- 10^seq(3, 3.5, length.out = 2)
-lambda2_grid <- 10^seq(0, 2.5, length.out = 6)
-lambda3_grid <- 10^seq(3, 3.5, length.out = 2)
+lambda1_grid <- 10^seq(3, 3, length.out = 1)
+lambda2_grid <- 10^seq(1, 2, length.out = 3)
+lambda3_grid <- 10^seq(3, 3, length.out = 1)
 
 max_iter <- 100
 tol <- 1e-6
