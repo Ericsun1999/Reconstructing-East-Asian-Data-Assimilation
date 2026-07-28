@@ -1256,12 +1256,12 @@ grid_variance <- cbind(
 
 grid_mean_file <- file.path(
   output_directory,
-  "reaches_kriging_grid53x49_mean.csv"
+  "reaches_kriging_grid53x49_mean.csv.gz"
 )
 
 grid_variance_file <- file.path(
   output_directory,
-  "reaches_kriging_grid53x49_variance.csv"
+  "reaches_kriging_grid53x49_variance.csv.gz"
 )
 
 readr::write_csv(
