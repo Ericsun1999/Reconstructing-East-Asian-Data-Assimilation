@@ -30,7 +30,7 @@ lambda2_grid <- 10^seq(1, 3, length.out = 5)
 lambda3_grid <- 10^seq(2, 3, length.out = 3)
 
 max_iter <- 100
-tol <- 1e-3
+tol <- 1e-6
 verbose <- TRUE
 
 input_mode <- "auto"
