@@ -2540,23 +2540,6 @@ process_city <- function(
       legend.position = "bottom"
     )
 
-  diagnostic_file <- file.path(
-    assimilation_output_dir,
-    paste0(
-      "diagnostic_",
-      city_name,
-      ".png"
-    )
-  )
-
-  ggsave(
-    filename = diagnostic_file,
-    plot = diagnostic_figure,
-    width = 8,
-    height = 5,
-    units = "in",
-    dpi = 300
-  )
 
   overlap <- result %>%
     filter(
