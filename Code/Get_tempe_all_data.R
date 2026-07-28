@@ -11,12 +11,12 @@ here::i_am("Code/Get_tempe_all_data.R")
 #
 # Outputs:
 #   Output/Intermediate/REACHES/
-#     reaches_kriging_grid53x49_mean.csv.gz
-#     reaches_kriging_grid53x49_variance.csv.gz
+#     reaches_kriging_grid53x49_mean.csv
+#     reaches_kriging_grid53x49_variance.csv
 #     reaches_kriging_lme_grid_mean.csv
 #     reaches_kriging_lme_grid_variance.csv
-#     reaches_kriging_city3_mean.csv.gz
-#     reaches_kriging_city3_sd.csv.gz
+#     reaches_kriging_city3_mean.csv
+#     reaches_kriging_city3_sd.csv
 #     reaches_kriging_metadata.csv
 #
 # City-row order:
@@ -589,8 +589,12 @@ ordinal_covariance <- function(
 
       covariance_sum <- covariance_sum +
         joint_exceedance_probability -
-        exceedance_probabilities[threshold_1_index] *
-        exceedance_probabilities[threshold_2_index]
+        exceedance_probabilities[
+          threshold_1_index
+        ] *
+        exceedance_probabilities[
+          threshold_2_index
+        ]
     }
   }
 
@@ -786,7 +790,10 @@ predict_grid_one_year <- function(
     ezstar_h,
     covariance_lookup_function) {
 
-  current_data <- observation_data[observation_data$year == current_year, ]
+  current_data <- observation_data[
+    observation_data$year ==
+      current_year,
+  ]
 
   if (nrow(current_data) == 0L) {
     stop(
@@ -1249,12 +1256,12 @@ grid_variance <- cbind(
 
 grid_mean_file <- file.path(
   output_directory,
-  "reaches_kriging_grid53x49_mean.csv.gz"
+  "reaches_kriging_grid53x49_mean.csv"
 )
 
 grid_variance_file <- file.path(
   output_directory,
-  "reaches_kriging_grid53x49_variance.csv.gz"
+  "reaches_kriging_grid53x49_variance.csv"
 )
 
 readr::write_csv(
@@ -1428,12 +1435,12 @@ city3_sd[
 
 city3_mean_file <- file.path(
   output_directory,
-  "reaches_kriging_city3_mean.csv.gz"
+  "reaches_kriging_city3_mean.csv"
 )
 
 city3_sd_file <- file.path(
   output_directory,
-  "reaches_kriging_city3_sd.csv.gz"
+  "reaches_kriging_city3_sd.csv"
 )
 
 readr::write_csv(
