@@ -776,9 +776,15 @@ for (code_file in active_code_files) {
       code_lines,
       function(code_line) {
         any(
-          grepl(
+          vapply(
             suspicious_patterns,
-            code_line
+            function(pattern) {
+              grepl(
+                pattern,
+                code_line
+              )
+            },
+            logical(1)
           )
         )
       },
