@@ -1349,16 +1349,17 @@ city_locations <- data.frame(
     "Beijing"
   ),
   long = c(
-    113.75,
-    121.25,
-    116.25
+    114.167,
+    121.433,
+    116.283
   ),
   lat = c(
-    22.25,
-    31.25,
-    39.75
+    22.333,
+    31.167,
+    39.933
   )
 )
+
 
 coordinate_key <- function(
     long,
