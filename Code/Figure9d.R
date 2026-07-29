@@ -136,8 +136,8 @@ dir.create(
 city_config <- list(
   HongKong = list(
     code = "H",
-    long = 113.75,
-    lat = 22.25,
+    long = 114.167,
+    lat = 22.333,
     figure_file = file.path(
       supplementary_dir,
       "FigureS4d.png"
@@ -145,8 +145,8 @@ city_config <- list(
   ),
   Shanghai = list(
     code = "S",
-    long = 121.25,
-    lat = 31.25,
+    long = 121.433,
+    lat = 31.167,
     figure_file = file.path(
       supplementary_dir,
       "FigureS3d.png"
@@ -154,14 +154,15 @@ city_config <- list(
   ),
   Beijing = list(
     code = "B",
-    long = 116.25,
-    lat = 39.75,
+    long = 116.283,
+    lat = 39.933,
     figure_file = file.path(
       figure9_dir,
       "Figure9d.png"
     )
   )
 )
+
 
 # ------------------------------------------------------------
 # 2. Select one complete input set
