@@ -4,7 +4,7 @@ here::i_am("Code/Get_tempe_all_data.R")
 # Generate interval-censored REACHES kriging products for:
 #   1. the complete 53 x 49 REACHES grid;
 #   2. the 266 native LME grid locations used in Figure 6;
-#   3. the three locations used in Figures 7--10.
+#   3. the exact GHCN station coordinates used in Figures 7--10.
 #
 # Required input:
 #   Output/Intermediate/calibration_parameters.rds
@@ -17,12 +17,17 @@ here::i_am("Code/Get_tempe_all_data.R")
 #     reaches_kriging_lme_grid_variance.csv
 #     reaches_kriging_city3_mean.csv
 #     reaches_kriging_city3_sd.csv
+#     reaches_kriging_city3_metadata.csv
 #     reaches_kriging_metadata.csv
 #
-# City-row order:
-#   1. Hong Kong
-#   2. Shanghai
-#   3. Beijing
+# City-row order and exact target coordinates:
+#   1. Hong Kong: 114.167 E, 22.333 N
+#   2. Shanghai:  121.433 E, 31.167 N
+#   3. Beijing:   116.283 E, 39.933 N
+#
+# These coordinates are not members of the regular 0.5-degree
+# 53 x 49 grid. They are therefore kriged directly rather than
+# extracted by exact matching to a grid row.
 #
 # Notes:
 #   - The complete-grid uncertainty file stores prediction
@@ -74,6 +79,11 @@ dir.create(
 checkpoint_file <- file.path(
   output_directory,
   "reaches_kriging_checkpoint.rds"
+)
+
+city_checkpoint_file <- file.path(
+  output_directory,
+  "reaches_kriging_city3_checkpoint.rds"
 )
 
 # ------------------------------------------------------------
@@ -1339,7 +1349,7 @@ readr::write_csv(
 )
 
 # ------------------------------------------------------------
-# 13. Extract Hong Kong, Shanghai, and Beijing
+# 13. Krige directly at the exact GHCN station coordinates
 # ------------------------------------------------------------
 
 city_locations <- data.frame(
@@ -1360,73 +1370,353 @@ city_locations <- data.frame(
   )
 )
 
-
-coordinate_key <- function(
-    long,
-    lat) {
-
-  sprintf(
-    "%.2f_%.2f",
-    long,
-    lat
-  )
-}
-
-grid_keys <- coordinate_key(
-  grid_mean$long,
-  grid_mean$lat
-)
-
-city_keys <- coordinate_key(
-  city_locations$long,
-  city_locations$lat
-)
-
-city_indices <- match(
-  city_keys,
-  grid_keys
-)
-
-if (anyNA(city_indices)) {
+if (
+  any(!is.finite(
+    city_locations$long
+  )) ||
+    any(!is.finite(
+      city_locations$lat
+    )) ||
+    anyDuplicated(
+      city_locations$city
+    )
+) {
   stop(
-    "At least one city location could not be matched to ",
-    "the 53 x 49 prediction grid."
+    "The three-city target-coordinate table is invalid."
   )
 }
 
-city3_mean <- grid_mean[
-  city_indices,
-  ,
-  drop = FALSE
-]
+# These targets are intentionally not required to lie on the
+# regular 0.5-degree grid. Direct kriging is necessary because
+# interpolating an already kriged variance surface would not
+# produce the correct prediction MSPE at the station location.
+city_prediction_coordinates <- as.matrix(
+  city_locations[
+    ,
+    c(
+      "long",
+      "lat"
+    )
+  ]
+)
 
-city3_variance <- grid_variance[
-  city_indices,
-  ,
-  drop = FALSE
-]
+city_mean_matrix <- matrix(
+  NA_real_,
+  nrow = nrow(
+    city_locations
+  ),
+  ncol = length(
+    year2
+  ),
+  dimnames = list(
+    city_locations$city,
+    as.character(
+      year2
+    )
+  )
+)
+
+city_variance_matrix <- matrix(
+  NA_real_,
+  nrow = nrow(
+    city_locations
+  ),
+  ncol = length(
+    year2
+  ),
+  dimnames = list(
+    city_locations$city,
+    as.character(
+      year2
+    )
+  )
+)
+
+city_year_diagnostics <- data.frame(
+  year = year2,
+  number_of_observations =
+    NA_integer_,
+  numerical_jitter =
+    NA_real_
+)
+
+completed_city_indices <- integer(
+  0
+)
+
+if (
+  isTRUE(
+    resume_from_checkpoint
+  ) &&
+    file.exists(
+      city_checkpoint_file
+    )
+) {
+
+  city_checkpoint <- readRDS(
+    city_checkpoint_file
+  )
+
+  city_checkpoint_is_compatible <-
+    identical(
+      city_checkpoint$years,
+      year2
+    ) &&
+    isTRUE(
+      all.equal(
+        city_checkpoint$parameters,
+        parameter_vector,
+        tolerance = 0
+      )
+    ) &&
+    isTRUE(
+      all.equal(
+        city_checkpoint$city_locations,
+        city_locations,
+        tolerance = 0,
+        check.attributes = FALSE
+      )
+    ) &&
+    identical(
+      dim(
+        city_checkpoint$city_mean_matrix
+      ),
+      dim(
+        city_mean_matrix
+      )
+    )
+
+  if (city_checkpoint_is_compatible) {
+
+    city_mean_matrix <-
+      city_checkpoint$
+        city_mean_matrix
+
+    city_variance_matrix <-
+      city_checkpoint$
+        city_variance_matrix
+
+    city_year_diagnostics <-
+      city_checkpoint$
+        city_year_diagnostics
+
+    completed_city_indices <-
+      city_checkpoint$
+        completed_city_indices
+
+    message(
+      "Resuming exact-coordinate city kriging with ",
+      length(
+        completed_city_indices
+      ),
+      " completed years."
+    )
+
+  } else {
+
+    warning(
+      "An incompatible exact-coordinate city checkpoint was ",
+      "found and ignored: ",
+      city_checkpoint_file
+    )
+  }
+}
+
+city_indices_to_run <- setdiff(
+  seq_along(
+    year2
+  ),
+  completed_city_indices
+)
+
+initial_completed_city_count <- length(
+  completed_city_indices
+)
+
+city_start_time <- Sys.time()
+
+for (
+  city_iteration_index in seq_along(
+    city_indices_to_run
+  )
+) {
+
+  i <- city_indices_to_run[
+    city_iteration_index
+  ]
+
+  current_year <- year2[
+    i
+  ]
+
+  message(
+    "Exact-coordinate city kriging year ",
+    current_year,
+    " (",
+    initial_completed_city_count +
+      city_iteration_index,
+    "/",
+    length(
+      year2
+    ),
+    ")"
+  )
+
+  city_yearly_result <- predict_grid_one_year(
+    current_year = current_year,
+    observation_data = y2,
+    prediction_coordinates =
+      city_prediction_coordinates,
+    sigma_Y2 = sigma_Y2,
+    sigma_E2 = sigma_E2,
+    alpha_km = alpha_km,
+    total_variance =
+      total_variance,
+    mean_z = mean_z,
+    variance_z = variance_z,
+    ezstar_h = ezstar_h,
+    covariance_lookup_function =
+      covariance_lookup$function_object
+  )
+
+  city_mean_matrix[
+    ,
+    i
+  ] <- city_yearly_result$mean
+
+  city_variance_matrix[
+    ,
+    i
+  ] <- city_yearly_result$variance
+
+  city_year_diagnostics$
+    number_of_observations[
+      i
+    ] <-
+    city_yearly_result$
+      number_of_observations
+
+  city_year_diagnostics$
+    numerical_jitter[
+      i
+    ] <-
+    city_yearly_result$
+      jitter
+
+  completed_city_indices <- sort(
+    unique(
+      c(
+        completed_city_indices,
+        i
+      )
+    )
+  )
+
+  should_checkpoint_city <-
+    length(
+      completed_city_indices
+    ) %%
+      checkpoint_every ==
+      0L ||
+    length(
+      completed_city_indices
+    ) ==
+      length(
+        year2
+      )
+
+  if (should_checkpoint_city) {
+
+    saveRDS(
+      list(
+        years = year2,
+        parameters =
+          parameter_vector,
+        city_locations =
+          city_locations,
+        city_mean_matrix =
+          city_mean_matrix,
+        city_variance_matrix =
+          city_variance_matrix,
+        city_year_diagnostics =
+          city_year_diagnostics,
+        completed_city_indices =
+          completed_city_indices
+      ),
+      city_checkpoint_file
+    )
+  }
+}
+
+city_elapsed_minutes <- as.numeric(
+  difftime(
+    Sys.time(),
+    city_start_time,
+    units = "mins"
+  )
+)
+
+city3_mean <- cbind(
+  city_locations,
+  as.data.frame(
+    city_mean_matrix,
+    check.names = FALSE
+  )
+)
+
+city3_variance <- cbind(
+  city_locations,
+  as.data.frame(
+    city_variance_matrix,
+    check.names = FALSE
+  )
+)
+
+city_year_columns <- as.character(
+  year2
+)
+
+names(
+  city3_mean
+)[
+  names(
+    city3_mean
+  ) %in%
+    city_year_columns
+] <- paste0(
+  "x",
+  city_year_columns
+)
+
+names(
+  city3_variance
+)[
+  names(
+    city3_variance
+  ) %in%
+    city_year_columns
+] <- paste0(
+  "x",
+  city_year_columns
+)
 
 city3_sd <- city3_variance
 
-year_columns <- setdiff(
-  names(
-    city3_sd
-  ),
-  c(
-    "long",
-    "lat"
-  )
-)
-
 city3_sd[
   ,
-  year_columns
+  paste0(
+    "x",
+    city_year_columns
+  )
 ] <- sqrt(
   pmax(
     as.matrix(
       city3_variance[
         ,
-        year_columns,
+        paste0(
+          "x",
+          city_year_columns
+        ),
         drop = FALSE
       ]
     ),
@@ -1444,6 +1734,11 @@ city3_sd_file <- file.path(
   "reaches_kriging_city3_sd.csv"
 )
 
+city3_metadata_file <- file.path(
+  output_directory,
+  "reaches_kriging_city3_metadata.csv"
+)
+
 readr::write_csv(
   city3_mean,
   city3_mean_file
@@ -1453,6 +1748,31 @@ readr::write_csv(
   city3_sd,
   city3_sd_file
 )
+
+readr::write_csv(
+  city_locations %>%
+    dplyr::mutate(
+      coordinate_source =
+        "GHCN nominal station coordinate",
+      prediction_method =
+        "direct interval-censored kriging",
+      number_of_event_years =
+        length(
+          year2
+        ),
+      elapsed_minutes =
+        city_elapsed_minutes
+    ),
+  city3_metadata_file
+)
+
+if (file.exists(
+  city_checkpoint_file
+)) {
+  file.remove(
+    city_checkpoint_file
+  )
+}
 
 # ------------------------------------------------------------
 # 14. Save diagnostics and metadata
@@ -1467,6 +1787,14 @@ metadata <- data.frame(
     n_grid,
   number_of_lme_grid_locations =
     n_lme_grid,
+  number_of_city_locations =
+    nrow(
+      city_locations
+    ),
+  city_coordinate_source =
+    "GHCN nominal station coordinates",
+  city_prediction_method =
+    "direct interval-censored kriging",
   process_variance =
     sigma_Y2,
   nugget_variance =
@@ -1478,7 +1806,9 @@ metadata <- data.frame(
   covariance_lookup_size =
     rho_lookup_size,
   elapsed_minutes =
-    elapsed_minutes
+    elapsed_minutes,
+  city_kriging_elapsed_minutes =
+    city_elapsed_minutes
 )
 
 metadata_file <- file.path(
@@ -1537,6 +1867,11 @@ message(
 message(
   "Three-city prediction standard deviations saved to: ",
   city3_sd_file
+)
+
+message(
+  "Three-city coordinate metadata saved to: ",
+  city3_metadata_file
 )
 
 message(
