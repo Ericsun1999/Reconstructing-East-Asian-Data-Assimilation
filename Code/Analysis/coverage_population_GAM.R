@@ -48,6 +48,8 @@ here::i_am("Code/Analysis/coverage_population_GAM.R")
 #   Output/Tables/Table2_coverage_GAM_formatted.csv
 #   Output/Tables/Table2_nested_comparisons.csv
 #   Output/Tables/Table2_Hgu_coefficient.csv
+#   Output/Tables/TableS2_M4_parametric_coefficients.csv
+#   Output/Tables/TableS2_M4_parametric_coefficients_formatted.csv
 #
 # Intermediate outputs:
 #   Output/Intermediate/coverage_population/
@@ -1622,44 +1624,335 @@ readr::write_csv(
 )
 
 # ------------------------------------------------------------
-# 10. Population coefficient from the full model
+# 10. Parametric coefficients from the full model M4
 # ------------------------------------------------------------
 
-m4_parametric_table <- as.data.frame(
-  summary(m4)$p.table
+m4_summary <- summary(
+  m4
 )
 
-if (!"Hgu" %in% rownames(m4_parametric_table)) {
+m4_parametric_matrix <- m4_summary$p.table
+
+if (
+  is.null(
+    m4_parametric_matrix
+  ) ||
+    nrow(
+      m4_parametric_matrix
+    ) == 0L
+) {
   stop(
-    "The Hgu coefficient was not found in the full-model summary."
+    "No parametric coefficient table was returned for M4."
   )
 }
 
-Hgu_row <- m4_parametric_table[
-  "Hgu",
-  ,
-  drop = FALSE
-]
-
-Hgu_coefficient <- data.frame(
-  Term = "Hgu",
-  Estimate = Hgu_row[
-    1,
-    1
-  ],
-  Standard_error = Hgu_row[
-    1,
-    2
-  ],
-  Test_statistic = Hgu_row[
-    1,
-    3
-  ],
-  p_value = Hgu_row[
-    1,
-    4
-  ]
+m4_parametric_table <- as.data.frame(
+  m4_parametric_matrix,
+  check.names = FALSE
 )
+
+m4_parametric_table$Term <- rownames(
+  m4_parametric_table
+)
+
+rownames(
+  m4_parametric_table
+) <- NULL
+
+expected_m4_terms <- c(
+  "(Intercept)",
+  "Lbar_g",
+  "sigma_g",
+  "pcold_g",
+  "pwarm_g",
+  "Hgu"
+)
+
+missing_m4_terms <- setdiff(
+  expected_m4_terms,
+  m4_parametric_table$Term
+)
+
+unexpected_m4_terms <- setdiff(
+  m4_parametric_table$Term,
+  expected_m4_terms
+)
+
+if (length(
+  missing_m4_terms
+) > 0L) {
+  stop(
+    "The M4 parametric table is missing terms: ",
+    paste(
+      missing_m4_terms,
+      collapse = ", "
+    ),
+    "."
+  )
+}
+
+if (length(
+  unexpected_m4_terms
+) > 0L) {
+  warning(
+    "The M4 parametric table contains additional terms: ",
+    paste(
+      unexpected_m4_terms,
+      collapse = ", "
+    ),
+    ". They will also be written to the raw output."
+  )
+}
+
+estimate_column <- first_existing_column(
+  m4_parametric_table,
+  c(
+    "^Estimate$"
+  )
+)
+
+standard_error_column <- first_existing_column(
+  m4_parametric_table,
+  c(
+    "^Std\\. Error$",
+    "^Std Error$",
+    "Std"
+  )
+)
+
+test_statistic_column <- first_existing_column(
+  m4_parametric_table,
+  c(
+    "^z value$",
+    "^t value$",
+    "value$"
+  )
+)
+
+p_value_column <- first_existing_column(
+  m4_parametric_table,
+  c(
+    "Pr\\(>\\|z\\|\\)",
+    "Pr\\(>\\|t\\|\\)",
+    "^p.value$",
+    "p-value"
+  )
+)
+
+required_summary_columns <- c(
+  estimate_column,
+  standard_error_column,
+  test_statistic_column,
+  p_value_column
+)
+
+if (anyNA(
+  required_summary_columns
+)) {
+  stop(
+    "Could not identify all Estimate, standard-error, test-statistic, ",
+    "and p-value columns in summary(m4)$p.table. Columns found: ",
+    paste(
+      names(
+        m4_parametric_table
+      ),
+      collapse = ", "
+    ),
+    "."
+  )
+}
+
+m4_parametric_coefficients <- m4_parametric_table %>%
+  transmute(
+    Model = "M4",
+    Term = Term,
+    Estimate = as.numeric(
+      .data[[estimate_column]]
+    ),
+    Standard_error = as.numeric(
+      .data[[standard_error_column]]
+    ),
+    z_value = as.numeric(
+      .data[[test_statistic_column]]
+    ),
+    p_value = as.numeric(
+      .data[[p_value_column]]
+    )
+  ) %>%
+  mutate(
+    term_order = match(
+      Term,
+      expected_m4_terms
+    )
+  ) %>%
+  arrange(
+    is.na(
+      term_order
+    ),
+    term_order,
+    Term
+  ) %>%
+  dplyr::select(
+    -term_order
+  )
+
+if (
+  any(!is.finite(
+    m4_parametric_coefficients$Estimate
+  )) ||
+    any(!is.finite(
+      m4_parametric_coefficients$Standard_error
+    )) ||
+    any(!is.finite(
+      m4_parametric_coefficients$z_value
+    )) ||
+    any(
+      is.na(
+        m4_parametric_coefficients$p_value
+      )
+    )
+) {
+  stop(
+    "At least one M4 parametric coefficient or test result is invalid."
+  )
+}
+
+term_display_labels <- c(
+  "(Intercept)" = "Intercept",
+  "Lbar_g" = "Lbar_g",
+  "sigma_g" = "sigma_g",
+  "pcold_g" = "p_g^cold",
+  "pwarm_g" = "p_g^warm",
+  "Hgu" = "H_gu"
+)
+
+term_latex_labels <- c(
+  "(Intercept)" = "Intercept",
+  "Lbar_g" = "$\\\\bar{L}_g$",
+  "sigma_g" = "$\\\\sigma_g$",
+  "pcold_g" = "$p_g^{\\\\mathrm{cold}}$",
+  "pwarm_g" = "$p_g^{\\\\mathrm{warm}}$",
+  "Hgu" = "$H_{gu}$"
+)
+
+format_p_value <- function(
+    p_value,
+    digits = 2L) {
+
+  if (is.na(
+    p_value
+  )) {
+    return(
+      NA_character_
+    )
+  }
+
+  if (p_value < 2e-16) {
+    return(
+      "< 2 × 10^-16"
+    )
+  }
+
+  if (p_value < 0.001) {
+
+    exponent <- floor(
+      log10(
+        p_value
+      )
+    )
+
+    mantissa <- p_value /
+      10^exponent
+
+    return(
+      paste0(
+        formatC(
+          mantissa,
+          format = "f",
+          digits = digits
+        ),
+        " × 10^",
+        exponent
+      )
+    )
+  }
+
+  formatC(
+    p_value,
+    format = "f",
+    digits = 4
+  )
+}
+
+m4_parametric_coefficients_formatted <-
+  m4_parametric_coefficients %>%
+  transmute(
+    Term = unname(
+      term_display_labels[
+        Term
+      ]
+    ),
+    Term_LaTeX = unname(
+      term_latex_labels[
+        m4_parametric_coefficients$Term
+      ]
+    ),
+    Estimate = sprintf(
+      "%.3f",
+      Estimate
+    ),
+    `Std. error` = sprintf(
+      "%.3f",
+      Standard_error
+    ),
+    `z value` = sprintf(
+      "%.3f",
+      z_value
+    ),
+    `p value` = vapply(
+      p_value,
+      format_p_value,
+      character(1)
+    )
+  )
+
+readr::write_csv(
+  m4_parametric_coefficients,
+  file.path(
+    output_table_dir,
+    "TableS2_M4_parametric_coefficients.csv"
+  )
+)
+
+readr::write_csv(
+  m4_parametric_coefficients_formatted,
+  file.path(
+    output_table_dir,
+    "TableS2_M4_parametric_coefficients_formatted.csv"
+  )
+)
+
+# Preserve the previous population-coefficient output for
+# backward compatibility with the manuscript Table 2 workflow.
+Hgu_coefficient <- m4_parametric_coefficients %>%
+  filter(
+    Term == "Hgu"
+  ) %>%
+  transmute(
+    Term = "Hgu",
+    Estimate = Estimate,
+    Standard_error = Standard_error,
+    Test_statistic = z_value,
+    p_value = p_value
+  )
+
+if (nrow(
+  Hgu_coefficient
+) != 1L) {
+  stop(
+    "The Hgu coefficient was not uniquely identified in M4."
+  )
+}
 
 readr::write_csv(
   Hgu_coefficient,
@@ -1737,6 +2030,14 @@ capture.output(
 
     print(
       nested_comparisons
+    )
+
+    cat(
+      "\nM4 parametric coefficients (Table S2)\n"
+    )
+
+    print(
+      m4_parametric_coefficients_formatted
     )
 
     cat(
