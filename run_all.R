@@ -789,11 +789,7 @@ for (code_file in active_code_files) {
   if (length(
     matched_lines
   ) > 0L) {
-    suspicious_hits[
-      [
-        code_file
-      ]
-    ] <- matched_lines
+    suspicious_hits[[code_file]] <- matched_lines
   }
 }
 
@@ -816,11 +812,7 @@ if (length(
             ),
             ":",
             paste(
-              suspicious_hits[
-                [
-                  code_file
-                ]
-              ],
+              suspicious_hits[[code_file]],
               collapse = ","
             )
           )
@@ -890,11 +882,7 @@ for (step_index in seq_along(
   workflow
 )) {
 
-  step <- workflow[
-    [
-      step_index
-    ]
-  ]
+  step <- workflow[[step_index]]
 
   script_file <- normalizePath(
     file.path(
@@ -978,11 +966,7 @@ for (step_index in seq_along(
     ) ==
       0L
 
-  run_records[
-    [
-      step_index
-    ]
-  ] <- data.frame(
+  run_records[[step_index]] <- data.frame(
     step_number = step_index,
     step_id = step$id,
     script = step$script,
