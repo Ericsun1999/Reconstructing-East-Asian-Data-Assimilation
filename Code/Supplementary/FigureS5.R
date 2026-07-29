@@ -3,60 +3,135 @@ here::i_am("Code/Supplementary/FigureS5.R")
 # ============================================================
 # Supplementary Figure S5
 #
-# Functional boxplots within the five REACHES-defined clusters.
+# Functional boxplots within the REACHES-defined clusters used
+# in Figure 6.
 #
 # Rows:
-#   REACHES clusters 1--5
+#   Figure 6 clusters (currently four)
 #
 # Columns:
-#   1. Kriged REACHES anomalies
+#   1. Kriged REACHES index trajectories
 #   2. Cellwise-centered LME ensemble mean
 #   3. Cellwise-centered assimilated posterior mean
 #
-# Clustering is performed ONLY on the kriged REACHES field.
-# LME and posterior trajectories are summarized within those
-# same REACHES-defined regions and are not reclustered.
+# IMPORTANT:
+#   Figure S5 does not repeat FPCA or Mclust. It reuses the exact
+#   location set and cluster labels saved by Figure6.R.
+#
+# Required generated inputs:
+#   Output/Figure6/Figure6_cluster_assignments.csv
+#   Output/Intermediate/REACHES/
+#     reaches_kriging_lme_grid_mean.csv
+#   Output/Intermediate/LME/
+#     lme_ensemble_mean_1368_1911.csv
+#   Output/Intermediate/Assimilation/
+#     assimilated_posterior_lme_grid_mean.csv
+#
+# Equivalent precomputed inputs may be placed under:
+#   Data/REACHES/precomputed/
+#   Data/LME data/precomputed/
+#   Data/Valid/
+#
+# The posterior-grid file is not produced by the three-city
+# Figure9d.R script. A separate all-location assimilation step is
+# required before Figure S5 can be regenerated.
+#
+# Outputs:
+#   Output/Supplementary/FigureS5.png
+#   Output/Supplementary/FigureS5.pdf
+#   Output/Intermediate/FigureS5/
+#     FigureS5_cluster_assignments.csv
+#     FigureS5_diagnostics.csv
 # ============================================================
 
-library(here)
-library(readxl)
-library(readr)
 library(dplyr)
-library(sf)
+library(readr)
 library(fda)
-library(mclust)
 
 # ------------------------------------------------------------
-# 1. Input and output locations
+# 1. Configuration
 # ------------------------------------------------------------
 
-reaches_grid_candidates <- c(
-  here::here("Data", "reaches_kriging_grid53x49_mean.csv"),
-  here::here("Data", "tempe_all_v4.csv")
+analysis_years <- 1368:1911
+input_mode <- "auto"
+
+allowed_input_modes <- c(
+  "auto",
+  "generated",
+  "precomputed"
 )
 
-posterior_grid_candidates <- c(
-  here::here("Data", "assimilated_posterior_grid53x49_mean.csv"),
-  here::here("Data", "kalman_mean_v4.csv")
+if (!input_mode %in% allowed_input_modes) {
+  stop(
+    "input_mode must be one of: ",
+    paste(
+      allowed_input_modes,
+      collapse = ", "
+    )
+  )
+}
+
+# Figure 6 currently selects four clusters. The plotting code is
+# dynamic, but this expected value catches stale Figure 6 output.
+expected_number_of_clusters <- 4L
+
+# Keep FALSE when Figure6_cluster_assignments.csv already stores
+# the final labels displayed in Figure 6.
+#
+# Set TRUE only if Figure 6 displayed clusters 1 and 4 in swapped
+# order without applying the same swap to its assignment CSV.
+swap_cluster_1_and_4 <- FALSE
+
+generated_files <- c(
+  clusters = here::here(
+    "Output",
+    "Figure6",
+    "Figure6_cluster_assignments.csv"
+  ),
+  reaches = here::here(
+    "Output",
+    "Intermediate",
+    "REACHES",
+    "reaches_kriging_lme_grid_mean.csv"
+  ),
+  lme = here::here(
+    "Output",
+    "Intermediate",
+    "LME",
+    "lme_ensemble_mean_1368_1911.csv"
+  ),
+  posterior = here::here(
+    "Output",
+    "Intermediate",
+    "Assimilation",
+    "assimilated_posterior_lme_grid_mean.csv"
+  )
 )
 
-lme_mean_candidates <- c(
-  here::here("Output", "Intermediate", "FigureS5",
-             "lme_ensemble_mean_grid53x49.csv"),
-  here::here("Data", "lme_ensemble_mean_grid53x49.csv"),
-  here::here("Data", "LME data", "FigureS5",
-             "lme_ensemble_mean_grid53x49.csv")
-)
-
-lme_member_directories <- c(
-  here::here("Data", "LME data", "FigureS5"),
-  here::here("Data", "LME data", "Figure6"),
-  here::here("Data", "LME data")
-)
-
-reaches_observation_file <- here::here(
-  "Data",
-  "temperature index value.v1.xlsx"
+precomputed_files <- c(
+  clusters = here::here(
+    "Data",
+    "REACHES",
+    "precomputed",
+    "Figure6_cluster_assignments.csv"
+  ),
+  reaches = here::here(
+    "Data",
+    "REACHES",
+    "precomputed",
+    "reaches_kriging_lme_grid_mean.csv"
+  ),
+  lme = here::here(
+    "Data",
+    "LME data",
+    "precomputed",
+    "lme_ensemble_mean_1368_1911.csv"
+  ),
+  posterior = here::here(
+    "Data",
+    "Valid",
+    "assimilated_posterior_lme_grid_mean.csv"
+  )
 )
 
 output_dir <- here::here(
@@ -92,9 +167,9 @@ figure_pdf <- file.path(
   "FigureS5.pdf"
 )
 
-cluster_file <- file.path(
+cluster_output_file <- file.path(
   intermediate_dir,
-  "reaches_cluster_assignments.csv"
+  "FigureS5_cluster_assignments.csv"
 )
 
 diagnostic_file <- file.path(
@@ -102,177 +177,146 @@ diagnostic_file <- file.path(
   "FigureS5_diagnostics.csv"
 )
 
-analysis_years <- 1368:1911
+# ------------------------------------------------------------
+# 2. Select one complete input set
+# ------------------------------------------------------------
 
-# Relabeling used for the geographic cluster order in Figure 6.
-cluster_relabel <- c(
-  "2" = 1,
-  "4" = 2,
-  "5" = 3,
-  "1" = 4,
-  "3" = 5
+select_input_set <- function(
+    input_mode,
+    generated_files,
+    precomputed_files) {
+
+  generated_complete <- all(
+    file.exists(
+      generated_files
+    )
+  )
+
+  precomputed_complete <- all(
+    file.exists(
+      precomputed_files
+    )
+  )
+
+  if (input_mode == "generated") {
+    if (!generated_complete) {
+      missing_files <- generated_files[
+        !file.exists(
+          generated_files
+        )
+      ]
+
+      stop(
+        "The generated Figure S5 input set is incomplete. ",
+        "Missing:\n  ",
+        paste(
+          missing_files,
+          collapse = "\n  "
+        ),
+        "\nThe all-location posterior grid must be generated ",
+        "before Figure S5 can run."
+      )
+    }
+
+    return(
+      generated_files
+    )
+  }
+
+  if (input_mode == "precomputed") {
+    if (!precomputed_complete) {
+      missing_files <- precomputed_files[
+        !file.exists(
+          precomputed_files
+        )
+      ]
+
+      stop(
+        "The precomputed Figure S5 input set is incomplete. ",
+        "Missing:\n  ",
+        paste(
+          missing_files,
+          collapse = "\n  "
+        )
+      )
+    }
+
+    return(
+      precomputed_files
+    )
+  }
+
+  if (generated_complete) {
+    return(
+      generated_files
+    )
+  }
+
+  if (precomputed_complete) {
+    return(
+      precomputed_files
+    )
+  }
+
+  generated_missing <- generated_files[
+    !file.exists(
+      generated_files
+    )
+  ]
+
+  precomputed_missing <- precomputed_files[
+    !file.exists(
+      precomputed_files
+    )
+  ]
+
+  stop(
+    "Neither a complete generated nor a complete precomputed ",
+    "Figure S5 input set was found.\n",
+    "Missing generated files:\n  ",
+    paste(
+      generated_missing,
+      collapse = "\n  "
+    ),
+    "\nMissing precomputed files:\n  ",
+    paste(
+      precomputed_missing,
+      collapse = "\n  "
+    ),
+    "\nIn particular, Figure9d.R currently produces only ",
+    "three-city posterior series and cannot create the spatial ",
+    "posterior input required by Figure S5."
+  )
+}
+
+input_files <- select_input_set(
+  input_mode = input_mode,
+  generated_files = generated_files,
+  precomputed_files = precomputed_files
+)
+
+message(
+  "Figure S5 inputs selected from the ",
+  if (
+    identical(
+      unname(
+        input_files
+      ),
+      unname(
+        generated_files
+      )
+    )
+  ) {
+    "generated"
+  } else {
+    "precomputed"
+  },
+  " input set."
 )
 
 # ------------------------------------------------------------
-# 2. General helpers
+# 3. Grid-data helpers
 # ------------------------------------------------------------
-
-first_existing_file <- function(
-    candidates,
-    description) {
-
-  existing <- candidates[
-    file.exists(candidates)
-  ]
-
-  if (length(existing) == 0L) {
-    stop(
-      description,
-      " was not found. Searched:\n",
-      paste(
-        paste0("  - ", candidates),
-        collapse = "\n"
-      )
-    )
-  }
-
-  existing[1]
-}
-
-
-standardize_grid_data <- function(
-    data,
-    object_name) {
-
-  names(data) <- sub(
-    "^X(?=[0-9]{4}$)",
-    "x",
-    names(data),
-    perl = TRUE
-  )
-
-  if (
-    ncol(data) > 0L &&
-      names(data)[1] %in% c(
-        "X",
-        "...1",
-        "row.names"
-      )
-  ) {
-    first_column <- suppressWarnings(
-      as.integer(data[[1]])
-    )
-
-    if (
-      length(first_column) == nrow(data) &&
-        all(
-          first_column ==
-            seq_len(nrow(data)),
-          na.rm = TRUE
-        )
-    ) {
-      data <- data[
-        ,
-        -1,
-        drop = FALSE
-      ]
-    }
-  }
-
-  longitude_name <- intersect(
-    c(
-      "long",
-      "lon",
-      "longitude"
-    ),
-    names(data)
-  )
-
-  latitude_name <- intersect(
-    c(
-      "lat",
-      "lati",
-      "latitude"
-    ),
-    names(data)
-  )
-
-  if (
-    length(longitude_name) == 0L ||
-      length(latitude_name) == 0L
-  ) {
-    stop(
-      object_name,
-      " must contain longitude and latitude columns."
-    )
-  }
-
-  names(data)[
-    names(data) ==
-      longitude_name[1]
-  ] <- "long"
-
-  names(data)[
-    names(data) ==
-      latitude_name[1]
-  ] <- "lat"
-
-  data <- data %>%
-    mutate(
-      long = as.numeric(long),
-      lat = as.numeric(lat)
-    ) %>%
-    filter(
-      is.finite(long),
-      is.finite(lat)
-    ) %>%
-    distinct(
-      long,
-      lat,
-      .keep_all = TRUE
-    )
-
-  year_columns <- grep(
-    "^x[0-9]{4}$",
-    names(data),
-    value = TRUE
-  )
-
-  if (length(year_columns) == 0L) {
-    stop(
-      object_name,
-      " does not contain columns named xYYYY."
-    )
-  }
-
-  data
-}
-
-
-extract_year_map <- function(
-    data) {
-
-  columns <- grep(
-    "^x[0-9]{4}$",
-    names(data),
-    value = TRUE
-  )
-
-  years <- as.integer(
-    sub(
-      "^x",
-      "",
-      columns
-    )
-  )
-
-  data.frame(
-    year = years,
-    column = columns
-  ) %>%
-    arrange(year)
-}
-
 
 coordinate_key <- function(
     long,
@@ -280,364 +324,497 @@ coordinate_key <- function(
 
   paste(
     sprintf(
-      "%.6f",
-      long
+      "%.8f",
+      as.numeric(
+        long
+      )
     ),
     sprintf(
-      "%.6f",
-      lat
+      "%.8f",
+      as.numeric(
+        lat
+      )
     ),
     sep = "_"
   )
 }
 
+standardize_grid_data <- function(
+    input_file,
+    object_name) {
 
-center_rows <- function(
-    matrix_data) {
-
-  sweep(
-    matrix_data,
-    1,
-    rowMeans(
-      matrix_data,
-      na.rm = TRUE
-    ),
-    FUN = "-"
-  )
-}
-
-
-find_lme_member_file <- function(
-    directory,
-    member_id) {
-
-  candidates <- c(
-    file.path(
-      directory,
-      paste0(
-        "c",
-        member_id,
-        ".csv.gz"
-      )
-    ),
-    file.path(
-      directory,
-      paste0(
-        "c",
-        member_id,
-        ".csv"
-      )
-    )
+  grid_data <- readr::read_csv(
+    input_file,
+    show_col_types = FALSE,
+    name_repair = "minimal"
   )
 
-  existing <- candidates[
-    file.exists(candidates)
-  ]
-
-  if (length(existing) == 0L) {
-    return(NA_character_)
+  if (
+    !"lat" %in%
+      names(
+        grid_data
+      ) &&
+      "lati" %in%
+        names(
+          grid_data
+        )
+  ) {
+    grid_data <- grid_data %>%
+      rename(
+        lat = lati
+      )
   }
 
-  existing[1]
-}
-
-
-read_lme_ensemble_mean <- function() {
-
-  existing_mean <- lme_mean_candidates[
-    file.exists(
-      lme_mean_candidates
-    )
-  ]
-
-  if (length(existing_mean) > 0L) {
-
-    message(
-      "Using archived LME ensemble mean: ",
-      existing_mean[1]
-    )
-
-    return(
-      standardize_grid_data(
-        read.csv(
-          existing_mean[1],
-          check.names = FALSE
-        ),
-        "LME ensemble mean"
-      )
-    )
-  }
-
-  valid_directory <- vapply(
-    lme_member_directories,
-    function(directory) {
-
-      files <- vapply(
-        1:13,
-        function(member_id) {
-          find_lme_member_file(
-            directory,
-            member_id
-          )
-        },
-        character(1)
-      )
-
-      all(
-        !is.na(files)
-      )
-    },
-    logical(1)
+  required_coordinate_columns <- c(
+    "long",
+    "lat"
   )
 
-  if (!any(valid_directory)) {
+  missing_coordinate_columns <- setdiff(
+    required_coordinate_columns,
+    names(
+      grid_data
+    )
+  )
+
+  if (length(
+    missing_coordinate_columns
+  ) > 0L) {
     stop(
-      paste0(
-        "Neither an archived LME ensemble-mean file nor ",
-        "c1--c13 files were found.\n",
-        "Directories searched for c1--c13:\n",
-        paste(
-          paste0(
-            "  - ",
-            lme_member_directories
-          ),
-          collapse = "\n"
-        )
+      object_name,
+      " is missing coordinate columns: ",
+      paste(
+        missing_coordinate_columns,
+        collapse = ", "
       )
     )
   }
 
-  lme_directory <- lme_member_directories[
-    which(valid_directory)[1]
-  ]
-
-  message(
-    "Constructing the LME ensemble mean from: ",
-    lme_directory
-  )
-
-  member_data <- lapply(
-    1:13,
-    function(member_id) {
-
-      input_file <- find_lme_member_file(
-        lme_directory,
-        member_id
-      )
-
-      standardize_grid_data(
-        read.csv(
-          input_file,
-          check.names = FALSE
-        ),
-        paste0(
-          "LME member c",
-          member_id
-        )
-      )
-    }
-  )
-
-  reference_keys <- coordinate_key(
-    member_data[[1]]$long,
-    member_data[[1]]$lat
-  )
-
-  reference_year_map <- extract_year_map(
-    member_data[[1]]
-  )
-
-  for (member_id in 2:13) {
-
-    member_keys <- coordinate_key(
-      member_data[[member_id]]$long,
-      member_data[[member_id]]$lat
-    )
-
-    if (!setequal(
-      reference_keys,
-      member_keys
-    )) {
-      stop(
-        "The spatial grid in LME member c",
-        member_id,
-        " does not match c1."
-      )
-    }
-
-    member_data[[member_id]] <- member_data[[member_id]][
-      match(
-        reference_keys,
-        member_keys
-      ),
-      ,
-      drop = FALSE
-    ]
-
-    member_years <- extract_year_map(
-      member_data[[member_id]]
-    )$year
-
-    if (!identical(
-      reference_year_map$year,
-      member_years
-    )) {
-      stop(
-        "The year columns in LME member c",
-        member_id,
-        " do not match c1."
-      )
-    }
-  }
-
-  year_columns <- reference_year_map$column
-
-  lme_sum <- matrix(
-    0,
-    nrow = nrow(
-      member_data[[1]]
+  year_columns <- grep(
+    "^[Xx]?[0-9]{4}$",
+    names(
+      grid_data
     ),
-    ncol = length(
+    value = TRUE
+  )
+
+  if (length(
+    year_columns
+  ) == 0L) {
+    stop(
+      object_name,
+      " contains no annual columns."
+    )
+  }
+
+  year_values <- as.integer(
+    sub(
+      "^[Xx]",
+      "",
       year_columns
     )
   )
 
-  for (member_id in 1:13) {
+  names(
+    grid_data
+  )[
+    match(
+      year_columns,
+      names(
+        grid_data
+      )
+    )
+  ] <- paste0(
+    "x",
+    year_values
+  )
 
-    current_matrix <- data.matrix(
-      member_data[[member_id]][
-        ,
-        year_columns,
-        drop = FALSE
-      ]
+  grid_data <- grid_data %>%
+    mutate(
+      long = as.numeric(
+        long
+      ),
+      lat = as.numeric(
+        lat
+      ),
+      location_id = if (
+        "location_id" %in%
+          names(
+            grid_data
+          )
+      ) {
+        as.integer(
+          location_id
+        )
+      } else {
+        NA_integer_
+      },
+      cell_id = coordinate_key(
+        long,
+        lat
+      )
     )
 
-    if (anyNA(current_matrix)) {
-      stop(
-        "Missing LME values were found in member c",
-        member_id,
-        "."
+  if (
+    any(!is.finite(
+      grid_data$long
+    )) ||
+      any(!is.finite(
+        grid_data$lat
+      )) ||
+      anyDuplicated(
+        grid_data$cell_id
       )
-    }
-
-    lme_sum <- lme_sum +
-      current_matrix
+  ) {
+    stop(
+      object_name,
+      " contains invalid or duplicated coordinates."
+    )
   }
 
-  lme_mean <- data.frame(
-    long = member_data[[1]]$long,
-    lat = member_data[[1]]$lat,
-    lme_sum / 13,
-    check.names = FALSE
+  grid_data
+}
+
+extract_years <- function(
+    grid_data) {
+
+  year_columns <- grep(
+    "^x[0-9]{4}$",
+    names(
+      grid_data
+    ),
+    value = TRUE
   )
 
-  names(lme_mean)[
-    3:ncol(lme_mean)
-  ] <- year_columns
+  as.integer(
+    sub(
+      "^x",
+      "",
+      year_columns
+    )
+  )
+}
 
-  readr::write_csv(
-    lme_mean,
-    file.path(
-      intermediate_dir,
-      "lme_ensemble_mean_grid53x49.csv"
+center_rows <- function(
+    matrix_data) {
+
+  row_means <- rowMeans(
+    matrix_data
+  )
+
+  sweep(
+    matrix_data,
+    1,
+    row_means,
+    FUN = "-"
+  )
+}
+
+# ------------------------------------------------------------
+# 4. Read Figure 6 assignments and the three spatial products
+# ------------------------------------------------------------
+
+cluster_assignments <- readr::read_csv(
+  unname(
+    input_files[["clusters"]]
+  ),
+  show_col_types = FALSE
+)
+
+if (
+  !"lat" %in%
+    names(
+      cluster_assignments
+    ) &&
+    "lati" %in%
+      names(
+        cluster_assignments
+      )
+) {
+  cluster_assignments <- cluster_assignments %>%
+    rename(
+      lat = lati
+    )
+}
+
+required_cluster_columns <- c(
+  "long",
+  "lat",
+  "figure6_cluster"
+)
+
+missing_cluster_columns <- setdiff(
+  required_cluster_columns,
+  names(
+    cluster_assignments
+  )
+)
+
+if (length(
+  missing_cluster_columns
+) > 0L) {
+  stop(
+    "Figure6_cluster_assignments.csv is missing: ",
+    paste(
+      missing_cluster_columns,
+      collapse = ", "
+    )
+  )
+}
+
+cluster_assignments <- cluster_assignments %>%
+  transmute(
+    location_id = if (
+      "location_id" %in%
+        names(
+          cluster_assignments
+        )
+    ) {
+      as.integer(
+        location_id
+      )
+    } else {
+      NA_integer_
+    },
+    long = as.numeric(
+      long
+    ),
+    lat = as.numeric(
+      lat
+    ),
+    original_mclust_component = if (
+      "original_mclust_component" %in%
+        names(
+          cluster_assignments
+        )
+    ) {
+      as.integer(
+        original_mclust_component
+      )
+    } else {
+      NA_integer_
+    },
+    cluster = as.integer(
+      figure6_cluster
+    ),
+    cell_id = coordinate_key(
+      long,
+      lat
     )
   )
 
-  lme_mean
+if (swap_cluster_1_and_4) {
+  cluster_assignments <- cluster_assignments %>%
+    mutate(
+      cluster = dplyr::recode(
+        cluster,
+        `1` = 4L,
+        `4` = 1L,
+        .default = cluster
+      )
+    )
 }
 
-# ------------------------------------------------------------
-# 3. Read the three gridded products
-# ------------------------------------------------------------
-
-reaches_grid_file <- first_existing_file(
-  reaches_grid_candidates,
-  "The kriged REACHES grid"
-)
-
-posterior_grid_file <- first_existing_file(
-  posterior_grid_candidates,
-  "The assimilated posterior grid"
-)
-
-if (!file.exists(
-  reaches_observation_file
-)) {
+if (
+  anyNA(
+    cluster_assignments[
+      ,
+      c(
+        "long",
+        "lat",
+        "cluster",
+        "cell_id"
+      )
+    ]
+  ) ||
+    anyDuplicated(
+      cluster_assignments$cell_id
+    )
+) {
   stop(
-    "The original REACHES file was not found: ",
-    reaches_observation_file
+    "The Figure 6 cluster assignments contain invalid or ",
+    "duplicated locations."
   )
 }
 
-message(
-  "Using REACHES grid: ",
-  reaches_grid_file
+cluster_levels <- sort(
+  unique(
+    cluster_assignments$cluster
+  )
 )
 
-message(
-  "Using posterior grid: ",
-  posterior_grid_file
+number_of_clusters <- length(
+  cluster_levels
 )
 
-reaches_grid_full <- standardize_grid_data(
-  read.csv(
-    reaches_grid_file,
-    check.names = FALSE
+if (!identical(
+  cluster_levels,
+  seq_len(
+    number_of_clusters
+  )
+)) {
+  stop(
+    "Figure 6 cluster labels must be consecutive integers ",
+    "starting at 1."
+  )
+}
+
+if (
+  number_of_clusters !=
+    expected_number_of_clusters
+) {
+  warning(
+    "Expected ",
+    expected_number_of_clusters,
+    " Figure 6 clusters, but found ",
+    number_of_clusters,
+    ". The layout will use the available cluster count."
+  )
+}
+
+reaches_grid <- standardize_grid_data(
+  unname(
+    input_files[["reaches"]]
   ),
-  "Kriged REACHES grid"
+  "REACHES-at-LME-grid field"
 )
 
-posterior_grid_full <- standardize_grid_data(
-  read.csv(
-    posterior_grid_file,
-    check.names = FALSE
+lme_grid <- standardize_grid_data(
+  unname(
+    input_files[["lme"]]
   ),
-  "Assimilated posterior grid"
+  "LME ensemble-mean field"
 )
 
-lme_grid_full <- read_lme_ensemble_mean()
+posterior_grid <- standardize_grid_data(
+  unname(
+    input_files[["posterior"]]
+  ),
+  "Assimilated posterior field"
+)
 
 # ------------------------------------------------------------
-# 4. Determine REACHES event years shared by all products
+# 5. Align all products to the exact Figure 6 locations
 # ------------------------------------------------------------
 
-reaches_year_map <- extract_year_map(
-  reaches_grid_full
+align_grid_to_clusters <- function(
+    grid_data,
+    cluster_assignments,
+    object_name) {
+
+  # Prefer location_id when both objects contain complete,
+  # unique identifiers. Otherwise align by coordinates.
+  use_location_id <-
+    all(
+      !is.na(
+        cluster_assignments$location_id
+      )
+    ) &&
+    all(
+      !is.na(
+        grid_data$location_id
+      )
+    ) &&
+    !anyDuplicated(
+      cluster_assignments$location_id
+    ) &&
+    !anyDuplicated(
+      grid_data$location_id
+    )
+
+  if (use_location_id) {
+    match_rows <- match(
+      cluster_assignments$location_id,
+      grid_data$location_id
+    )
+  } else {
+    match_rows <- match(
+      cluster_assignments$cell_id,
+      grid_data$cell_id
+    )
+  }
+
+  if (anyNA(
+    match_rows
+  )) {
+    stop(
+      sum(
+        is.na(
+          match_rows
+        )
+      ),
+      " Figure 6 locations are absent from ",
+      object_name,
+      "."
+    )
+  }
+
+  aligned <- grid_data[
+    match_rows,
+    ,
+    drop = FALSE
+  ]
+
+  if (!identical(
+    aligned$cell_id,
+    cluster_assignments$cell_id
+  )) {
+    stop(
+      object_name,
+      " could not be aligned exactly to the Figure 6 ",
+      "coordinates."
+    )
+  }
+
+  aligned
+}
+
+reaches_aligned <- align_grid_to_clusters(
+  reaches_grid,
+  cluster_assignments,
+  "the REACHES field"
 )
 
-posterior_year_map <- extract_year_map(
-  posterior_grid_full
+lme_aligned <- align_grid_to_clusters(
+  lme_grid,
+  cluster_assignments,
+  "the LME field"
 )
 
-lme_year_map <- extract_year_map(
-  lme_grid_full
+posterior_aligned <- align_grid_to_clusters(
+  posterior_grid,
+  cluster_assignments,
+  "the posterior field"
 )
+
+# ------------------------------------------------------------
+# 6. Determine the common REACHES event-year grid
+# ------------------------------------------------------------
 
 event_years <- sort(
   Reduce(
     intersect,
     list(
-      reaches_year_map$year,
-      posterior_year_map$year,
-      lme_year_map$year,
+      extract_years(
+        reaches_aligned
+      ),
+      extract_years(
+        lme_aligned
+      ),
+      extract_years(
+        posterior_aligned
+      ),
       analysis_years
     )
   )
 )
 
-if (length(event_years) == 0L) {
+if (length(
+  event_years
+) < 2L) {
   stop(
-    "The three gridded products have no common years ",
-    "between 1368 and 1911."
-  )
-}
-
-if (length(event_years) != 524L) {
-  warning(
-    "The supplementary manuscript describes 524 REACHES ",
-    "event years, but ",
-    length(event_years),
-    " common years were found."
+    "Fewer than two common event years were found across the ",
+    "three spatial products."
   )
 }
 
@@ -646,227 +823,59 @@ year_columns <- paste0(
   event_years
 )
 
-# ------------------------------------------------------------
-# 5. Identify REACHES-supported grid cells
-# ------------------------------------------------------------
-
-temperature <- readxl::read_excel(
-  reaches_observation_file,
-  col_types = c(
-    "skip",
-    "skip",
-    "numeric",
-    "numeric",
-    "skip",
-    "skip",
-    "skip",
-    "skip",
-    "skip",
-    "numeric",
-    "numeric",
-    "skip",
-    "skip"
-  )
-)
-
-names(temperature) <- c(
-  "level",
-  "year",
-  "long",
-  "lat"
-)
-
-temperature <- temperature %>%
-  transmute(
-    level = as.numeric(level),
-    year = as.integer(year),
-    long = as.numeric(long),
-    lat = as.numeric(lat)
-  ) %>%
-  filter(
-    year %in% event_years,
-    is.finite(level),
-    is.finite(long),
-    is.finite(lat)
-  ) %>%
-  distinct(
-    year,
-    long,
-    lat,
-    .keep_all = TRUE
-  )
-
-observation_sf <- sf::st_as_sf(
-  temperature,
-  coords = c(
-    "long",
-    "lat"
-  ),
-  crs = 4326,
-  remove = FALSE
-)
-
-reaches_grid_sf <- reaches_grid_full %>%
-  mutate(
-    grid_row = row_number()
-  ) %>%
-  sf::st_as_sf(
-    coords = c(
-      "long",
-      "lat"
-    ),
-    crs = 4326,
-    remove = FALSE
-  )
-
-observation_projected <- sf::st_transform(
-  observation_sf,
-  3857
-)
-
-grid_projected <- sf::st_transform(
-  reaches_grid_sf,
-  3857
-)
-
-nearest_grid_rows <- sf::st_nearest_feature(
-  observation_projected,
-  grid_projected
-)
-
-supported_grid_rows <- sort(
-  unique(
-    nearest_grid_rows
-  )
-)
-
-reaches_supported <- reaches_grid_full[
-  supported_grid_rows,
-  ,
-  drop = FALSE
-]
-
-reaches_supported$cell_id <- coordinate_key(
-  reaches_supported$long,
-  reaches_supported$lat
-)
-
-# ------------------------------------------------------------
-# 6. Align posterior and LME to the supported REACHES cells
-# ------------------------------------------------------------
-
-posterior_grid_full$cell_id <- coordinate_key(
-  posterior_grid_full$long,
-  posterior_grid_full$lat
-)
-
-lme_grid_full$cell_id <- coordinate_key(
-  lme_grid_full$long,
-  lme_grid_full$lat
-)
-
-posterior_match <- match(
-  reaches_supported$cell_id,
-  posterior_grid_full$cell_id
-)
-
-lme_match <- match(
-  reaches_supported$cell_id,
-  lme_grid_full$cell_id
-)
-
-if (anyNA(posterior_match)) {
-  stop(
-    sum(
-      is.na(
-        posterior_match
-      )
-    ),
-    " REACHES-supported cells are missing from the posterior grid."
-  )
-}
-
-if (anyNA(lme_match)) {
-  stop(
-    sum(
-      is.na(
-        lme_match
-      )
-    ),
-    " REACHES-supported cells are missing from the LME grid."
-  )
-}
-
-posterior_supported <- posterior_grid_full[
-  posterior_match,
-  ,
-  drop = FALSE
-]
-
-lme_supported <- lme_grid_full[
-  lme_match,
-  ,
-  drop = FALSE
-]
-
-stopifnot(
-  identical(
-    reaches_supported$cell_id,
-    coordinate_key(
-      posterior_supported$long,
-      posterior_supported$lat
-    )
-  ),
-  identical(
-    reaches_supported$cell_id,
-    coordinate_key(
-      lme_supported$long,
-      lme_supported$lat
-    )
-  )
-)
-
-# ------------------------------------------------------------
-# 7. Construct the trajectory matrices
-# ------------------------------------------------------------
-
-Y_reaches <- data.matrix(
-  reaches_supported[
+Y_reaches <- as.matrix(
+  reaches_aligned[
     ,
     year_columns,
     drop = FALSE
   ]
 )
 
-Y_lme <- data.matrix(
-  lme_supported[
+Y_lme <- as.matrix(
+  lme_aligned[
     ,
     year_columns,
     drop = FALSE
   ]
 )
 
-Y_posterior <- data.matrix(
-  posterior_supported[
+Y_posterior <- as.matrix(
+  posterior_aligned[
     ,
     year_columns,
     drop = FALSE
   ]
 )
+
+storage.mode(
+  Y_reaches
+) <- "double"
+
+storage.mode(
+  Y_lme
+) <- "double"
+
+storage.mode(
+  Y_posterior
+) <- "double"
 
 if (
-  anyNA(Y_reaches) ||
-    anyNA(Y_lme) ||
-    anyNA(Y_posterior)
+  any(!is.finite(
+    Y_reaches
+  )) ||
+    any(!is.finite(
+      Y_lme
+    )) ||
+    any(!is.finite(
+      Y_posterior
+    ))
 ) {
   stop(
-    "At least one gridded trajectory contains missing values ",
-    "over the common event years."
+    "At least one aligned trajectory contains missing or ",
+    "non-finite values over the common event years."
   )
 }
 
-# REACHES is already on a zero-mean anomaly-index scale.
-# LME and posterior are centered separately within each cell.
 Y_lme_centered <- center_rows(
   Y_lme
 )
@@ -876,141 +885,57 @@ Y_posterior_centered <- center_rows(
 )
 
 # ------------------------------------------------------------
-# 8. Define the five clusters from REACHES only
+# 7. Smooth the three sets of trajectories
 # ------------------------------------------------------------
 
-reaches_basis <- fda::create.bspline.basis(
-  rangeval = range(
-    event_years
-  ),
-  nbasis = 20
-)
+make_evaluated_functions <- function(
+    trajectory_matrix,
+    years,
+    number_of_basis_functions) {
 
-reaches_fd <- fda::Data2fd(
-  argvals = event_years,
-  y = t(
-    Y_reaches
-  ),
-  basisobj = reaches_basis
-)
-
-reaches_fpca <- fda::pca.fd(
-  reaches_fd,
-  nharm = 5
-)
-
-reaches_mclust <- mclust::Mclust(
-  reaches_fpca$scores,
-  G = 1:8,
-  verbose = FALSE
-)
-
-if (
-  length(reaches_mclust$G) != 1L ||
-    reaches_mclust$G != 5L
-) {
-  stop(
-    "BIC selected ",
-    paste(
-      reaches_mclust$G,
-      collapse = ", "
+  basis <- fda::create.bspline.basis(
+    rangeval = range(
+      years
     ),
-    " REACHES clusters rather than five."
+    nbasis = number_of_basis_functions
   )
-}
 
-original_cluster <- reaches_mclust$classification
+  functional_data <- fda::Data2fd(
+    argvals = years,
+    y = t(
+      trajectory_matrix
+    ),
+    basisobj = basis
+  )
 
-reaches_cluster <- unname(
-  cluster_relabel[
-    as.character(
-      original_cluster
+  t(
+    fda::eval.fd(
+      years,
+      functional_data
     )
-  ]
-)
-
-if (anyNA(reaches_cluster)) {
-  stop(
-    "The saved geographic relabeling does not cover all ",
-    "Mclust cluster labels."
   )
 }
 
-cluster_assignments <- data.frame(
-  cell_id = reaches_supported$cell_id,
-  long = reaches_supported$long,
-  lat = reaches_supported$lat,
-  original_cluster = original_cluster,
-  cluster = reaches_cluster
-) %>%
-  arrange(
-    cluster,
-    lat,
-    long
-  )
+reaches_evaluated <- make_evaluated_functions(
+  trajectory_matrix = Y_reaches,
+  years = event_years,
+  number_of_basis_functions = 20
+)
 
-readr::write_csv(
-  cluster_assignments,
-  cluster_file
+lme_evaluated <- make_evaluated_functions(
+  trajectory_matrix = Y_lme_centered,
+  years = event_years,
+  number_of_basis_functions = 30
+)
+
+posterior_evaluated <- make_evaluated_functions(
+  trajectory_matrix = Y_posterior_centered,
+  years = event_years,
+  number_of_basis_functions = 30
 )
 
 # ------------------------------------------------------------
-# 9. Smooth trajectories for the functional boxplots
-# ------------------------------------------------------------
-
-lme_basis <- fda::create.bspline.basis(
-  rangeval = range(
-    event_years
-  ),
-  nbasis = 30
-)
-
-posterior_basis <- fda::create.bspline.basis(
-  rangeval = range(
-    event_years
-  ),
-  nbasis = 30
-)
-
-lme_fd <- fda::Data2fd(
-  argvals = event_years,
-  y = t(
-    Y_lme_centered
-  ),
-  basisobj = lme_basis
-)
-
-posterior_fd <- fda::Data2fd(
-  argvals = event_years,
-  y = t(
-    Y_posterior_centered
-  ),
-  basisobj = posterior_basis
-)
-
-reaches_evaluated <- t(
-  fda::eval.fd(
-    event_years,
-    reaches_fd
-  )
-)
-
-lme_evaluated <- t(
-  fda::eval.fd(
-    event_years,
-    lme_fd
-  )
-)
-
-posterior_evaluated <- t(
-  fda::eval.fd(
-    event_years,
-    posterior_fd
-  )
-)
-
-# ------------------------------------------------------------
-# 10. Draw Figure S5
+# 8. Draw Figure S5
 # ------------------------------------------------------------
 
 year_ticks <- seq(
@@ -1032,7 +957,7 @@ column_settings <- list(
       -0.5,
       0
     ),
-    title = "REACHES kriged\nanomaly"
+    title = "REACHES kriged\nindex"
   ),
   lme = list(
     matrix = lme_evaluated,
@@ -1045,7 +970,7 @@ column_settings <- list(
       0,
       0.5
     ),
-    title = "LME ensemble mean\n(centered)"
+    title = "LME ensemble mean\n(cellwise centered)"
   ),
   posterior = list(
     matrix = posterior_evaluated,
@@ -1058,19 +983,20 @@ column_settings <- list(
       0,
       1
     ),
-    title = "Assimilated posterior\n(centered)"
+    title = "Assimilated posterior\n(cellwise centered)"
   )
 )
-
 
 draw_functional_boxplot <- function(
     evaluated_matrix,
     selected_rows,
     y_limits,
     y_ticks,
-    show_x_labels = TRUE) {
+    show_x_labels) {
 
-  if (length(selected_rows) < 2L) {
+  if (length(
+    selected_rows
+  ) < 2L) {
     stop(
       "A functional boxplot requires at least two trajectories."
     )
@@ -1119,7 +1045,6 @@ draw_functional_boxplot <- function(
   box()
 }
 
-
 draw_complete_figure <- function() {
 
   old_parameters <- par(
@@ -1135,7 +1060,7 @@ draw_complete_figure <- function() {
 
   par(
     mfrow = c(
-      5,
+      number_of_clusters,
       3
     ),
     mar = c(
@@ -1164,16 +1089,20 @@ draw_complete_figure <- function() {
     "posterior"
   )
 
-  for (cluster_id in 1:5) {
+  for (
+    cluster_id in cluster_levels
+  ) {
 
     selected_rows <- which(
-      reaches_cluster ==
+      cluster_assignments$cluster ==
         cluster_id
     )
 
-    for (column_index in seq_along(
-      settings_order
-    )) {
+    for (
+      column_index in seq_along(
+        settings_order
+      )
+    ) {
 
       setting <- column_settings[
         [
@@ -1184,14 +1113,24 @@ draw_complete_figure <- function() {
       ]
 
       draw_functional_boxplot(
-        evaluated_matrix = setting$matrix,
+        evaluated_matrix =
+          setting$matrix,
         selected_rows = selected_rows,
         y_limits = setting$limits,
         y_ticks = setting$ticks,
-        show_x_labels = TRUE
+        show_x_labels =
+          cluster_id ==
+          max(
+            cluster_levels
+          )
       )
 
-      if (cluster_id == 1L) {
+      if (
+        cluster_id ==
+          min(
+            cluster_levels
+          )
+      ) {
         mtext(
           setting$title,
           side = 3,
@@ -1217,11 +1156,14 @@ draw_complete_figure <- function() {
   }
 }
 
+figure_height <- 2.45 *
+  number_of_clusters +
+  0.5
 
 png(
   filename = figure_png,
   width = 10,
-  height = 12.5,
+  height = figure_height,
   units = "in",
   res = 300
 )
@@ -1230,11 +1172,10 @@ draw_complete_figure()
 
 dev.off()
 
-
 pdf(
   file = figure_pdf,
   width = 10,
-  height = 12.5,
+  height = figure_height,
   onefile = TRUE
 )
 
@@ -1243,37 +1184,62 @@ draw_complete_figure()
 dev.off()
 
 # ------------------------------------------------------------
-# 11. Save diagnostics
+# 9. Save assignments and diagnostics
 # ------------------------------------------------------------
+
+cluster_output <- cluster_assignments %>%
+  mutate(
+    number_of_event_years =
+      length(
+        event_years
+      )
+  )
+
+readr::write_csv(
+  cluster_output,
+  cluster_output_file
+)
+
+cluster_counts <- as.numeric(
+  table(
+    factor(
+      cluster_assignments$cluster,
+      levels = cluster_levels
+    )
+  )
+)
 
 diagnostics <- data.frame(
   quantity = c(
     "number_of_event_years",
-    "number_of_reaches_supported_cells",
-    "selected_number_of_clusters",
-    "mclust_model",
+    "number_of_figure6_locations",
+    "number_of_clusters",
     paste0(
       "cluster_",
-      1:5,
-      "_cells"
-    )
+      cluster_levels,
+      "_locations"
+    ),
+    "swap_cluster_1_and_4"
   ),
   value = c(
-    length(
-      event_years
-    ),
-    nrow(
-      reaches_supported
-    ),
-    reaches_mclust$G,
-    reaches_mclust$modelName,
-    as.numeric(
-      table(
-        factor(
-          reaches_cluster,
-          levels = 1:5
-        )
+    as.character(
+      length(
+        event_years
       )
+    ),
+    as.character(
+      nrow(
+        cluster_assignments
+      )
+    ),
+    as.character(
+      number_of_clusters
+    ),
+    as.character(
+      cluster_counts
+    ),
+    as.character(
+      swap_cluster_1_and_4
     )
   )
 )
@@ -1294,6 +1260,6 @@ message(
 )
 
 message(
-  "Saved cluster assignments: ",
-  cluster_file
+  "Saved Figure S5 cluster assignments: ",
+  cluster_output_file
 )
