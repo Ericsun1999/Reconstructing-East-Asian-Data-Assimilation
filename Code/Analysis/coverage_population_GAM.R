@@ -84,6 +84,40 @@ reaches_file <- here::here(
   "temperature index value.v1.xlsx"
 )
 
+candidate_population_dirs <- c(
+  here::here(
+    "Data",
+    "population"
+  ),
+  here::here(
+    "Data",
+    "Population"
+  )
+)
+
+output_table_dir <- here::here(
+  "Output",
+  "Tables"
+)
+
+output_intermediate_dir <- here::here(
+  "Output",
+  "Intermediate",
+  "coverage_population"
+)
+
+dir.create(
+  output_table_dir,
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+
+dir.create(
+  output_intermediate_dir,
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+
 input_mode <- "auto"
 
 allowed_input_modes <- c(
@@ -239,6 +273,11 @@ if (!any(valid_population_dir)) {
 }
 
 population_dir <- candidate_population_dirs[which(valid_population_dir)[1]]
+
+message(
+  "Using historical-population rasters from: ",
+  population_dir
+)
 
 if (!file.exists(reaches_file)) {
   stop(
