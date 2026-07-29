@@ -5,7 +5,16 @@
 #
 #   Rscript --vanilla run_all.R
 #   Rscript --vanilla run_all.R --clean
+#   Rscript --vanilla run_all.R --only=figure2
+#   Rscript --vanilla run_all.R --only=figure4
 #   Rscript --vanilla run_all.R --only=kriging
+#
+# Reproducible input boundary:
+#   - The public workflow begins with Data/LME data/a1.csv.gz,
+#     ..., a13.csv.gz.
+#   - Data/Get_data/GetLME.R documents the optional conversion
+#     from the original NetCDF files, but is not run here because
+#     those upstream NetCDF files are not redistributed.
 #
 # Design:
 #   - Every analysis script is launched in a separate clean R
@@ -221,6 +230,30 @@ dir.create(
 
 workflow <- list(
   list(
+    id = "figure2",
+    script = file.path(
+      "Code",
+      "Figure2.R"
+    ),
+    expected = c(
+      file.path(
+        "Output",
+        "Figure2",
+        "Figure2(a).png"
+      ),
+      file.path(
+        "Output",
+        "Figure2",
+        "Figure2(b).png"
+      ),
+      file.path(
+        "Output",
+        "Figure2",
+        "Figure2(c).png"
+      )
+    )
+  ),
+  list(
     id = "prepare_lme",
     script = file.path(
       "Code",
@@ -253,6 +286,30 @@ workflow <- list(
         "Output",
         "Intermediate",
         "calibration_parameters.rds"
+      )
+    )
+  ),
+  list(
+    id = "figure4",
+    script = file.path(
+      "Code",
+      "Figure4.R"
+    ),
+    expected = c(
+      file.path(
+        "Output",
+        "Figure4",
+        "Figure4(a).png"
+      ),
+      file.path(
+        "Output",
+        "Figure4",
+        "Figure4(b).png"
+      ),
+      file.path(
+        "Output",
+        "Figure4",
+        "Figure4(c).png"
       )
     )
   ),
@@ -562,6 +619,73 @@ if (nzchar(
 # ------------------------------------------------------------
 # 5. Preflight checks
 # ------------------------------------------------------------
+
+# The reproducible LME workflow starts from the 13 prepared,
+# gzip-compressed member files. The original NetCDF files are
+# outside the distributed workflow.
+required_lme_member_files <- file.path(
+  repository_root,
+  "Data",
+  "LME data",
+  paste0(
+    "a",
+    1:13,
+    ".csv.gz"
+  )
+)
+
+missing_lme_member_files <- required_lme_member_files[
+  !file.exists(
+    required_lme_member_files
+  )
+]
+
+if (length(
+  missing_lme_member_files
+) > 0L) {
+  stop(
+    "The reproducible workflow begins with the prepared LME ",
+    "member files a1.csv.gz through a13.csv.gz. The following ",
+    "files are missing:\n  ",
+    paste(
+      missing_lme_member_files,
+      collapse = "\n  "
+    ),
+    "\nSee Data/Get_data/README.md for provenance and the ",
+    "optional NetCDF-to-CSV preparation step."
+  )
+}
+
+required_core_input_files <- c(
+  file.path(
+    repository_root,
+    "Data",
+    "temperature index value.v1.xlsx"
+  ),
+  file.path(
+    repository_root,
+    "Data",
+    "GHCNv4.xlsx"
+  )
+)
+
+missing_core_input_files <- required_core_input_files[
+  !file.exists(
+    required_core_input_files
+  )
+]
+
+if (length(
+  missing_core_input_files
+) > 0L) {
+  stop(
+    "Required core input file(s) are missing:\n  ",
+    paste(
+      missing_core_input_files,
+      collapse = "\n  "
+    )
+  )
+}
 
 missing_scripts <- vapply(
   workflow,
