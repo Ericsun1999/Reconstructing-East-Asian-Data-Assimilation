@@ -1125,11 +1125,7 @@ save_functional_boxplot_panel <- function(
     setting_name,
     cluster_id) {
 
-  setting <- panel_settings[
-    [
-      setting_name
-    ]
-  ]
+  setting <- panel_settings[[setting_name]]
 
   selected_rows <- which(
     cluster_assignments$cluster ==
@@ -1224,11 +1220,7 @@ for (
     cluster_id in cluster_levels
   ) {
 
-    panel_file_records[
-      [
-        record_index
-      ]
-    ] <- save_functional_boxplot_panel(
+    panel_file_records[[record_index]] <- save_functional_boxplot_panel(
       setting_name = setting_name,
       cluster_id = cluster_id
     )
