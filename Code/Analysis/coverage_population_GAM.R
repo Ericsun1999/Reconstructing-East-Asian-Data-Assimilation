@@ -27,13 +27,14 @@ here::i_am("Code/Analysis/coverage_population_GAM.R")
 #   M3: geography + year + population
 #   M4: geography + year + climate + population
 #
-# Expected raw-data locations:
+# Expected inputs:
 #   Data/temperature index value.v1.xlsx
 #
-#   Data/LME data/population/a1.csv.gz, ..., a13.csv.gz
+#   Generated LME annual archive:
+#     Output/Intermediate/LME/lme_annual_1368_1911.rds
 #
-#   For convenience, the script also accepts uncompressed
-#   a1.csv, ..., a13.csv and several alternate LME folders.
+#   Precomputed fallback:
+#     Data/LME data/precomputed/lme_annual_1368_1911.rds
 #
 #   Data/population/1776_pd.tif
 #   Data/population/1820_pd.tif
@@ -50,6 +51,16 @@ here::i_am("Code/Analysis/coverage_population_GAM.R")
 #
 # Intermediate outputs:
 #   Output/Intermediate/coverage_population/
+#
+# Important implementation details:
+#   - The already annualized LME archive is reused; the 13 raw
+#     monthly files are not reread or reannualized here.
+#   - LME temperature means are converted from Kelvin to Celsius.
+#   - Only finite REACHES temperature-index records contribute
+#     to documentary coverage.
+#   - All four GAMs use the same complete-case panel.
+#   - ML, rather than REML, is used because models with different
+#     parametric terms are compared by AIC, BIC, and nested tests.
 # ============================================================
 
 library(here)
@@ -66,7 +77,6 @@ library(mgcv)
 # ------------------------------------------------------------
 
 analysis_years <- 1368:1911
-lme_first_year <- 1350L
 number_of_lme_members <- 13L
 
 reaches_file <- here::here(
@@ -74,127 +84,115 @@ reaches_file <- here::here(
   "temperature index value.v1.xlsx"
 )
 
-candidate_lme_dirs <- c(
-  # Current repository location.
-  here::here("Data", "LME data", "population"),
+input_mode <- "auto"
 
-  # Backward-compatible alternatives.
-  here::here("Data", "LME data"),
-  here::here("Data", "LME"),
-  here::here("Data", "LME_data")
+allowed_input_modes <- c(
+  "auto",
+  "generated",
+  "precomputed"
 )
 
-candidate_population_dirs <- c(
-  here::here("Data", "population"),
-  here::here("Data", "Population")
-)
+if (!input_mode %in% allowed_input_modes) {
+  stop(
+    "input_mode must be one of: ",
+    paste(
+      allowed_input_modes,
+      collapse = ", "
+    )
+  )
+}
 
-output_table_dir <- here::here(
-  "Output",
-  "Tables"
-)
-
-output_intermediate_dir <- here::here(
+generated_lme_archive_file <- here::here(
   "Output",
   "Intermediate",
-  "coverage_population"
+  "LME",
+  "lme_annual_1368_1911.rds"
 )
 
-dir.create(
-  output_table_dir,
-  recursive = TRUE,
-  showWarnings = FALSE
+precomputed_lme_archive_file <- here::here(
+  "Data",
+  "LME data",
+  "precomputed",
+  "lme_annual_1368_1911.rds"
 )
 
-dir.create(
-  output_intermediate_dir,
-  recursive = TRUE,
-  showWarnings = FALSE
-)
+select_lme_archive_file <- function(
+    input_mode,
+    generated_file,
+    precomputed_file) {
 
-find_lme_member_file <- function(
-    directory,
-    member_id) {
-
-  candidates <- c(
-    file.path(
-      directory,
-      paste0(
-        "a",
-        member_id,
-        ".csv.gz"
-      )
-    ),
-    file.path(
-      directory,
-      paste0(
-        "a",
-        member_id,
-        ".csv"
-      )
-    )
+  generated_available <- file.exists(
+    generated_file
   )
 
-  existing_files <- candidates[
-    file.exists(candidates)
-  ]
+  precomputed_available <- file.exists(
+    precomputed_file
+  )
 
-  if (length(existing_files) == 0L) {
-    return(NA_character_)
+  if (input_mode == "generated") {
+    if (!generated_available) {
+      stop(
+        "Generated LME annual archive was not found: ",
+        generated_file
+      )
+    }
+
+    return(
+      generated_file
+    )
   }
 
-  # Prefer the compressed file when both versions exist.
-  existing_files[1]
-}
-
-
-valid_lme_dir <- vapply(
-  candidate_lme_dirs,
-  function(directory) {
-
-    member_files <- vapply(
-      seq_len(number_of_lme_members),
-      function(member_id) {
-        find_lme_member_file(
-          directory = directory,
-          member_id = member_id
-        )
-      },
-      character(1)
-    )
-
-    all(
-      !is.na(member_files)
-    )
-  },
-  logical(1)
-)
-
-if (!any(valid_lme_dir)) {
-  stop(
-    paste0(
-      "Could not find all 13 LME files in one directory.\n",
-      "Each member may be stored as a*.csv.gz or a*.csv.\n",
-      "Directories searched:\n",
-      paste(
-        paste0(
-          "  - ",
-          candidate_lme_dirs
-        ),
-        collapse = "\n"
+  if (input_mode == "precomputed") {
+    if (!precomputed_available) {
+      stop(
+        "Precomputed LME annual archive was not found: ",
+        precomputed_file
       )
+    }
+
+    return(
+      precomputed_file
     )
+  }
+
+  if (generated_available) {
+    return(
+      generated_file
+    )
+  }
+
+  if (precomputed_available) {
+    return(
+      precomputed_file
+    )
+  }
+
+  stop(
+    "Neither the generated nor precomputed LME annual archive ",
+    "was found.\nGenerated path:\n  ",
+    generated_file,
+    "\nPrecomputed path:\n  ",
+    precomputed_file
   )
 }
 
-lme_dir <- candidate_lme_dirs[
-  which(valid_lme_dir)[1]
-]
+lme_archive_file <- select_lme_archive_file(
+  input_mode = input_mode,
+  generated_file = generated_lme_archive_file,
+  precomputed_file = precomputed_lme_archive_file
+)
 
 message(
-  "Using LME files from: ",
-  lme_dir
+  "Using annual LME archive: ",
+  lme_archive_file
 )
+
+# ML is used because M1--M4 differ in their parametric terms and
+# are compared using AIC, BIC, and nested likelihood-based tests.
+gam_fit_method <- "ML"
+
+# Number of locations processed per nearest-grid calculation.
+nearest_cell_chunk_size <- 10000L
 
 population_years_available <- c(
   1776L,
@@ -240,9 +238,7 @@ if (!any(valid_population_dir)) {
   )
 }
 
-population_dir <- candidate_population_dirs[
-  which(valid_population_dir)[1]
-]
+population_dir <- candidate_population_dirs[which(valid_population_dir)[1]]
 
 if (!file.exists(reaches_file)) {
   stop(
@@ -271,7 +267,16 @@ mean_or_na <- function(x) {
 nearest_cell_ids <- function(
     long,
     lat,
-    grid_df) {
+    grid_df,
+    chunk_size = nearest_cell_chunk_size) {
+
+  long <- as.numeric(
+    long
+  )
+
+  lat <- as.numeric(
+    lat
+  )
 
   if (length(long) != length(lat)) {
     stop(
@@ -279,27 +284,115 @@ nearest_cell_ids <- function(
     )
   }
 
-  vapply(
-    seq_along(long),
-    function(i) {
+  if (
+    any(!is.finite(
+      long
+    )) ||
+      any(!is.finite(
+        lat
+      ))
+  ) {
+    stop(
+      "Non-finite coordinates were supplied to nearest_cell_ids()."
+    )
+  }
 
-      squared_distance <- (
-        grid_df$long -
-          long[i]
-      )^2 +
-        (
-          grid_df$lat -
-            lat[i]
-        )^2
-
-      grid_df$cell_id[
-        which.min(
-          squared_distance
-        )
-      ]
-    },
-    integer(1)
+  required_grid_columns <- c(
+    "cell_id",
+    "long",
+    "lat"
   )
+
+  if (!all(
+    required_grid_columns %in%
+      names(
+        grid_df
+      )
+  )) {
+    stop(
+      "grid_df must contain: ",
+      paste(
+        required_grid_columns,
+        collapse = ", "
+      ),
+      "."
+    )
+  }
+
+  if (
+    nrow(
+      grid_df
+    ) == 0L ||
+      any(!is.finite(
+        grid_df$long
+      )) ||
+      any(!is.finite(
+        grid_df$lat
+      ))
+  ) {
+    stop(
+      "The LME grid contains invalid coordinates."
+    )
+  }
+
+  number_of_points <- length(
+    long
+  )
+
+  nearest_ids <- integer(
+    number_of_points
+  )
+
+  chunk_starts <- seq.int(
+    from = 1L,
+    to = number_of_points,
+    by = chunk_size
+  )
+
+  for (chunk_start in chunk_starts) {
+
+    chunk_end <- min(
+      chunk_start +
+        chunk_size -
+        1L,
+      number_of_points
+    )
+
+    chunk_indices <- chunk_start:chunk_end
+
+    longitude_difference <- outer(
+      long[
+        chunk_indices
+      ],
+      grid_df$long,
+      "-"
+    )
+
+    latitude_difference <- outer(
+      lat[
+        chunk_indices
+      ],
+      grid_df$lat,
+      "-"
+    )
+
+    squared_distance <-
+      longitude_difference^2 +
+      latitude_difference^2
+
+    nearest_columns <- max.col(
+      -squared_distance,
+      ties.method = "first"
+    )
+
+    nearest_ids[
+      chunk_indices
+    ] <- grid_df$cell_id[
+      nearest_columns
+    ]
+  }
+
+  nearest_ids
 }
 
 
@@ -324,250 +417,299 @@ first_existing_column <- function(
 }
 
 # ------------------------------------------------------------
-# 3. Read and annualize the 13 LME ensemble members
+# 3. Read the prepared annual LME archive
 # ------------------------------------------------------------
 
-annualize_lme_member <- function(
-    input_file,
-    member_id,
-    years_use,
-    first_year = 1350L) {
-
-  input_connection <- if (
-    grepl(
-      "\\.gz$",
-      input_file,
-      ignore.case = TRUE
-    )
-  ) {
-    gzfile(
-      input_file,
-      open = "rt"
-    )
-  } else {
-    file(
-      input_file,
-      open = "rt"
-    )
-  }
-
-  on.exit(
-    close(input_connection),
-    add = TRUE
-  )
-
-  raw_data <- read.csv(
-    input_connection,
-    row.names = 1,
-    check.names = FALSE
-  )
-
-  if (ncol(raw_data) < 14L) {
-    stop(
-      "LME file ",
-      input_file,
-      " does not contain two coordinate columns followed by ",
-      "monthly temperature columns."
-    )
-  }
-
-  coordinates <- raw_data[
-    ,
-    1:2,
-    drop = FALSE
-  ]
-
-  names(coordinates) <- c(
-    "lat",
-    "long"
-  )
-
-  coordinates$lat <- as.numeric(
-    coordinates$lat
-  )
-
-  coordinates$long <- as.numeric(
-    coordinates$long
-  )
-
-  monthly_values <- data.matrix(
-    raw_data[
-      ,
-      -c(1, 2),
-      drop = FALSE
-    ]
-  )
-
-  number_of_month_columns <- ncol(
-    monthly_values
-  )
-
-  if (
-    number_of_month_columns %% 12L !=
-      0L
-  ) {
-    stop(
-      "The number of monthly columns in ",
-      input_file,
-      " is not divisible by 12."
-    )
-  }
-
-  number_of_years <- number_of_month_columns /
-    12L
-
-  available_years <- first_year +
-    seq_len(number_of_years) -
-    1L
-
-  if (!all(years_use %in% available_years)) {
-    stop(
-      input_file,
-      " does not contain all requested years ",
-      min(years_use),
-      "--",
-      max(years_use),
-      "."
-    )
-  }
-
-  annual_values <- t(
-    vapply(
-      seq_len(
-        nrow(monthly_values)
-      ),
-      function(row_index) {
-
-        monthly_matrix <- matrix(
-          monthly_values[
-            row_index,
-          ],
-          nrow = 12L
-        )
-
-        colMeans(
-          monthly_matrix
-        )
-      },
-      numeric(number_of_years)
-    )
-  )
-
-  year_indices <- match(
-    years_use,
-    available_years
-  )
-
-  annual_values <- annual_values[
-    ,
-    year_indices,
-    drop = FALSE
-  ]
-
-  data.frame(
-    lat = rep(
-      coordinates$lat,
-      each = length(years_use)
-    ),
-    long = rep(
-      coordinates$long,
-      each = length(years_use)
-    ),
-    member = member_id,
-    year = rep(
-      years_use,
-      times = nrow(coordinates)
-    ),
-    temp = as.numeric(
-      t(
-        annual_values
-      )
-    )
-  )
-}
-
-
-message(
-  "Reading and annualizing ",
-  number_of_lme_members,
-  " LME ensemble members..."
+lme_archive <- readRDS(
+  lme_archive_file
 )
 
-lme_long_list <- vector(
-  "list",
-  number_of_lme_members
+required_archive_components <- c(
+  "coordinates",
+  "years",
+  "members",
+  "units",
+  "annual_kelvin"
 )
 
-for (member_id in seq_len(number_of_lme_members)) {
-
-  input_file <- find_lme_member_file(
-    directory = lme_dir,
-    member_id = member_id
+missing_archive_components <- setdiff(
+  required_archive_components,
+  names(
+    lme_archive
   )
-
-  if (is.na(input_file)) {
-    stop(
-      "The LME file for member ",
-      member_id,
-      " disappeared after the initial input check."
-    )
-  }
-
-  message(
-    "  LME member ",
-    member_id,
-    "/",
-    number_of_lme_members
-  )
-
-  lme_long_list[[member_id]] <- annualize_lme_member(
-    input_file = input_file,
-    member_id = member_id,
-    years_use = analysis_years,
-    first_year = lme_first_year
-  )
-}
-
-lme_long <- bind_rows(
-  lme_long_list
 )
 
-if (
-  any(!is.finite(lme_long$lat)) ||
-    any(!is.finite(lme_long$long)) ||
-    any(!is.finite(lme_long$year)) ||
-    any(!is.finite(lme_long$temp))
-) {
+if (length(
+  missing_archive_components
+) > 0L) {
   stop(
-    "Non-finite values were found in the annualized LME data."
+    "The LME annual archive is missing components: ",
+    paste(
+      missing_archive_components,
+      collapse = ", "
+    ),
+    "."
   )
 }
 
-lme_grid <- lme_long %>%
-  distinct(
-    lat,
-    long
+lme_coordinates <- lme_archive$coordinates
+
+required_coordinate_columns <- c(
+  "location_id",
+  "lati",
+  "long"
+)
+
+missing_coordinate_columns <- setdiff(
+  required_coordinate_columns,
+  names(
+    lme_coordinates
+  )
+)
+
+if (length(
+  missing_coordinate_columns
+) > 0L) {
+  stop(
+    "The LME coordinate table is missing: ",
+    paste(
+      missing_coordinate_columns,
+      collapse = ", "
+    ),
+    "."
+  )
+}
+
+lme_coordinates <- lme_coordinates %>%
+  transmute(
+    location_id = as.integer(
+      location_id
+    ),
+    lat = as.numeric(
+      lati
+    ),
+    long = as.numeric(
+      long
+    )
   ) %>%
   arrange(
-    lat,
-    long
-  ) %>%
-  mutate(
-    cell_id = row_number()
+    location_id
   )
 
-lme_long <- lme_long %>%
-  left_join(
-    lme_grid,
-    by = c(
-      "lat",
-      "long"
+if (
+  anyNA(
+    lme_coordinates
+  ) ||
+    any(!is.finite(
+      lme_coordinates$lat
+    )) ||
+    any(!is.finite(
+      lme_coordinates$long
+    )) ||
+    anyDuplicated(
+      lme_coordinates$location_id
+    ) ||
+    anyDuplicated(
+      paste(
+        sprintf(
+          "%.8f",
+          lme_coordinates$long
+        ),
+        sprintf(
+          "%.8f",
+          lme_coordinates$lat
+        ),
+        sep = "_"
+      )
+    )
+) {
+  stop(
+    "The LME annual archive contains invalid or duplicated ",
+    "location metadata."
+  )
+}
+
+archive_years <- as.integer(
+  lme_archive$years
+)
+
+archive_members <- as.character(
+  lme_archive$members
+)
+
+annual_kelvin <- lme_archive$annual_kelvin
+
+if (!all(
+  analysis_years %in%
+    archive_years
+)) {
+  stop(
+    "The LME annual archive does not contain the complete ",
+    min(
+      analysis_years
+    ),
+    "--",
+    max(
+      analysis_years
+    ),
+    " analysis period."
+  )
+}
+
+if (length(
+  archive_members
+) != number_of_lme_members) {
+  stop(
+    "The LME annual archive contains ",
+    length(
+      archive_members
+    ),
+    " members; expected ",
+    number_of_lme_members,
+    "."
+  )
+}
+
+if (
+  length(
+    dim(
+      annual_kelvin
+    )
+  ) != 3L ||
+    dim(
+      annual_kelvin
+    )[
+      1
+    ] !=
+      nrow(
+        lme_coordinates
+      ) ||
+    dim(
+      annual_kelvin
+    )[
+      2
+    ] !=
+      length(
+        archive_years
+      ) ||
+    dim(
+      annual_kelvin
+    )[
+      3
+    ] !=
+      length(
+        archive_members
+      )
+) {
+  stop(
+    "The dimensions of annual_kelvin do not agree with the ",
+    "coordinate, year, and member metadata."
+  )
+}
+
+if (any(!is.finite(
+  annual_kelvin
+))) {
+  stop(
+    "The LME annual archive contains non-finite temperatures."
+  )
+}
+
+analysis_year_indices <- match(
+  analysis_years,
+  archive_years
+)
+
+annual_celsius <- annual_kelvin[
+  ,
+  analysis_year_indices,
+  ,
+  drop = FALSE
+] -
+  273.15
+
+lme_grid <- lme_coordinates %>%
+  mutate(
+    cell_id = row_number()
+  ) %>%
+  dplyr::select(
+    cell_id,
+    location_id,
+    lat,
+    long
+  )
+
+lme_long <- expand.grid(
+  location_index = seq_len(
+    nrow(
+      lme_grid
+    )
+  ),
+  year_index = seq_along(
+    analysis_years
+  ),
+  member_index = seq_along(
+    archive_members
+  ),
+  KEEP.OUT.ATTRS = FALSE,
+  stringsAsFactors = FALSE
+) %>%
+  transmute(
+    cell_id = lme_grid$cell_id[
+      location_index
+    ],
+    location_id = lme_grid$location_id[
+      location_index
+    ],
+    lat = lme_grid$lat[
+      location_index
+    ],
+    long = lme_grid$long[
+      location_index
+    ],
+    member = archive_members[
+      member_index
+    ],
+    year = analysis_years[
+      year_index
+    ],
+    temp_celsius = as.numeric(
+      annual_celsius
     )
   )
+
+if (
+  nrow(
+    lme_long
+  ) !=
+    nrow(
+      lme_grid
+    ) *
+      length(
+        analysis_years
+      ) *
+      number_of_lme_members
+) {
+  stop(
+    "The long-format LME table has an unexpected number of rows."
+  )
+}
 
 message(
   "LME grid cells found: ",
-  nrow(lme_grid)
+  nrow(
+    lme_grid
+  )
+)
+
+message(
+  "Annual LME rows constructed: ",
+  format(
+    nrow(
+      lme_long
+    ),
+    big.mark = ","
+  )
 )
 
 # ------------------------------------------------------------
@@ -575,17 +717,15 @@ message(
 # ------------------------------------------------------------
 
 # Long-run mean over all 13 members and all analysis years.
-#
-# The original analysis retained the LME temperature unit in
-# the source files here. Subtracting a common Kelvin-to-Celsius
-# constant would only shift this linear covariate and intercept.
+# The prepared archive is converted to degrees Celsius before
+# constructing the climate summaries.
 Lbar_df <- lme_long %>%
   group_by(
     cell_id
   ) %>%
   summarise(
     Lbar_g = mean(
-      temp,
+      temp_celsius,
       na.rm = TRUE
     ),
     .groups = "drop"
@@ -599,10 +739,10 @@ lme_anomaly <- lme_long %>%
   ) %>%
   mutate(
     member_mean = mean(
-      temp,
+      temp_celsius,
       na.rm = TRUE
     ),
-    A = temp -
+    A = temp_celsius -
       member_mean
   ) %>%
   ungroup()
@@ -716,6 +856,7 @@ reaches_use <- reaches %>%
   ) %>%
   filter(
     year %in% analysis_years,
+    is.finite(level),
     is.finite(long),
     is.finite(lat)
   )
@@ -740,7 +881,8 @@ reaches_use$site_id <- match(
 reaches_use$cell_id <- nearest_cell_ids(
   long = reaches_use$long,
   lat = reaches_use$lat,
-  grid_df = lme_grid
+  grid_df = lme_grid,
+  chunk_size = nearest_cell_chunk_size
 )
 
 # Count distinct documentary sites, not duplicate records from
@@ -914,7 +1056,8 @@ population_lonlat <- cbind(
 population_lonlat$cell_id <- nearest_cell_ids(
   long = population_lonlat$long,
   lat = population_lonlat$lat,
-  grid_df = lme_grid
+  grid_df = lme_grid,
+  chunk_size = nearest_cell_chunk_size
 )
 
 population_cell <- population_lonlat %>%
@@ -1048,11 +1191,75 @@ saveRDS(
 
 readr::write_csv(
   model_df,
-  gzfile(
-    file.path(
-      output_intermediate_dir,
-      "coverage_population_model_panel.csv.gz"
-    )
+  file.path(
+    output_intermediate_dir,
+    "coverage_population_model_panel.csv.gz"
+  )
+)
+
+coverage_population_metadata <- data.frame(
+  quantity = c(
+    "input_mode",
+    "lme_archive_file",
+    "lme_archive_units",
+    "lme_climate_units",
+    "gam_fit_method",
+    "analysis_first_year",
+    "analysis_last_year",
+    "number_of_lme_members",
+    "number_of_lme_grid_cells",
+    "number_of_distinct_reaches_sites",
+    "number_of_reaches_site_years",
+    "number_of_positive_coverage_cell_years",
+    "number_of_model_cell_years",
+    "number_of_model_grid_cells",
+    "cold_anomaly_threshold",
+    "warm_anomaly_threshold"
+  ),
+  value = c(
+    input_mode,
+    lme_archive_file,
+    as.character(
+      lme_archive$units
+    ),
+    "degrees Celsius",
+    gam_fit_method,
+    min(
+      analysis_years
+    ),
+    max(
+      analysis_years
+    ),
+    number_of_lme_members,
+    nrow(
+      lme_grid
+    ),
+    dplyr::n_distinct(
+      reaches_use$site_id
+    ),
+    nrow(
+      reaches_site_year
+    ),
+    sum(
+      coverage_panel$R ==
+        1L
+    ),
+    nrow(
+      model_df
+    ),
+    dplyr::n_distinct(
+      model_df$cell_id
+    ),
+    cold_threshold,
+    warm_threshold
+  )
+)
+
+readr::write_csv(
+  coverage_population_metadata,
+  file.path(
+    output_intermediate_dir,
+    "coverage_population_metadata.csv"
   )
 )
 
@@ -1077,7 +1284,7 @@ m1 <- mgcv::gam(
     ),
   family = binomial(),
   data = model_df,
-  method = "REML"
+  method = gam_fit_method
 )
 
 message(
@@ -1101,7 +1308,7 @@ m2 <- mgcv::gam(
     pwarm_g,
   family = binomial(),
   data = model_df,
-  method = "REML"
+  method = gam_fit_method
 )
 
 message(
@@ -1122,7 +1329,7 @@ m3 <- mgcv::gam(
     Hgu,
   family = binomial(),
   data = model_df,
-  method = "REML"
+  method = gam_fit_method
 )
 
 message(
@@ -1147,7 +1354,7 @@ m4 <- mgcv::gam(
     Hgu,
   family = binomial(),
   data = model_df,
-  method = "REML"
+  method = gam_fit_method
 )
 
 coverage_models <- list(
@@ -1446,8 +1653,20 @@ capture.output(
     )
 
     cat(
+      "LME annual archive:",
+      lme_archive_file,
+      "\n"
+    )
+
+    cat(
       "LME grid cells:",
       nrow(lme_grid),
+      "\n"
+    )
+
+    cat(
+      "GAM fitting method:",
+      gam_fit_method,
       "\n"
     )
 
