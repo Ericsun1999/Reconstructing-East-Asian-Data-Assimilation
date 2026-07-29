@@ -1750,19 +1750,19 @@ readr::write_csv(
 )
 
 readr::write_csv(
-  city_locations %>%
-    dplyr::mutate(
-      coordinate_source =
-        "GHCN nominal station coordinate",
-      prediction_method =
-        "direct interval-censored kriging",
-      number_of_event_years =
-        length(
-          year2
-        ),
-      elapsed_minutes =
-        city_elapsed_minutes
-    ),
+  dplyr::mutate(
+    city_locations,
+    coordinate_source =
+      "GHCN nominal station coordinate",
+    prediction_method =
+      "direct interval-censored kriging",
+    number_of_event_years =
+      length(
+        year2
+      ),
+    elapsed_minutes =
+      city_elapsed_minutes
+  ),
   city3_metadata_file
 )
 
