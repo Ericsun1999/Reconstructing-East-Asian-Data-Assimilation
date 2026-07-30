@@ -666,6 +666,225 @@ eval_R <- t(
   )
 )
 
+# ============================================================
+# Diagnostic checks for the negative values after 1600
+# ============================================================
+
+stopifnot(
+  ncol(Y_R) == length(time_grid),
+  all(dim(eval_R) == dim(Y_R))
+)
+
+summarize_functional_matrix <- function(mat, source_name) {
+  tibble::tibble(
+    year = time_grid,
+    source = source_name,
+    mean = colMeans(mat),
+    median = apply(mat, 2, median),
+    minimum = apply(mat, 2, min),
+    maximum = apply(mat, 2, max),
+    proportion_negative = colMeans(mat < 0),
+    proportion_zero = colMeans(mat == 0),
+    proportion_positive = colMeans(mat > 0)
+  )
+}
+
+raw_summary <- summarize_functional_matrix(
+  Y_R,
+  "Raw kriging input"
+)
+
+fitted_summary <- summarize_functional_matrix(
+  eval_R,
+  "B-spline fitted"
+)
+
+diagnostic_summary <- dplyr::bind_rows(
+  raw_summary,
+  fitted_summary
+)
+
+# ------------------------------------------------------------
+# 1. Summary of values after 1600
+# ------------------------------------------------------------
+
+post1600_summary <- diagnostic_summary %>%
+  dplyr::filter(year >= 1600) %>%
+  dplyr::group_by(source) %>%
+  dplyr::summarise(
+    average_yearly_mean = mean(mean),
+    average_yearly_median = mean(median),
+    median_proportion_negative =
+      median(proportion_negative),
+    years_with_all_values_negative =
+      sum(maximum < 0),
+    years_with_no_positive_values =
+      sum(proportion_positive == 0),
+    largest_value_after_1600 =
+      max(maximum),
+    .groups = "drop"
+  )
+
+print(post1600_summary)
+
+# ------------------------------------------------------------
+# 2. Difference caused by B-spline approximation
+# ------------------------------------------------------------
+
+spline_difference <- eval_R - Y_R
+
+spline_diagnostic <- tibble::tibble(
+  year = time_grid,
+  rmse = sqrt(
+    colMeans(spline_difference^2)
+  ),
+  maximum_absolute_difference = apply(
+    abs(spline_difference),
+    2,
+    max
+  )
+)
+
+print(
+  spline_diagnostic %>%
+    dplyr::filter(year >= 1600) %>%
+    dplyr::summarise(
+      mean_rmse = mean(rmse),
+      maximum_rmse = max(rmse),
+      overall_maximum_difference =
+        max(maximum_absolute_difference)
+    )
+)
+
+# ------------------------------------------------------------
+# 3. Original documentary-record distribution
+# ------------------------------------------------------------
+
+original_record_summary <- temperature %>%
+  dplyr::filter(
+    year >= 1368,
+    year <= 1911,
+    is.finite(level)
+  ) %>%
+  dplyr::mutate(
+    period = dplyr::if_else(
+      year < 1600,
+      "Before 1600",
+      "1600 and later"
+    )
+  ) %>%
+  dplyr::group_by(period) %>%
+  dplyr::summarise(
+    number_of_records = dplyr::n(),
+    mean_level = mean(level),
+    median_level = median(level),
+    proportion_negative = mean(level < 0),
+    proportion_zero = mean(level == 0),
+    proportion_positive = mean(level > 0),
+    .groups = "drop"
+  )
+
+print(original_record_summary)
+
+# ------------------------------------------------------------
+# 4. Plot raw versus fitted yearly summaries
+# ------------------------------------------------------------
+
+p_diagnostic_mean <- ggplot2::ggplot(
+  diagnostic_summary,
+  ggplot2::aes(
+    x = year,
+    y = mean,
+    linetype = source
+  )
+) +
+  ggplot2::geom_line() +
+  ggplot2::geom_hline(
+    yintercept = 0
+  ) +
+  ggplot2::labs(
+    x = "Year",
+    y = "Mean REACHES index",
+    linetype = NULL,
+    title = "Raw versus B-spline fitted yearly means"
+  ) +
+  ggplot2::theme_minimal()
+
+print(p_diagnostic_mean)
+
+p_diagnostic_positive <- ggplot2::ggplot(
+  diagnostic_summary,
+  ggplot2::aes(
+    x = year,
+    y = proportion_positive,
+    linetype = source
+  )
+) +
+  ggplot2::geom_line() +
+  ggplot2::labs(
+    x = "Year",
+    y = "Proportion of locations above zero",
+    linetype = NULL,
+    title = "Proportion of positive REACHES values"
+  ) +
+  ggplot2::theme_minimal()
+
+print(p_diagnostic_positive)
+
+# ------------------------------------------------------------
+# 5. Save diagnostics
+# ------------------------------------------------------------
+
+diagnostic_dir <- here::here(
+  "Output",
+  "Figure6",
+  "diagnostics"
+)
+
+dir.create(
+  diagnostic_dir,
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+
+readr::write_csv(
+  diagnostic_summary,
+  file.path(
+    diagnostic_dir,
+    "Figure6_raw_and_fitted_yearly_summary.csv"
+  )
+)
+
+readr::write_csv(
+  original_record_summary,
+  file.path(
+    diagnostic_dir,
+    "Figure6_original_record_summary.csv"
+  )
+)
+
+ggplot2::ggsave(
+  filename = file.path(
+    diagnostic_dir,
+    "Figure6_raw_vs_fitted_mean.jpg"
+  ),
+  plot = p_diagnostic_mean,
+  width = 7,
+  height = 4,
+  dpi = 300
+)
+
+ggplot2::ggsave(
+  filename = file.path(
+    diagnostic_dir,
+    "Figure6_proportion_positive.jpg"
+  ),
+  plot = p_diagnostic_positive,
+  width = 7,
+  height = 4,
+  dpi = 300
+)
+
 overall_curve_mean <- rowMeans(
   eval_R
 )
