@@ -1,4 +1,18 @@
-.Rproj.user
+# macOS
+.DS_Store
+**/.DS_Store
+
+# R and RStudio local files
 .Rhistory
 .RData
 .Ruserdata
+.Rproj.user/
+*.Rproj
+
+# renv local libraries and temporary files
+renv/library/
+renv/staging/
+renv/cache/
+
+# Workflow-generated outputs
+Output/
