@@ -25,10 +25,11 @@ The workflow generates Figures 2–10 in the main manuscript, Figures S1–S5 in
 ├── Code/                   Analysis and figure-generation scripts
 ├── Data/                   Input data and documented prepared datasets
 ├── Figure/                 Reference copies of Figures 2–10 and Figures S1–S5
-├── Output/                 Generated figures, tables, and intermediate files
+├── Output/                 Generated outputs; created by the workflow
 ├── renv/                   Project environment infrastructure
-├── run_all.R               Master reproducibility workflow
+├── .Rprofile               Activates the project-specific renv environment
 ├── renv.lock               Locked R package environment
+├── run_all.R               Master reproducibility workflow
 ├── output_manifest.csv     Mapping from manuscript items to code and outputs
 └── README.md
 ```
@@ -48,6 +49,7 @@ Data/README.md
 The `Figure/` directory contains reference copies of the manuscript and supplementary figures so that the reported figures can be viewed without first running the computational workflow.
 
 The `Output/` directory is created by the workflow and does not need to exist before the analysis is run. After executing `run_all.R`, newly generated figures, tables, intermediate files, diagnostics, and execution logs are saved under `Output/`.
+
 
 ## Software Environment
 
