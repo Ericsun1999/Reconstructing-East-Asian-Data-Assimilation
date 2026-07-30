@@ -17,6 +17,16 @@ library(ggplot2)
 library(dplyr)
 library(RColorBrewer)
 
+if (!requireNamespace(
+  "mapproj",
+  quietly = TRUE
+)) {
+  stop(
+    "The package 'mapproj' is required for coord_map(). ",
+    "Install it with renv::install('mapproj')."
+  )
+}
+
 # ------------------------------------------------------------
 # 1. Load REACHES data
 # ------------------------------------------------------------
