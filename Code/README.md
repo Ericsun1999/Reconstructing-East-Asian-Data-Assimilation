@@ -174,7 +174,6 @@ This script performs interval-censored kriging of the REACHES documentary temper
 Inputs include:
 
 ```text
-Data/temperature index value.v1.xlsx
 Output/Intermediate/calibration_parameters.rds
 ```
 
@@ -289,7 +288,6 @@ Inputs:
 
 ```text
 Output/Intermediate/LME/lme_city3_annual_1368_1911.csv
-Output/Intermediate/REACHES/reaches_kriging_city3_mean.csv
 ```
 
 Outputs:
@@ -325,7 +323,6 @@ Output/Figure4/Figure4(c).png
 Inputs include:
 
 ```text
-Data/temperature index value.v1.xlsx
 Output/Intermediate/calibration_parameters.rds
 ```
 
@@ -397,6 +394,7 @@ Inputs:
 
 ```text
 Output/Intermediate/REACHES/reaches_kriging_lme_grid_mean.csv
+Output/Intermediate/REACHES/reaches_kriging_lme_grid_variance.csv
 Output/Intermediate/LME/lme_annual_1368_1911.rds
 ```
 
@@ -649,7 +647,6 @@ Inputs include:
 
 ```text
 Data/temperature index value.v1.xlsx
-Output/Intermediate/calibration_parameters.rds
 ```
 
 Outputs:
