@@ -392,43 +392,8 @@ Unless otherwise specified:
 
 Prediction variance and prediction standard deviation are treated as distinct quantities throughout the kriging, quantile-mapping, and assimilation workflows.
 
-## 9. Legacy Filenames
 
-Earlier versions of the repository referred to files such as:
-
-```text
-LME data/d1.csv
-LME data/d2.csv
-LME data/d3.csv
-
-tempe_all_v3.csv
-tempe_all_std.csv
-tempe_figure6.csv
-
-Valid/tempB5.csv
-Valid/tempS5.csv
-Valid/tempH5.csv
-```
-
-These filenames are not used by the current full reproducibility workflow.
-
-Their current replacements include:
-
-```text
-Output/Intermediate/LME/lme_city3_annual_1368_1911.csv
-
-Output/Intermediate/REACHES/reaches_kriging_lme_grid_mean.csv
-Output/Intermediate/REACHES/reaches_kriging_city3_mean.csv
-Output/Intermediate/REACHES/reaches_kriging_city3_sd.csv
-
-Data/Valid/assimilation_Beijing.csv
-Data/Valid/assimilation_Shanghai.csv
-Data/Valid/assimilation_HongKong.csv
-```
-
-The current scripts and documentation should use only the revised filenames.
-
-## 10. Data Preparation Documentation
+## 9. Data Preparation Documentation
 
 Additional data-preparation code and instructions are available under:
 
