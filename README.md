@@ -27,6 +27,7 @@ The workflow generates Figures 2–10 in the main manuscript, Figures S1–S5 in
 ├── Figure/                 Reference copies of Figures 2–10 and Figures S1–S5
 ├── Output/                 Generated outputs; created by the workflow
 ├── renv/                   Project environment infrastructure
+├── .gitignore              Files and directories excluded from version control
 ├── .Rprofile               Activates the project-specific renv environment
 ├── renv.lock               Locked R package environment
 ├── run_all.R               Master reproducibility workflow
