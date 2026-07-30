@@ -22,10 +22,49 @@ analysis_years <- 1368:1911
 # For a finer search, increase length.out (for example to 13 or
 # 25) and/or expand the exponent range.
 
+reproduction_mode <- Sys.getenv(
+  "REPRODUCTION_MODE",
+  unset = "full"
+)
 
-lambda1_grid <- 10^seq(3, 3, length.out = 1)
-lambda2_grid <- 10^seq(1, 2, length.out = 3)
-lambda3_grid <- 10^seq(3, 3, length.out = 1)
+if (reproduction_mode == "smoke") {
+
+  # Only for checking that the end-to-end workflow executes.
+  lambda1_grid <- c(
+    1000
+  )
+
+  lambda2_grid <- c(
+    10,
+    31.6228,
+    100
+  )
+
+  lambda3_grid <- c(
+    1000
+  )
+
+} else if (reproduction_mode == "full") {
+
+  lambda_grid_exponents <- seq(
+    0,
+    3,
+    length.out = 7
+  )
+
+  lambda1_grid <- 10^lambda_grid_exponents
+  lambda2_grid <- 10^lambda_grid_exponents
+  lambda3_grid <- 10^lambda_grid_exponents
+
+} else {
+
+  stop(
+    "Unknown REPRODUCTION_MODE: ",
+    reproduction_mode
+  )
+}
+
+
 
 max_iter <- 100
 tol <- 1e-6
