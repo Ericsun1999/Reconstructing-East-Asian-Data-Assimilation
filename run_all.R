@@ -830,6 +830,24 @@ if (length(
   )
 }
 
+if (
+  file.exists(
+    file.path(
+      repository_root,
+      "renv.lock"
+    )
+  ) &&
+    !requireNamespace(
+      "renv",
+      quietly = TRUE
+    )
+) {
+  stop(
+    "renv.lock exists, but the renv package is not installed. ",
+    "Run install.packages('renv') first."
+  )
+}
+
 # ------------------------------------------------------------
 # 6. Execute each step in a separate clean R process
 # ------------------------------------------------------------
@@ -929,18 +947,33 @@ for (step_index in seq_along(
 
   start_time <- Sys.time()
 
-  status <- system2(
-    command = rscript_executable,
-    args = c(
-      "--vanilla",
-      shQuote(
-        script_file
-      )
-    ),
-    stdout = log_file,
-    stderr = log_file,
-    wait = TRUE
+  quote_for_r <- function(x) {
+  encodeString(
+    x,
+    quote = "\""
   )
+}
+
+child_expression <- paste0(
+  "renv::load(project = ",
+  quote_for_r(repository_root),
+  "); ",
+  "source(",
+  quote_for_r(script_file),
+  ", chdir = FALSE)"
+)
+
+status <- system2(
+  command = rscript_executable,
+  args = c(
+    "--vanilla",
+    "-e",
+    shQuote(child_expression)
+  ),
+  stdout = log_file,
+  stderr = log_file,
+  wait = TRUE
+)
 
   end_time <- Sys.time()
 
