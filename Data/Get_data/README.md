@@ -184,6 +184,77 @@ The city-specific analyses use the following nominal GHCN station coordinates:
 
 The REACHES and LME city-specific series are evaluated at these same nominal coordinates.
 
+## 4. Historical Gridded Population Data
+
+The historical population data are obtained from the **Gridded Population Dataset in the Traditional Cultivated Region of China from 1776 to 1953**.
+
+Source:
+
+[CASEarth Data Sharing and Service Portal](https://data.casearth.cn/dataset/6538b2b4819aec0f262199b4)
+
+The CASEarth data portal is primarily presented in Chinese. Users may need to register for an account or log in before downloading the data.
+
+The dataset was developed by Zhang et al. (2022) using prefecture-level historical population estimates examined and corrected by historians. A random forest population-distribution model was used to allocate the prefecture-level population totals to a 10 km by 10 km spatial grid based on terrain, climate, river, and city-related environmental factors.
+
+The dataset contains population-density rasters for six historical time slices:
+
+```text
+1776_pd.tif
+1820_pd.tif
+1851_pd.tif
+1880_pd.tif
+1910_pd.tif
+1953_pd.tif
+```
+
+The raster values represent:
+
+`population density in persons per square kilometre`
+
+The geographic coverage corresponds to the traditional cultivated region of China, consisting of 18 historical provinces and excluding Taiwan Prefecture.
+
+
+## 4. Historical Gridded Population Data
+
+The historical population data are obtained from the **Gridded Population Dataset in the Traditional Cultivated Region of China from 1776 to 1953**.
+
+Source:
+
+[CASEarth Data Sharing and Service Portal](https://data.casearth.cn/dataset/6538b2b4819aec0f262199b4)
+
+The CASEarth dataset page is presented in Chinese. The original population raster files can be downloaded directly from the dataset page by following the portal's download instructions.
+
+The dataset was developed by Zhang et al. (2022) using prefecture-level historical population estimates examined and corrected by historians. A random forest population-distribution model was used to allocate prefecture-level population totals to a 10 km by 10 km spatial grid based on terrain, climate, river, and city-related environmental factors.
+
+The dataset covers the traditional cultivated region of China and provides gridded population-density reconstructions for six historical time slices:
+
+
+```text
+1776
+1820
+1851
+1880
+1910
+1953
+```
+
+The downloaded dataset contains the following GeoTIFF files:
+
+```text
+1776_pd.tif
+1820_pd.tif
+1851_pd.tif
+1880_pd.tif
+1910_pd.tif
+1953_pd.tif
+```
+
+The raster values represent population density in persons per square kilometre.
+
+The geographic coverage corresponds to the traditional cultivated region of China, consisting of 18 historical provinces and excluding Taiwan Prefecture.
+
+
+
 ## Reproducibility Boundary
 
 The default public workflow begins from the prepared files distributed under `Data/`, including:
