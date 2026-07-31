@@ -184,35 +184,6 @@ The city-specific analyses use the following nominal GHCN station coordinates:
 
 The REACHES and LME city-specific series are evaluated at these same nominal coordinates.
 
-## 4. Historical Gridded Population Data
-
-The historical population data are obtained from the **Gridded Population Dataset in the Traditional Cultivated Region of China from 1776 to 1953**.
-
-Source:
-
-[CASEarth Data Sharing and Service Portal](https://data.casearth.cn/dataset/6538b2b4819aec0f262199b4)
-
-The CASEarth data portal is primarily presented in Chinese. Users may need to register for an account or log in before downloading the data.
-
-The dataset was developed by Zhang et al. (2022) using prefecture-level historical population estimates examined and corrected by historians. A random forest population-distribution model was used to allocate the prefecture-level population totals to a 10 km by 10 km spatial grid based on terrain, climate, river, and city-related environmental factors.
-
-The dataset contains population-density rasters for six historical time slices:
-
-```text
-1776_pd.tif
-1820_pd.tif
-1851_pd.tif
-1880_pd.tif
-1910_pd.tif
-1953_pd.tif
-```
-
-The raster values represent:
-
-`population density in persons per square kilometre`
-
-The geographic coverage corresponds to the traditional cultivated region of China, consisting of 18 historical provinces and excluding Taiwan Prefecture.
-
 
 ## 4. Historical Gridded Population Data
 
@@ -226,19 +197,8 @@ The CASEarth dataset page is presented in Chinese. The original population raste
 
 The dataset was developed by Zhang et al. (2022) using prefecture-level historical population estimates examined and corrected by historians. A random forest population-distribution model was used to allocate prefecture-level population totals to a 10 km by 10 km spatial grid based on terrain, climate, river, and city-related environmental factors.
 
-The dataset covers the traditional cultivated region of China and provides gridded population-density reconstructions for six historical time slices:
 
-
-```text
-1776
-1820
-1851
-1880
-1910
-1953
-```
-
-The downloaded dataset contains the following GeoTIFF files:
+The dataset contains population-density rasters for six historical time slices:
 
 ```text
 1776_pd.tif
@@ -253,6 +213,36 @@ The raster values represent population density in persons per square kilometre.
 
 The geographic coverage corresponds to the traditional cultivated region of China, consisting of 18 historical provinces and excluding Taiwan Prefecture.
 
+### Download and preparation
+
+To obtain the original population rasters:
+
+1. open the CASEarth dataset page linked above;
+2. follow the download instructions provided on the Chinese-language portal;
+3. download the dataset archive;
+4. extract the downloaded archive;
+5. verify that the six GeoTIFF files listed above are present; and
+6. place the files in the population-data input directory expected by the repository scripts.
+
+No reconstruction of the population rasters is performed by the default reproducibility workflow. The workflow begins from the downloaded GeoTIFF files and uses them as historical population-density covariates.
+
+Any processing applied after download should be documented, including:
+
+- the dataset download or access date;
+- the original archive filename;
+- the raster coordinate reference system;
+- the spatial resolution;
+- the population-density unit;
+- the treatment of missing or no-data cells;
+- any reprojection;
+- any cropping;
+- any resampling;
+- any temporal interpolation between the six available time slices; and
+- file checksums where available.
+
+The dataset should be cited as:
+
+> Zhang X, Wang F, Lu W, Li S, Zheng J. 2022. Gridded reconstruction of the population in the traditional cultivated region of China from 1776 to 1953. *Science China Earth Sciences*, 65(2), 365–378. https://doi.org/10.1007/s11430-020-9866-2
 
 
 ## Reproducibility Boundary
@@ -267,6 +257,19 @@ Data/LME data/a1.csv.gz
 Data/LME data/a13.csv.gz
 ```
 
+The historical population component begins from the six GeoTIFF files downloaded from the CASEarth Data Sharing and Service Portal:
+
+```text
+1776_pd.tif
+1820_pd.tif
+1851_pd.tif
+1880_pd.tif
+1910_pd.tif
+1953_pd.tif
+```
+
+The exact repository location of these GeoTIFF files must match the population-data paths specified in the analysis scripts.
+
 The scripts and documentation under `Data/Get_data/` describe optional upstream acquisition and preparation steps.
 
-Because some original archives are not redistributed, users reproducing the entire process from the original data sources must first obtain those files from the cited providers and follow the documented preprocessing steps.
+Because some original archives are not redistributed, users reproducing the entire process from the original data sources must first obtain those files from the cited providers and follow the documented preprocessing steps. The historical population rasters can be downloaded from the CASEarth Data Sharing and Service Portal linked above.
