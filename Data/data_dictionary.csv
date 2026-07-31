@@ -508,9 +508,3 @@ D0506,OUTPUT_MANIFEST,output_manifest.csv,repository documentation,CSV,,required
 D0507,OUTPUT_MANIFEST,output_manifest.csv,repository documentation,CSV,,verified_generated,Whether the listed files were generated.,character/logical,yes/no,,,manuscript item,release-specific,Maintained by repository authors,,manual / workflow documentation,reproducibility audit record,,verified from current scripts
 D0508,OUTPUT_MANIFEST,output_manifest.csv,repository documentation,CSV,,verified_against_manuscript,Whether the generated item was checked against the manuscript.,character/logical,yes/no,,,manuscript item,release-specific,Maintained by repository authors,,manual / workflow documentation,reproducibility audit record,,verified from current scripts
 D0509,OUTPUT_MANIFEST,output_manifest.csv,repository documentation,CSV,,notes,Additional verification notes.,character,none,,,manuscript item,release-specific,Maintained by repository authors,,manual / workflow documentation,reproducibility audit record,,verified from current scripts
-D0510,,,,,,,,,,,,,,,,,,,
-D0511,,,,,,,,,,,,,,,,,,,
-D0512,,,,,,,,,,,,,,,,,,,
-D0513,,,,,,,,,,,,,,,,,,,
-D0514,,,,,,,,,,,,,,,,,,,
-D0515,,,,,,,,,,,,,,,,,,,
