@@ -30,9 +30,13 @@ Data/
 ├── Valid/                         City-specific assimilation files used for validation
 ├── par/                           Reference city-specific prior-parameter estimates
 ├── GHCNv4.xlsx                    GHCN instrumental temperature data
-├── temperature index value.v1.xlsx
+├── data_dictionary.csv            Variable-level data documentation
+├── temperature index value.v1.xlsx       
 └── README.md
 ```
+
+
+
 
 ## Reproducibility Input Boundary
 
