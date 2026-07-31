@@ -1,10 +1,10 @@
-# Reconstructing-East-Asian-Data-Assimilation 
+# Reconstructing-East-Asian-Data-Assimilation
 
 This repository contains the code and prepared data used to reproduce the computational results in the paper:
 
 > **Reconstructing East Asian Temperatures from 1368 to 1911 Using Historical Documents, Climate Models, and Data Assimilation**  
 > Eric Sun, Kuan-hui Elaine Lin, Wan-Ling Tseng, Pao K. Wang, and Hsin-Cheng Huang  
-> [arXiv preprint](http://arxiv.org/abs/2410.21790)
+> [arXiv preprint](https://arxiv.org/abs/2410.21790)
 
 The repository includes implementations of:
 
@@ -18,22 +18,27 @@ The repository includes implementations of:
 
 The workflow generates Figures 2–10 in the main manuscript, Figures S1–S5 in the Supplementary Material, and the associated computational tables and diagnostic outputs.
 
-## Repository organization
+## Repository Organization
 
 ```text
 .
-├── Code/                   Analysis and figure-generation scripts
-├── Data/                   Input data and documented prepared datasets
-├── Figure/                 Reference copies of Figures 2–10 and Figures S1–S5
-├── Output/                 Generated outputs; created by the workflow
-├── renv/                   Project environment infrastructure
-├── .gitignore              Files and directories excluded from version control
-├── .Rprofile               Activates the project-specific renv environment
-├── renv.lock               Locked R package environment
-├── run_all.R               Master reproducibility workflow
-├── output_manifest.csv     Mapping from manuscript items to code and outputs
-└── README.md
+├── Code/                       Analysis and figure-generation scripts
+├── Data/                       Input data and documented prepared datasets
+├── Figure/                     Reference copies of Figures 2–10 and Figures S1–S5
+├── renv/                       Project environment infrastructure
+├── reproducibility_records/    Archived records from completed workflow runs
+│   └── run_manifest.csv        Successful full-workflow execution record
+├── .gitignore                  Files and directories excluded from version control
+├── .Rprofile                   Activates renv for interactive R sessions
+├── CITATION.cff                Software citation metadata
+├── LICENSE                     MIT License for repository code
+├── README.md                   Project overview and reproduction instructions
+├── output_manifest.csv         Mapping from manuscript items to code and outputs
+├── renv.lock                   Locked R package environment
+└── run_all.R                   Master reproducibility workflow
 ```
+
+The `Output/` directory is generated locally by the workflow and is excluded from version control. It does not need to exist before the analysis is run.
 
 Detailed descriptions of the analysis scripts and their usage are provided in:
 
@@ -47,10 +52,23 @@ Descriptions, provenance, formats, and usage instructions for the input data are
 Data/README.md
 ```
 
+Variable-level documentation for the input data, generated intermediate products, validation outputs, and manuscript tables is provided in:
+
+```text
+Data/data_dictionary.csv
+```
+
+A human-readable Excel version is also available in:
+
+```text
+Data/data_dictionary.xlsx
+```
+
 The `Figure/` directory contains reference copies of the manuscript and supplementary figures so that the reported figures can be viewed without first running the computational workflow.
 
-The `Output/` directory is created by the workflow and does not need to exist before the analysis is run. After executing `run_all.R`, newly generated figures, tables, intermediate files, diagnostics, and execution logs are saved under `Output/`.
+After executing `run_all.R`, newly generated figures, tables, intermediate files, diagnostics, and execution logs are saved under `Output/`.
 
+The regenerated figures under `Output/` can be compared with the corresponding reference figures under `Figure/`.
 
 ## Software Environment
 
@@ -74,9 +92,9 @@ Restore the project-specific R environment with:
 Rscript -e 'renv::restore(prompt = FALSE)'
 ```
 
-The project `.Rprofile` activates the local `renv` environment automatically when the repository is opened as an R project.
+The root `.Rprofile` activates the local `renv` environment for interactive R sessions started from the repository root.
 
-The R version, operating system, and loaded package versions for a completed run can be inspected using:
+The R version, operating system, and loaded package versions can be inspected using:
 
 ```r
 sessionInfo()
@@ -100,7 +118,7 @@ REPRODUCTION_MODE=full \
 Rscript --vanilla run_all.R
 ```
 
-The full mode uses the complete penalty-parameter search grid used for the manuscript analysis.
+Full mode uses the complete penalty-parameter search grid used for the manuscript analysis.
 
 The workflow:
 
@@ -117,7 +135,7 @@ Execution logs are saved under:
 Output/Logs/
 ```
 
-The main workflow execution record is:
+The current workflow execution record is written to:
 
 ```text
 Output/Logs/run_manifest.csv
@@ -185,7 +203,6 @@ run_all.R
 
 The distributed reproducibility workflow begins with the 13 prepared, gzip-compressed Last Millennium Ensemble member files:
 
-
 ```text
 Data/LME data/a1.csv.gz
 Data/LME data/a2.csv.gz
@@ -238,7 +255,6 @@ Output/
 ```
 
 Major output directories include:
-
 
 ```text
 Output/Figure2/
@@ -306,16 +322,28 @@ The use of common nominal coordinates ensures that the city-specific REACHES, LM
 
 ## Reproducibility Records
 
-After a complete run, the following files provide the main computational record:
+The workflow writes its current execution record to:
 
 ```text
 Output/Logs/run_manifest.csv
+```
+
+Because the generated `Output/` directory is excluded from version control, a copy of the successfully completed full-workflow manifest is archived at:
+
+```text
+reproducibility_records/run_manifest.csv
+```
+
+The following files provide the main reproducibility records:
+
+```text
+reproducibility_records/run_manifest.csv
 output_manifest.csv
+Data/data_dictionary.csv
 renv.lock
 ```
 
-
-The individual execution logs are stored under:
+The individual execution logs generated during a workflow run are stored under:
 
 ```text
 Output/Logs/
@@ -323,50 +351,16 @@ Output/Logs/
 
 Generated figures and numerical results should be checked against the corresponding items in the final manuscript before creating a versioned release.
 
-## Full and Smoke Modes
+## Reproducibility Status
 
-The workflow supports two execution modes.
-
-### Full mode
+The complete workflow was successfully executed locally from the repository root using:
 
 ```bash
 REPRODUCTION_MODE=full \
 Rscript --vanilla run_all.R
 ```
 
-Full mode:
-
-- uses the complete penalty search grid;
-- reproduces the final manuscript analysis;
-- should be used for all reported figures and numerical results; and
-- may require substantially more computation time.
-
-### Smoke mode
-
-
-```bash
-REPRODUCTION_MODE=smoke \
-Rscript --vanilla run_all.R
-```
-
-Smoke mode:
-
-- uses a reduced penalty search grid;
-- checks whether the end-to-end workflow executes;
-- is useful for identifying missing files, packages, and hidden dependencies; and
-- does not reproduce the final manuscript model-selection procedure.
-
-## Reproducibility Status
-
-The complete workflow has been tested locally from the repository root under the project-specific `renv` environment.
-
-The full workflow should be considered successful when every row of:
-
-```text
-Output/Logs/run_manifest.csv
-```
-
-satisfies:
+Every workflow step completed with:
 
 ```text
 exit_status = 0
@@ -374,14 +368,28 @@ success = TRUE
 missing_outputs = empty
 ```
 
-A successful smoke-mode run verifies software integration.
+The archived execution record is available at:
 
-A successful full-mode run verifies the complete local scientific workflow using the manuscript penalty-search settings.
+```text
+reproducibility_records/run_manifest.csv
+```
+
+The smoke-mode workflow was also completed successfully.
+
+A separate fresh-clone clean-environment test was not performed.
 
 ## Citation
 
-A version-specific software citation and archived DOI will be added when the final reproducibility release is created.
+Software citation metadata are provided in:
 
+```text
+CITATION.cff
+```
 
+A version-specific Zenodo DOI will be added after the final GitHub release is archived.
 
+## License
 
+The analysis code in this repository is licensed under the [MIT License](LICENSE).
+
+Third-party datasets remain subject to the terms and conditions of their original providers.
