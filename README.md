@@ -58,12 +58,6 @@ Variable-level documentation for the input data, generated intermediate products
 Data/data_dictionary.csv
 ```
 
-A human-readable Excel version is also available in:
-
-```text
-Data/data_dictionary.xlsx
-```
-
 The `Figure/` directory contains reference copies of the manuscript and supplementary figures so that the reported figures can be viewed without first running the computational workflow.
 
 After executing `run_all.R`, newly generated figures, tables, intermediate files, diagnostics, and execution logs are saved under `Output/`.
