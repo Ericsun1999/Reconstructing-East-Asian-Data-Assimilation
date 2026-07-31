@@ -36,10 +36,8 @@ Code/
 │   ├── FigureS1.R
 │   ├── FigureS2.R
 │   └── FigureS5.R
-├── prepare_calibration.R
-├── Get_tempe_all_data.R
 ├── Assimilation_grid.R
-├── Prior.R
+├── Figure10.R
 ├── Figure2.R
 ├── Figure3.R
 ├── Figure4.R
@@ -49,8 +47,10 @@ Code/
 ├── Figure7e.R
 ├── Figure9abc.R
 ├── Figure9d.R
-├── Figure10.R
-└── README.md
+├── Get_tempe_all_data.R
+├── Prior.R
+├── README.md
+└── prepare_calibration.R
 ```
 
 All scripts should be executed from the repository root. The scripts use project-relative paths through `here::here()` and should not require manually changing the working directory.
