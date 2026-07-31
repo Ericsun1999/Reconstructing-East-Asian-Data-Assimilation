@@ -1,14 +1,23 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 authors:
-- family-names: "YOUR_NAME_HERE"
-  given-names: "YOUR_NAME_HERE"
-  orcid: "https://orcid.org/0000-0000-0000-0000"
-- family-names: "Lisa"
-  given-names: "Mona"
-  orcid: "https://orcid.org/0000-0000-0000-0000"
+- family-names: "Eric"
+  given-names: "Sun"
+  orcid: "https://orcid.org/0009-0003-0744-8692"
+- family-names: "Kuan-hui Elaine"
+  given-names: "Lin"
+  orcid: "https://orcid.org/0009-0007-4487-2539"
+- family-names: "Wan-Ling"
+  given-names: "Tseng"
+  orcid: "https://orcid.org/0000-0002-6644-9965"
+- family-names: "Pao K."
+  given-names: "Wang"
+  orcid: "https://orcid.org/0000-0003-2134-290X"
+- family-names: "Hsin-Cheng"
+  given-names: "Huang"
+  orcid: "https://orcid.org/0000-0002-5613-349X"
 title: "Reconstructing East Asian Temperatures from 1368 to 1911 Using Historical Documents, Climate Models, and Data Assimilation"
 version: 1.0.0
-doi: 10.5281/zenodo.1234
-date-released: 2026-07-30
+doi:
+date-released:
 url: "https://github.com/Ericsun1999/Reconstructing-East-Asian-Data-Assimilation"
