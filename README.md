@@ -382,6 +382,12 @@ CITATION.cff
 
 A version-specific Zenodo DOI will be added after the final GitHub release is archived.
 
+Software citation metadata are provided in [`CITATION.cff`](CITATION.cff).
+
+The version-specific reproducibility archive is available on Zenodo:
+
+[https://doi.org/10.5281/zenodo.21713886](https://doi.org/10.5281/zenodo.21713886)
+
 ## License
 
 The analysis code in this repository is licensed under the [MIT License](LICENSE).
