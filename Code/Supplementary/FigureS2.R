@@ -1,15 +1,15 @@
-here::i_am("Code/Supplementary/FigureS1.R")
+here::i_am("Code/Supplementary/FigureS2.R")
 
 # ============================================================
-# Figure S1(a)--(e):
+# Figure S2(a)--(e):
 # Maps of temperature event levels for different periods
 #
 # Outputs:
-#   Output/Supplementary/FigureS1a.png
-#   Output/Supplementary/FigureS1b.png
-#   Output/Supplementary/FigureS1c.png
-#   Output/Supplementary/FigureS1d.png
-#   Output/Supplementary/FigureS1e.png
+#   Output/Supplementary/FigureS2a.png
+#   Output/Supplementary/FigureS2b.png
+#   Output/Supplementary/FigureS2c.png
+#   Output/Supplementary/FigureS2d.png
+#   Output/Supplementary/FigureS2e.png
 # ============================================================
 
 library(here)
@@ -38,14 +38,14 @@ temp2 <- temperature %>%
   group_by(year, long, lat)
 
 # ------------------------------------------------------------
-# 2. Split into the five periods used in Figure S1
+# 2. Split into the five periods used in Figure S2
 # ------------------------------------------------------------
 period_data <- list(
-  FigureS1a = temp2 %>% filter(year < 1501),
-  FigureS1b = temp2 %>% filter(year > 1500 & year < 1601),
-  FigureS1c = temp2 %>% filter(year > 1600 & year < 1701),
-  FigureS1d = temp2 %>% filter(year > 1700 & year < 1801),
-  FigureS1e = temp2 %>% filter(year > 1800 & year <= 1911)
+  FigureS2a = temp2 %>% filter(year < 1501),
+  FigureS2b = temp2 %>% filter(year > 1500 & year < 1601),
+  FigureS2c = temp2 %>% filter(year > 1600 & year < 1701),
+  FigureS2d = temp2 %>% filter(year > 1700 & year < 1801),
+  FigureS2e = temp2 %>% filter(year > 1800 & year <= 1911)
 )
 
 # ------------------------------------------------------------
@@ -98,15 +98,15 @@ dir.create(
 )
 
 # ------------------------------------------------------------
-# 5. Generate and save Figure S1(a)--(e)
+# 5. Generate and save Figure S2(a)--(e)
 # ------------------------------------------------------------
-figureS1_plots <- vector("list", length(period_data))
-names(figureS1_plots) <- names(period_data)
+figureS2_plots <- vector("list", length(period_data))
+names(figureS2_plots) <- names(period_data)
 
 for (figure_name in names(period_data)) {
   plot_object <- plot_originREACHES_map(period_data[[figure_name]])
 
-  figureS1_plots[[figure_name]] <- plot_object
+  figureS2_plots[[figure_name]] <- plot_object
 
   ggsave(
     filename = file.path(output_dir, paste0(figure_name, ".png")),
@@ -120,4 +120,4 @@ for (figure_name in names(period_data)) {
   message("Saved: ", file.path(output_dir, paste0(figure_name, ".png")))
 }
 
-message("Completed Figure S1(a)--(e).")
+message("Completed Figure S2(a)--(e).")
