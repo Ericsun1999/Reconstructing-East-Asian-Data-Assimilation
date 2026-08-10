@@ -2,7 +2,7 @@ here::i_am("Code/Assimilation_grid.R")
 
 # ============================================================
 # Generate the spatial assimilated posterior required by
-# Supplementary Figure S5.
+# Supplementary Figure S1.
 #
 # Default spatial support:
 #   The exact LME-grid locations retained and clustered by
@@ -2993,6 +2993,6 @@ message(
 
 if (save_data_valid_copy) {
   message(
-    "Saved Data/Valid posterior copies for Figure S5."
+    "Saved Data/Valid posterior copies for Figure S1."
   )
 }
