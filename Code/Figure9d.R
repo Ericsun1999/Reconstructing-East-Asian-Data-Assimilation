@@ -3,8 +3,8 @@ here::i_am("Code/Figure9d.R")
 # ============================================================
 # Annual Kalman assimilation for:
 #   Figure 9(d)  -- Beijing
-#   Figure S3(d) -- Shanghai
-#   Figure S4(d) -- Hong Kong
+#   Figure S4(d) -- Shanghai
+#   Figure S5(d) -- Hong Kong
 #
 # Major implementation points:
 #   1. The filter and smoother run on every year from 1368 to
@@ -36,8 +36,8 @@ here::i_am("Code/Figure9d.R")
 #
 # Main outputs:
 #   Output/Figure9/Figure9d.png
-#   Output/Supplementary/FigureS3d.png
 #   Output/Supplementary/FigureS4d.png
+#   Output/Supplementary/FigureS5d.png
 #
 # Numerical and diagnostic outputs:
 #   Output/Intermediate/Assimilation/
@@ -140,7 +140,7 @@ city_config <- list(
     lat = 22.333,
     figure_file = file.path(
       supplementary_dir,
-      "FigureS4d.png"
+      "FigureS5d.png"
     )
   ),
   Shanghai = list(
@@ -149,7 +149,7 @@ city_config <- list(
     lat = 31.167,
     figure_file = file.path(
       supplementary_dir,
-      "FigureS3d.png"
+      "FigureS4d.png"
     )
   ),
   Beijing = list(
@@ -2811,7 +2811,7 @@ capture.output(
 )
 
 message(
-  "\nCompleted Figure 9(d), Figure S3(d), and Figure S4(d)."
+  "\nCompleted Figure 9(d), Figure S4(d), and Figure S5(d)."
 )
 
 message(
