@@ -488,28 +488,28 @@ workflow <- list(
     )
   ),
   list(
-    id = "figureS1",
-    script = file.path(
-      "Code",
-      "Supplementary",
-      "FigureS1.R"
-    ),
-    expected = character(
-      0
-    )
-  ),
-  list(
     id = "figureS2",
     script = file.path(
       "Code",
       "Supplementary",
       "FigureS2.R"
     ),
+    expected = character(
+      0
+    )
+  ),
+  list(
+    id = "figureS3",
+    script = file.path(
+      "Code",
+      "Supplementary",
+      "FigureS3.R"
+    ),
     expected = c(
       file.path(
         "Output",
         "Supplementary",
-        "FigureS2_plot_data.csv"
+        "FigureS3_plot_data.csv"
       )
     )
   ),
@@ -529,18 +529,18 @@ workflow <- list(
     )
   ),
   list(
-    id = "figureS5",
+    id = "figureS1",
     script = file.path(
       "Code",
       "Supplementary",
-      "FigureS5.R"
+      "FigureS1.R"
     ),
     expected = c(
       file.path(
         "Output",
         "Intermediate",
-        "FigureS5",
-        "FigureS5_panel_files.csv"
+        "FigureS1",
+        "FigureS1_panel_files.csv"
       )
     )
   ),
