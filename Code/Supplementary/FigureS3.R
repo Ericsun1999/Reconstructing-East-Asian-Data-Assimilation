@@ -1,10 +1,10 @@
-here::i_am("Code/Supplementary/FigureS2.R")
+here::i_am("Code/Supplementary/FigureS3.R")
 
 # ============================================================
-# Generate Figure S2(a)--(c):
-#   Figure S2(a): Beijing
-#   Figure S2(b): Shanghai
-#   Figure S2(c): Hong Kong
+# Generate Figure S3(a)--(c):
+#   Figure S3(a): Beijing
+#   Figure S3(b): Shanghai
+#   Figure S3(c): Hong Kong
 #
 # Required inputs:
 #   Data/GHCNv4.xlsx
@@ -16,10 +16,10 @@ here::i_am("Code/Supplementary/FigureS2.R")
 # contain the complete annual Kalman filter/smoother output.
 #
 # Outputs:
-#   Output/Supplementary/FigureS2a.png
-#   Output/Supplementary/FigureS2b.png
-#   Output/Supplementary/FigureS2c.png
-#   Output/Supplementary/FigureS2_plot_data.csv
+#   Output/Supplementary/FigureS3a.png
+#   Output/Supplementary/FigureS3b.png
+#   Output/Supplementary/FigureS3c.png
+#   Output/Supplementary/FigureS3_plot_data.csv
 # ============================================================
 
 library(readxl)
@@ -97,7 +97,7 @@ city_config <- list(
     ),
     output_file = file.path(
       output_dir,
-      "FigureS2a.png"
+      "FigureS3a.png"
     )
   ),
   Shanghai = list(
@@ -110,7 +110,7 @@ city_config <- list(
     ),
     output_file = file.path(
       output_dir,
-      "FigureS2b.png"
+      "FigureS3b.png"
     )
   ),
   HongKong = list(
@@ -123,7 +123,7 @@ city_config <- list(
     ),
     output_file = file.path(
       output_dir,
-      "FigureS2c.png"
+      "FigureS3c.png"
     )
   )
 )
@@ -491,12 +491,12 @@ make_time_series_plot <- function(
     )
 }
 
-figureS2_plots <- vector(
+figureS3_plots <- vector(
   "list",
   length(city_config)
 )
 
-names(figureS2_plots) <- names(
+names(figureS3_plots) <- names(
   city_config
 )
 
@@ -552,7 +552,7 @@ for (city_name in names(city_config)) {
     ghcn_data = plot_data$ghcn
   )
 
-  figureS2_plots[[city_name]] <- plot_object
+  figureS3_plots[[city_name]] <- plot_object
 
   plot_data_output[[city_name]] <-
     plot_data$validation %>%
@@ -586,10 +586,10 @@ readr::write_csv(
   bind_rows(plot_data_output),
   file.path(
     output_dir,
-    "FigureS2_plot_data.csv"
+    "FigureS3_plot_data.csv"
   )
 )
 
 message(
-  "Completed Figure S2(a)--(c)."
+  "Completed Figure S3(a)--(c)."
 )
