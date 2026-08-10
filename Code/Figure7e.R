@@ -658,18 +658,29 @@ p_figure7e <- ggplot(
     size = 4.5,
     shape = 15
   ) +
+  geom_contour(
+    aes(z = temp0_c),
+    breaks = seq(-5, 20, by = 5),
+    colour = "grey20",
+    linewidth = 0.25,
+    alpha = 0.6
+  ) +
   coord_map(
     xlim = c(98, 124.5),
     ylim = c(18, 42.5)
   ) +
-  scale_colour_gradientn(
-    colours = c(
-      "blue", "cyan", "green", "yellow", "red"
-    ),
+   scale_color_gradientn(
+    colors = c("blue", "cyan", "green", "yellow", "red"),
     limits = c(-10, 25),
-    oob = scales::squish,
+    breaks = seq(-10, 25, by = 5),
+    name = "Temperature (°C)",
     na.value = "transparent",
-    guide = "colourbar"
+    guide = guide_colorbar(
+      barheight = grid::unit(2.8, "in"),
+      barwidth = grid::unit(0.20, "in"),
+      nbin = 256,
+      ticks = TRUE
+    )
   ) +
   borders(
     database = "world",
@@ -685,7 +696,9 @@ p_figure7e <- ggplot(
   ) +
   theme(
     text = element_text(size = 15),
-    legend.position = "right"
+    legend.position = "right",
+    legend.title = element_text(size = 11),
+    legend.text = element_text(size = 10)
   )
 
 figure7e_output_file <- file.path(
