@@ -296,7 +296,7 @@ The provided scripts generate:
 
 The revised functional clustering analysis uses four clusters selected by the stated model-selection procedure.
 
-Figure S5 reuses the same cluster assignments generated for Figure 6.
+Figure S1 reuses the same cluster assignments generated for Figure 6.
 
 ## City-Specific Spatial Locations
 
