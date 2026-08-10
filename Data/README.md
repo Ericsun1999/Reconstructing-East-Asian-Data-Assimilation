@@ -75,7 +75,7 @@ This file is used by several parts of the analysis, including:
 - calibration of the interval-censored covariance model;
 - interval-censored kriging;
 - Figure 5;
-- Figure S1;
+- Figure S2;
 - the documentary-coverage and population analysis; and
 - the held-out interval-compatibility validation.
 
@@ -324,7 +324,7 @@ and are used by:
 
 ```text
 Code/Figure10.R
-Code/Supplementary/FigureS2.R
+Code/Supplementary/FigureS3.R
 ```
 
 Each city-specific file contains annual assimilation quantities such as:
@@ -357,7 +357,7 @@ Output/Intermediate/LME/
 Output/Intermediate/REACHES/
 Output/Intermediate/Prior/
 Output/Intermediate/Assimilation/
-Output/Intermediate/FigureS5/
+Output/Intermediate/FigureS1/
 ```
 
 These generated files should not be manually edited.
