@@ -28,14 +28,14 @@ here::i_am("Code/Figure9abc.R")
 #     Output/Figure9/Figure9c.png
 #
 #   Shanghai:
-#     Output/Supplementary/FigureS3a.png
-#     Output/Supplementary/FigureS3b.png
-#     Output/Supplementary/FigureS3c.png
-#
-#   Hong Kong:
 #     Output/Supplementary/FigureS4a.png
 #     Output/Supplementary/FigureS4b.png
 #     Output/Supplementary/FigureS4c.png
+#
+#   Hong Kong:
+#     Output/Supplementary/FigureS5a.png
+#     Output/Supplementary/FigureS5b.png
+#     Output/Supplementary/FigureS5c.png
 #
 #   Numerical plotting data:
 #     Output/Figure9/Figure9abc_parameter_plot_data.csv
@@ -237,12 +237,12 @@ city_config <- list(
   Shanghai = list(
     code = "S",
     output_dir = supplementary_dir,
-    figure_prefix = "FigureS3"
+    figure_prefix = "FigureS4"
   ),
   HongKong = list(
     code = "H",
     output_dir = supplementary_dir,
-    figure_prefix = "FigureS4"
+    figure_prefix = "FigureS5"
   )
 )
 
@@ -633,5 +633,5 @@ readr::write_csv(
 )
 
 message(
-  "Completed Figure 9, Figure S3, and Figure S4."
+  "Completed Figure 9, Figure S4, and Figure S5."
 )
