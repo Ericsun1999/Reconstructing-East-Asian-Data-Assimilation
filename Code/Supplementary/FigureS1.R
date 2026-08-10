@@ -1,7 +1,7 @@
-here::i_am("Code/Supplementary/FigureS5.R")
+here::i_am("Code/Supplementary/FigureS1.R")
 
 # ============================================================
-# Supplementary Figure S5
+# Supplementary Figure S1
 #
 # Functional boxplots within the REACHES-defined clusters used
 # in Figure 6.
@@ -15,7 +15,7 @@ here::i_am("Code/Supplementary/FigureS5.R")
 #   3. Cellwise-centered assimilated posterior mean
 #
 # IMPORTANT:
-#   Figure S5 does not repeat FPCA or Mclust. It reuses the exact
+#   Figure S1 does not repeat FPCA or Mclust. It reuses the exact
 #   location set and cluster labels saved by Figure6.R.
 #
 # Required generated inputs:
@@ -39,21 +39,21 @@ here::i_am("Code/Supplementary/FigureS5.R")
 # as a substitute for this spatial posterior.
 #
 # Outputs:
-#   Output/Supplementary/FigureS5_panels/
-#     FigureS5_reaches_cluster_1.png
+#   Output/Supplementary/FigureS1_panels/
+#     FigureS1_reaches_cluster_1.png
 #     ...
-#     FigureS5_reaches_cluster_4.png
-#     FigureS5_lme_cluster_1.png
+#     FigureS1_reaches_cluster_4.png
+#     FigureS1_lme_cluster_1.png
 #     ...
-#     FigureS5_lme_cluster_4.png
-#     FigureS5_posterior_cluster_1.png
+#     FigureS1_lme_cluster_4.png
+#     FigureS1_posterior_cluster_1.png
 #     ...
-#     FigureS5_posterior_cluster_4.png
+#     FigureS1_posterior_cluster_4.png
 #
-#   Output/Intermediate/FigureS5/
-#     FigureS5_cluster_assignments.csv
-#     FigureS5_diagnostics.csv
-#     FigureS5_panel_files.csv
+#   Output/Intermediate/FigureS1/
+#     FigureS1_cluster_assignments.csv
+#     FigureS1_diagnostics.csv
+#     FigureS1_panel_files.csv
 # ============================================================
 
 library(dplyr)
@@ -154,12 +154,12 @@ output_dir <- here::here(
 intermediate_dir <- here::here(
   "Output",
   "Intermediate",
-  "FigureS5"
+  "FigureS1"
 )
 
 panel_output_dir <- file.path(
   output_dir,
-  "FigureS5_panels"
+  "FigureS1_panels"
 )
 
 dir.create(
@@ -182,12 +182,12 @@ dir.create(
 
 cluster_output_file <- file.path(
   intermediate_dir,
-  "FigureS5_cluster_assignments.csv"
+  "FigureS1_cluster_assignments.csv"
 )
 
 diagnostic_file <- file.path(
   intermediate_dir,
-  "FigureS5_diagnostics.csv"
+  "FigureS1_diagnostics.csv"
 )
 
 # ------------------------------------------------------------
@@ -220,14 +220,14 @@ select_input_set <- function(
       ]
 
       stop(
-        "The generated Figure S5 input set is incomplete. ",
+        "The generated Figure S1 input set is incomplete. ",
         "Missing:\n  ",
         paste(
           missing_files,
           collapse = "\n  "
         ),
         "\nThe all-location posterior grid must be generated ",
-        "before Figure S5 can run."
+        "before Figure S1 can run."
       )
     }
 
@@ -245,7 +245,7 @@ select_input_set <- function(
       ]
 
       stop(
-        "The precomputed Figure S5 input set is incomplete. ",
+        "The precomputed Figure S1 input set is incomplete. ",
         "Missing:\n  ",
         paste(
           missing_files,
@@ -285,7 +285,7 @@ select_input_set <- function(
 
   stop(
     "Neither a complete generated nor a complete precomputed ",
-    "Figure S5 input set was found.\n",
+    "Figure S1 input set was found.\n",
     "Missing generated files:\n  ",
     paste(
       generated_missing,
@@ -298,7 +298,7 @@ select_input_set <- function(
     ),
     "\nIn particular, Figure9d.R currently produces only ",
     "three-city posterior series and cannot create the spatial ",
-    "posterior input required by Figure S5."
+    "posterior input required by Figure S1."
   )
 }
 
@@ -309,7 +309,7 @@ input_files <- select_input_set(
 )
 
 message(
-  "Figure S5 inputs selected from the ",
+  "Figure S1 inputs selected from the ",
   if (
     identical(
       unname(
@@ -997,7 +997,7 @@ posterior_evaluated <- make_evaluated_functions(
 )
 
 # ------------------------------------------------------------
-# 8. Draw 12 separate Figure S5 panels
+# 8. Draw 12 separate Figure S1 panels
 # ------------------------------------------------------------
 
 year_ticks <- seq(
@@ -1140,7 +1140,7 @@ save_functional_boxplot_panel <- function(
   output_file <- file.path(
     panel_output_dir,
     paste0(
-      "FigureS5_",
+      "FigureS1_",
       setting_name,
       "_cluster_",
       cluster_id,
@@ -1238,7 +1238,7 @@ readr::write_csv(
   panel_file_table,
   file.path(
     intermediate_dir,
-    "FigureS5_panel_files.csv"
+    "FigureS1_panel_files.csv"
   )
 )
 
@@ -1349,16 +1349,16 @@ message(
   nrow(
     panel_file_table
   ),
-  " separate Figure S5 panels under: ",
+  " separate Figure S1 panels under: ",
   panel_output_dir
 )
 
 message(
-  "Saved Figure S5 cluster assignments: ",
+  "Saved Figure S1 cluster assignments: ",
   cluster_output_file
 )
 
 message(
-  "Saved Figure S5 diagnostics: ",
+  "Saved Figure S1 diagnostics: ",
   diagnostic_file
 )
