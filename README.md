@@ -386,7 +386,7 @@ Software citation metadata are provided in [`CITATION.cff`](CITATION.cff).
 
 The version-specific reproducibility archive is available on Zenodo:
 
-[https://doi.org/10.5281/zenodo.21713886](https://doi.org/10.5281/zenodo.21878086)
+[https://doi.org/10.5281/zenodo.21878086](https://doi.org/10.5281/zenodo.21878086)
 
 ## License
 
