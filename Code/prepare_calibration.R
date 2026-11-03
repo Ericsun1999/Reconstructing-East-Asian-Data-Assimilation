@@ -1122,10 +1122,10 @@ build_f3_curve <- function(
   }
 
   data.frame(
-    alpha = current_grid,
-    f3_alpha = calibrated_latent_range
-  )
-}
+    alpha = calibrated_latent_range,
+    f3_alpha = current_grid
+  ) |>
+    dplyr::arrange(alpha)
 
 # ------------------------------------------------------------
 # 8. Run the three calibrations
@@ -1206,11 +1206,20 @@ f3_data <- build_f3_curve(
   target_pilot_range = pilot_range
 )
 
-calibrated_range <- monotone_inverse(
-  x = f3_data$alpha,
-  y = f3_data$f3_alpha,
-  target = pilot_range,
-  curve_name = "f3"
+# L5 correction:
+# fit_latent_range() directly computes f3^{-1}(pilot_range).
+# Do not invert the mapping a second time.
+
+calibrated_range <- fit_latent_range(
+  observed_range = pilot_range,
+  target_sill = pilot_partial_sill,
+  calibrated_total_variance =
+    calibrated_total_variance,
+  calibrated_process_variance =
+    calibrated_process_variance,
+  covariance_lookup = covariance_lookup,
+  distances = distance_grid,
+  range_bounds = latent_range_bounds
 )
 
 
