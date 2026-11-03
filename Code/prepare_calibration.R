@@ -1126,6 +1126,7 @@ build_f3_curve <- function(
     f3_alpha = current_grid
   ) |>
     dplyr::arrange(alpha)
+  }
 
 # ------------------------------------------------------------
 # 8. Run the three calibrations
