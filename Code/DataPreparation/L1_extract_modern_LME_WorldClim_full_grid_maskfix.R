@@ -1,12 +1,13 @@
+here::i_am("Code/DataPreparation/L1_extract_modern_LME_WorldClim_full_grid_maskfix.R")
 # L1: WorldClim climatology correction for all 266 CESM-LME cells + 3 stations
 # Keeps the historical repository unchanged; outputs only to Output/L1.
 # Run from repository root:
-# Rscript --vanilla Code/L1_extract_modern_LME_WorldClim_full_grid.R
+# Rscript --vanilla Code/DataPreparation/L1_extract_modern_LME_WorldClim_full_grid_maskfix.R
 suppressPackageStartupMessages({library(ncdf4); library(mgcv); library(terra)})
 
-nc_dir <- path.expand('~/Downloads/LME nc data')
-wc_dir <- path.expand('~/Downloads/wc2.1_30s_tavg')
-out_dir <- file.path('Output','L1')
+nc_dir <- path.expand(Sys.getenv('L1_LME_NC_DIR', '~/Downloads/LME nc data'))
+wc_dir <- path.expand(Sys.getenv('L1_WORLDCLIM_DIR', '~/Downloads/wc2.1_30s_tavg'))
+out_dir <- here::here('Output', 'L1')
 dir.create(out_dir, recursive=TRUE, showWarnings=FALSE)
 years <- 1970:2000
 lon_idx <- 40:58; lat_idx <- 58:71
