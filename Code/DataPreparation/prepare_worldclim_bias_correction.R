@@ -1,4 +1,4 @@
-here::i_am("Code/DataPreparation/L1_extract_modern_LME_WorldClim_full_grid_maskfix.R")
+here::i_am("Code/DataPreparation/prepare_worldclim_bias_correction.R")
 
 # L1: WorldClim climatology correction for all 266 CESM-LME cells + 3 stations
 # Keeps the historical repository unchanged; outputs only to Output/L1.
