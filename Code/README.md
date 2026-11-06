@@ -31,6 +31,7 @@ Code/
 │   ├── coverage_population_GAM.R
 │   └── interval_compatibility.R
 ├── DataPreparation/
+│   ├── L1_extract_modern_LME_WorldClim_full_grid_maskfix.R
 │   └── prepare_lme_annual.R
 ├── Supplementary/
 │   ├── FigureS1.R
@@ -148,6 +149,71 @@ Data/Get_data/GetLME.R
 ```
 
 The original NetCDF files are not required by the default workflow.
+
+
+### `DataPreparation/L1_extract_modern_LME_WorldClim_full_grid_maskfix.R`
+
+This script implements a preliminary WorldClim-based bias correction for the CESM Last Millennium Ensemble (LME), developed in response to revision item L1.
+
+It compares WorldClim v2.1 monthly mean temperatures (1970–2000, 30-arcsecond resolution) with the corresponding climatology from 13 CESM-LME ensemble members.
+
+For each location \(s\), the additive correction is defined as
+
+\[
+d(s) = \overline{W}(s) - \overline{L}_{1970:2000}(s),
+\]
+
+where \(\overline{W}(s)\) is the WorldClim annual mean temperature and \(\overline{L}_{1970:2000}(s)\) is the corresponding LME climatological mean.
+
+The script:
+
+- extracts modern (1970–2000) temperatures from the original LME NetCDF files;
+- applies spatial interpolation consistent with the existing LME preparation procedure;
+- extracts WorldClim temperatures at the 266 LME grid locations and three validation stations (Beijing, Shanghai, and Hong Kong);
+- computes location-specific additive temperature corrections;
+- identifies locations without valid WorldClim values, primarily ocean grid cells;
+- provisionally estimates missing corrections using inverse-distance weighting (IDW) from four nearby valid land locations; and
+- saves the climatologies, correction offsets, and diagnostic tables.
+
+The preliminary analysis identifies 89 LME grid cells used in Figure 6 and Supplementary Figure S1. Of these, 78 have directly available WorldClim values, while 11 require provisional IDW-based corrections.
+
+**Important:** The IDW treatment is preliminary and subject to further methodological review. This script computes correction offsets only; it does not yet apply them to the historical LME series, quantile mapping, or data assimilation.
+
+#### Required external data
+
+The script requires:
+
+1. The original CESM-LME NetCDF files containing TREFHT for 1970–2000, for all 13 ensemble members.
+2. The 12 WorldClim v2.1 monthly temperature GeoTIFF files (`wc2.1_30s_tavg_01.tif` through `wc2.1_30s_tavg_12.tif`).
+
+These large external datasets are not stored in this repository.
+
+The input directories can be configured using the environment variables `L1_LME_NC_DIR` and `L1_WORLDCLIM_DIR`.
+
+#### Execution
+
+Run from the repository root:
+
+```bash
+Rscript --vanilla Code/DataPreparation/L1_extract_modern_LME_WorldClim_full_grid_maskfix.R
+```
+
+#### Outputs
+
+The generated files are saved under `Output/L1/`, including:
+
+```text
+L1_worldclim_offsets_all_269.csv
+L1_worldclim_offsets_grid266.csv
+L1_worldclim_offsets_city3.csv
+L1_worldclim_masked_locations.csv
+L1_lme_annual_1970_2000_all_269.csv
+```
+
+These outputs are generated locally and are excluded from Git version control.
+
+This script is currently a standalone revision analysis and is not part of the default `run_all.R` workflow.
+
 
 ### `prepare_calibration.R`
 
@@ -671,6 +737,8 @@ The validation procedure:
 ## Recommended Execution Order
 
 The recommended order is encoded in `run_all.R`.
+
+The preliminary WorldClim bias-correction analysis for revision item L1 is currently executed separately using `DataPreparation/L1_extract_modern_LME_WorldClim_full_grid_maskfix.R`. It requires the external CESM-LME NetCDF and WorldClim GeoTIFF files and is not yet integrated into the main reconstruction workflow.
 
 The main dependency sequence is:
 
