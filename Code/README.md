@@ -31,8 +31,8 @@ Code/
 │   ├── coverage_population_GAM.R
 │   └── interval_compatibility.R
 ├── DataPreparation/
-│   ├── L1_extract_modern_LME_WorldClim_full_grid_maskfix.R
-│   └── prepare_lme_annual.R
+│   ├── prepare_lme_annual.R
+│   └── prepare_worldclim_bias_correction.R
 ├── Supplementary/
 │   ├── FigureS1.R
 │   ├── FigureS2.R
@@ -151,7 +151,7 @@ Data/Get_data/GetLME.R
 The original NetCDF files are not required by the default workflow.
 
 
-### `DataPreparation/L1_extract_modern_LME_WorldClim_full_grid_maskfix.R`
+### `DataPreparation/prepare_worldclim_bias_correction.R`
 
 This script implements a preliminary WorldClim-based bias correction for the CESM Last Millennium Ensemble (LME), developed in response to revision item L1.
 
@@ -195,7 +195,7 @@ The input directories can be configured using the environment variables `L1_LME_
 Run from the repository root:
 
 ```bash
-Rscript --vanilla Code/DataPreparation/L1_extract_modern_LME_WorldClim_full_grid_maskfix.R
+Rscript --vanilla Code/DataPreparation/prepare_worldclim_bias_correction.R
 ```
 
 #### Outputs
@@ -738,7 +738,7 @@ The validation procedure:
 
 The recommended order is encoded in `run_all.R`.
 
-The preliminary WorldClim bias-correction analysis for revision item L1 is currently executed separately using `DataPreparation/L1_extract_modern_LME_WorldClim_full_grid_maskfix.R`. It requires the external CESM-LME NetCDF and WorldClim GeoTIFF files and is not yet integrated into the main reconstruction workflow.
+The preliminary WorldClim bias-correction analysis for revision item L1 is currently executed separately using `DataPreparation/prepare_worldclim_bias_correction.R`. It requires the external CESM-LME NetCDF and WorldClim GeoTIFF files and is not yet integrated into the main reconstruction workflow.
 
 The main dependency sequence is:
 
