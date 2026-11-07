@@ -153,7 +153,7 @@ The original NetCDF files are not required by the default workflow.
 
 ### `DataPreparation/prepare_worldclim_bias_correction.R`
 
-This script implements a preliminary WorldClim-based bias correction for the CESM Last Millennium Ensemble (LME), developed in response to revision item L1.
+This script estimates location-specific climatological bias corrections for the CESM Last Millennium Ensemble (LME) using WorldClim v2.1 as an external reference.
 
 It compares WorldClim v2.1 monthly mean temperatures (1970–2000, 30-arcsecond resolution) with the corresponding climatology from 13 CESM-LME ensemble members.
 
@@ -175,9 +175,11 @@ The script:
 - provisionally estimates missing corrections using inverse-distance weighting (IDW) from four nearby valid land locations; and
 - saves the climatologies, correction offsets, and diagnostic tables.
 
-The preliminary analysis identifies 89 LME grid cells used in Figure 6 and Supplementary Figure S1. Of these, 78 have directly available WorldClim values, while 11 require provisional IDW-based corrections.
+Among the 89 LME grid cells used in Figure 6 and Supplementary Figure S1, 78 have directly available WorldClim values, while 11 require IDW-based corrections.
 
-**Important:** The IDW treatment is preliminary and subject to further methodological review. This script computes correction offsets only; it does not yet apply them to the historical LME series, quantile mapping, or data assimilation.
+For locations without valid WorldClim values, correction offsets are estimated using inverse-distance weighting (IDW) from four nearby land-grid locations. These interpolated corrections should be interpreted with caution, particularly for offshore locations.
+
+This script computes correction offsets only; it does not yet apply them to the historical LME series, quantile mapping, or data assimilation.
 
 #### Required external data
 
@@ -188,7 +190,7 @@ The script requires:
 
 These large external datasets are not stored in this repository.
 
-The input directories can be configured using the environment variables `L1_LME_NC_DIR` and `L1_WORLDCLIM_DIR`.
+The input directories can be configured using the environment variables `LME_NC_DIR` and `WORLDCLIM_DIR`.
 
 #### Execution
 
@@ -200,19 +202,21 @@ Rscript --vanilla Code/DataPreparation/prepare_worldclim_bias_correction.R
 
 #### Outputs
 
-The generated files are saved under `Output/L1/`, including:
+The generated files are saved under `Output/LME_Bias_Correction/`, including:
 
 ```text
-L1_worldclim_offsets_all_269.csv
-L1_worldclim_offsets_grid266.csv
-L1_worldclim_offsets_city3.csv
-L1_worldclim_masked_locations.csv
-L1_lme_annual_1970_2000_all_269.csv
+locations_all_269.csv
+worldclim_monthly_all_269.csv
+worldclim_masked_locations.csv
+lme_annual_1970_2000_all_269.csv
+worldclim_offsets_all_269.csv
+worldclim_offsets_grid266.csv
+worldclim_offsets_city3.csv
 ```
 
 These outputs are generated locally and are excluded from Git version control.
 
-This script is currently a standalone revision analysis and is not part of the default `run_all.R` workflow.
+The script runs independently of the default `run_all.R` workflow. Its correction offsets can be used to adjust the historical LME temperature fields before quantile mapping and data assimilation.
 
 
 ### `prepare_calibration.R`
@@ -738,7 +742,8 @@ The validation procedure:
 
 The recommended order is encoded in `run_all.R`.
 
-The preliminary WorldClim bias-correction analysis for revision item L1 is currently executed separately using `DataPreparation/prepare_worldclim_bias_correction.R`. It requires the external CESM-LME NetCDF and WorldClim GeoTIFF files and is not yet integrated into the main reconstruction workflow.
+The WorldClim-based LME bias-correction procedure can be executed separately using `DataPreparation/prepare_worldclim_bias_correction.R`. It requires the original CESM-LME NetCDF files and WorldClim GeoTIFF files and is not currently part of the default `run_all.R` workflow.
+
 
 The main dependency sequence is:
 
