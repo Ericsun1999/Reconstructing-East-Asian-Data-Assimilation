@@ -1,14 +1,20 @@
 here::i_am("Code/DataPreparation/prepare_worldclim_bias_correction.R")
 
-# L1: WorldClim climatology correction for all 266 CESM-LME cells + 3 stations
-# Keeps the historical repository unchanged; outputs only to Output/L1.
-# Run from repository root:
-# Rscript --vanilla Code/DataPreparation/L1_extract_modern_LME_WorldClim_full_grid_maskfix.R
+# WorldClim-based climatological bias correction for CESM-LME
+# Computes correction offsets for 266 LME grid cells and three validation stations.
+# Run from the repository root:
+# Rscript --vanilla Code/DataPreparation/prepare_worldclim_bias_correction.R
+
 suppressPackageStartupMessages({library(ncdf4); library(mgcv); library(terra)})
 
-nc_dir <- path.expand(Sys.getenv('L1_LME_NC_DIR', '~/Downloads/LME nc data'))
-wc_dir <- path.expand(Sys.getenv('L1_WORLDCLIM_DIR', '~/Downloads/wc2.1_30s_tavg'))
-out_dir <- here::here('Output', 'L1')
+nc_dir <- path.expand(Sys.getenv(
+  "LME_NC_DIR", "~/Downloads/LME nc data"
+))
+
+wc_dir <- path.expand(Sys.getenv(
+  "WORLDCLIM_DIR", "~/Downloads/wc2.1_30s_tavg"
+))
+out_dir <- here::here("Output", "LME_Bias_Correction")
 dir.create(out_dir, recursive=TRUE, showWarnings=FALSE)
 years <- 1970:2000
 lon_idx <- 40:58; lat_idx <- 58:71
@@ -36,7 +42,7 @@ stations <- data.frame(site=c('HongKong','Shanghai','Beijing'),
     latitude=c(22.333,31.167,39.933),type='station')
 locations <- rbind(grid, stations)
 stopifnot(nrow(grid)==266L, !anyDuplicated(locations$site))
-write.csv(locations,file.path(out_dir,'L1_locations_all_269.csv'),row.names=FALSE)
+write.csv(locations,file.path(out_dir,'locations_all_269.csv'),row.names=FALSE)
 
 # Extract monthly WorldClim values at each position. Do not construct a
 # full-resolution global annual raster (30s rasters are very large).
@@ -54,7 +60,7 @@ wc_valid <- rowSums(is.finite(wc_monthly)) == 12L
 message('WorldClim complete locations: ',sum(wc_valid), '/',length(wc_valid))
 message('WorldClim masked locations: ',sum(!wc_valid))
 write.csv(locations[!wc_valid,],
-  file.path(out_dir,'L1_worldclim_masked_locations.csv'),row.names=FALSE)
+  file.path(out_dir,'worldclim_masked_locations.csv'),row.names=FALSE)
 if (any(!wc_valid & locations$type == 'station')) {
   stop('WorldClim missing at a validation station; verify station coordinates/rasters')
 }
@@ -64,7 +70,7 @@ colnames(wc_monthly) <- sprintf('WorldClim_month_%02d_C',1:12)
 locations$WorldClim_1970_2000_C <- rowMeans(wc_monthly)
 locations$worldclim_available <- wc_valid
 write.csv(cbind(locations,wc_monthly),
-  file.path(out_dir,'L1_worldclim_monthly_all_269.csv'),row.names=FALSE)
+  file.path(out_dir,'worldclim_monthly_all_269.csv'),row.names=FALSE)
 
 # Thin-plate regression-spline linear operator: same form as station pilot.
 # The target includes every native grid cell and all validation stations.
@@ -119,7 +125,7 @@ for(j in 1:13) {
 }
 lme <- do.call(rbind,rows)
 stopifnot(nrow(lme)==13L*31L*nrow(locations),all(is.finite(lme$temp_C)))
-write.csv(lme,file.path(out_dir,'L1_lme_annual_1970_2000_all_269.csv'),row.names=FALSE)
+write.csv(lme,file.path(out_dir,'lme_annual_1970_2000_all_269.csv'),row.names=FALSE)
 clim <- aggregate(temp_C~site,lme,mean)
 names(clim)[2] <- 'LME_1970_2000_C'
 offsets <- merge(locations,clim,by='site',sort=FALSE)
@@ -153,11 +159,11 @@ stopifnot(all(is.finite(offsets$d_C)))
 message('Masked grid offsets estimated by IDW: ',length(target_idx),
         '; farthest nearest-land grid distance (km): ',
         if (length(target_idx)) round(max(offsets$distance_to_land_km[target_idx]),1) else 0)
-write.csv(offsets,file.path(out_dir,'L1_worldclim_offsets_all_269.csv'),row.names=FALSE)
+write.csv(offsets,file.path(out_dir,'worldclim_offsets_all_269.csv'),row.names=FALSE)
 write.csv(offsets[offsets$type=='grid',],
-  file.path(out_dir,'L1_worldclim_offsets_grid266.csv'),row.names=FALSE)
+  file.path(out_dir,'worldclim_offsets_grid266.csv'),row.names=FALSE)
 write.csv(offsets[offsets$type=='station',],
-  file.path(out_dir,'L1_worldclim_offsets_city3.csv'),row.names=FALSE)
+  file.path(out_dir,'worldclim_offsets_city3.csv'),row.names=FALSE)
 print(offsets[offsets$type=='station',c('site','WorldClim_1970_2000_C',
   'LME_1970_2000_C','d_C')],row.names=FALSE)
 message('Done: 266 grid cells + 3 validation stations; files saved in ',out_dir)
