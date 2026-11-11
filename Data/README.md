@@ -43,7 +43,7 @@ Data/
 
 The distributed reproducibility workflow begins with the prepared data files contained in this directory.
 
-In particular, the LME workflow begins with:
+In particular, the LME and WorldClim bias-correction workflows use the following prepared inputs:
 
 ```text
 Data/LME data/a1.csv.gz
