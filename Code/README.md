@@ -785,7 +785,9 @@ The validation procedure:
 
 The recommended order is encoded in `run_all.R`.
 
-The WorldClim-based LME bias-correction procedure can be executed separately using `DataPreparation/prepare_worldclim_bias_correction.R`. It requires the original CESM-LME NetCDF files and WorldClim GeoTIFF files and is not currently part of the default `run_all.R` workflow.
+
+The WorldClim-based LME bias correction is performed by `DataPreparation/prepare_worldclim_bias_correction.R` using the prepared offset table stored in `Data/WorldClim/worldclim_offsets_all_269.csv`. The original CESM-LME NetCDF and WorldClim GeoTIFF files are not required by the default workflow. Their optional upstream preparation is documented in `Data/Get_data/GetWorldClim.R`.
+
 
 
 The main dependency sequence is:
