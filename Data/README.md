@@ -151,7 +151,7 @@ The preparation script:
 
 - reads the 13 ensemble-member files;
 - constructs annual temperature fields for 1368–1911;
-- converts temperature from Kelvin to degrees Celsius where required;
+- converts the prepared temperatures from degrees Celsius to Kelvin to preserve the existing downstream data interface;
 - calculates the LME ensemble mean;
 - spatially interpolates the LME fields to the three nominal GHCN station coordinates; and
 - saves the resulting annual and city-specific products under `Output/Intermediate/LME/`.
