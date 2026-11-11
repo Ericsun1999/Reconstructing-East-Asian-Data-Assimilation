@@ -170,6 +170,53 @@ Further information about the optional upstream NetCDF conversion is provided in
 Data/Get_data/README.md
 ```
 
+
+### WorldClim Climatological Bias-Correction Data
+
+The prepared WorldClim bias-correction data are stored in:
+
+```text
+Data/WorldClim/worldclim_offsets_all_269.csv
+```
+
+This file contains location-specific additive temperature corrections for the CESM Last Millennium Ensemble (LME).
+
+The corrections are calculated by comparing WorldClim v2.1 mean temperatures for 1970–2000 with the corresponding climatology from 13 CESM-LME ensemble members.
+
+The file contains 269 locations:
+
+- 266 native LME grid locations;
+- Beijing, Shanghai, and Hong Kong validation stations.
+
+The main variables include:
+
+- `site`: location identifier;
+- `longitude`, `latitude`: spatial coordinates;
+- `type`: grid location or validation station;
+- `WorldClim_1970_2000_C`: WorldClim reference climatology;
+- `LME_1970_2000_C`: corresponding LME climatology;
+- `d_C`: additive correction in degrees Celsius;
+- `worldclim_available`: availability of a direct WorldClim value;
+- `correction_method`: method used to determine the correction.
+
+Locations without valid WorldClim data have missing correction values and are not automatically corrected using inverse-distance weighting (IDW).
+
+The prepared CSV is used by:
+
+```text
+Code/DataPreparation/prepare_worldclim_bias_correction.R
+```
+
+The original WorldClim GeoTIFF and LME NetCDF preparation procedure is documented in:
+
+```text
+Data/Get_data/GetWorldClim.R
+Data/Get_data/README.md
+```
+
+The default reproducibility workflow uses the prepared CSV and does not require the original large climate archives.
+
+
 ## 3. GHCN Instrumental Temperature Data
 
 The GHCN data used for instrumental validation are stored in:
