@@ -190,11 +190,7 @@ The three-city historical LME series have already undergone thin-plate spline in
 
 The WorldClim correction is applied afterward as a constant location-specific additive shift:
 
-$$
-T_{\mathrm{corrected}}(s,t,j)
-=
-T_{\mathrm{original}}(s,t,j) + d(s),
-$$
+$$ T_{\mathrm{corrected}}(s,t,j) = T_{\mathrm{original}}(s,t,j) + d(s), $$
 
 where \(t\) denotes calendar year and \(j\) denotes ensemble member.
 
