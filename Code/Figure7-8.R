@@ -1242,6 +1242,7 @@ save_png(
   height = 3.5
 )
 
+
 figure7d_data <- beijing$lme_member_data
 
 save_png(
@@ -1258,23 +1259,14 @@ save_png(
           density
         )
       ),
-      breaks = seq(
-        5,
-        9,
-        by = 0.1
-      ),
+      binwidth = 0.1,
+      boundary = 0,
       colour = "white",
       fill = "deepskyblue"
     ) +
     geom_density(
       colour = "black",
       linewidth = 0.4
-    ) +
-    coord_cartesian(
-      xlim = c(
-        5,
-        9
-      )
     ) +
     labs(
       x = expression(
@@ -1297,6 +1289,7 @@ save_png(
   width = 6,
   height = 3.5
 )
+
 
 # ------------------------------------------------------------
 # 9. Figure 8(a): Beijing mapped reconstruction
