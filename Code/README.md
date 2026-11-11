@@ -129,7 +129,7 @@ Data/LME data/a13.csv.gz
 It:
 
 - constructs annual temperature fields for 1368–1911;
-- converts temperature from Kelvin to degrees Celsius;
+- converts the prepared temperatures from degrees Celsius to Kelvin to preserve the existing downstream data interface;
 - calculates the LME ensemble mean;
 - interpolates the LME fields to the nominal GHCN station coordinates for Beijing, Shanghai, and Hong Kong; and
 - saves the annual and city-specific LME products.
