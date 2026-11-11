@@ -151,46 +151,56 @@ Data/Get_data/GetLME.R
 The original NetCDF files are not required by the default workflow.
 
 
+
 ### `DataPreparation/prepare_worldclim_bias_correction.R`
 
-This script estimates location-specific climatological bias corrections for the CESM Last Millennium Ensemble (LME) using WorldClim v2.1 as an external reference.
+This script applies WorldClim-based climatological bias corrections to historical CESM-LME temperature fields.
 
-It compares WorldClim v2.1 monthly mean temperatures (1970–2000, 30-arcsecond resolution) with the corresponding climatology from 13 CESM-LME ensemble members.
+The original WorldClim and modern LME data are processed separately using:
 
-For each location \(s\), the additive correction is defined as
+```text
+Data/Get_data/GetWorldClim.R
+```
 
-\[
+This optional upstream preparation generates:
+
+```text
+Data/WorldClim/worldclim_offsets_all_269.csv
+```
+
+The prepared input contains additive corrections for 266 native LME grid locations and three validation stations.
+
+For each location \(s\), the correction is defined by:
+
+$$
 d(s) = \overline{W}(s) - \overline{L}_{1970:2000}(s),
-\]
+$$
 
-where \(\overline{W}(s)\) is the WorldClim annual mean temperature and \(\overline{L}_{1970:2000}(s)\) is the corresponding LME climatological mean.
+where \(\overline{W}(s)\) is the WorldClim climatological mean and \(\overline{L}_{1970:2000}(s)\) is the corresponding mean of the 13 LME members over 1970–2000.
 
-The script:
+#### Historical LME correction
 
-- extracts modern (1970–2000) temperatures from the original LME NetCDF files;
-- applies spatial interpolation consistent with the existing LME preparation procedure;
-- extracts WorldClim temperatures at the 266 LME grid locations and three validation stations (Beijing, Shanghai, and Hong Kong);
-- computes location-specific additive temperature corrections;
-- identifies locations without valid WorldClim values, primarily ocean grid cells;
-- provisionally estimates missing corrections using inverse-distance weighting (IDW) from four nearby valid land locations; and
-- saves the climatologies, correction offsets, and diagnostic tables.
+The historical LME annual temperatures are first prepared by:
 
-Among the 89 LME grid cells used in Figure 6 and Supplementary Figure S1, 78 have directly available WorldClim values, while 11 require IDW-based corrections.
+```text
+Code/DataPreparation/prepare_lme_annual.R
+```
 
-For locations without valid WorldClim values, correction offsets are estimated using inverse-distance weighting (IDW) from four nearby land-grid locations. These interpolated corrections should be interpreted with caution, particularly for offshore locations.
+The three-city historical LME series have already undergone thin-plate spline interpolation.
 
-This script computes correction offsets only; it does not yet apply them to the historical LME series, quantile mapping, or data assimilation.
+The WorldClim correction is applied afterward as a constant location-specific additive shift:
 
-#### Required external data
+$$
+T_{\mathrm{corrected}}(s,t,j)
+=
+T_{\mathrm{original}}(s,t,j) + d(s),
+$$
 
-The script requires:
+where \(t\) denotes calendar year and \(j\) denotes ensemble member.
 
-1. The original CESM-LME NetCDF files containing TREFHT for 1970–2000, for all 13 ensemble members.
-2. The 12 WorldClim v2.1 monthly temperature GeoTIFF files (`wc2.1_30s_tavg_01.tif` through `wc2.1_30s_tavg_12.tif`).
+The same correction is used for every historical year and ensemble member.
 
-These large external datasets are not stored in this repository.
-
-The input directories can be configured using the environment variables `LME_NC_DIR` and `WORLDCLIM_DIR`.
+The original uncorrected LME products are preserved.
 
 #### Execution
 
@@ -200,23 +210,58 @@ Run from the repository root:
 Rscript --vanilla Code/DataPreparation/prepare_worldclim_bias_correction.R
 ```
 
+The script reads the prepared WorldClim offsets and historical LME RDS files. It does not read the original NetCDF or GeoTIFF archives.
+
 #### Outputs
 
-The generated files are saved under `Output/LME_Bias_Correction/`, including:
+Corrected products are saved under:
 
 ```text
-locations_all_269.csv
-worldclim_monthly_all_269.csv
-worldclim_masked_locations.csv
-lme_annual_1970_2000_all_269.csv
-worldclim_offsets_all_269.csv
-worldclim_offsets_grid266.csv
-worldclim_offsets_city3.csv
+Output/Intermediate/LME/WorldClim_Corrected/
 ```
 
-These outputs are generated locally and are excluded from Git version control.
+Important outputs include:
 
-The script runs independently of the default `run_all.R` workflow. Its correction offsets can be used to adjust the historical LME temperature fields before quantile mapping and data assimilation.
+```text
+lme_city3_annual_1368_1911.csv
+lme_city3_annual_1368_1911.rds
+lme_land_grid_corrected_annual_1368_1911.rds
+worldclim_grid_correction_status.csv
+worldclim_correction_diagnostics.csv
+```
+
+The corrected city CSV preserves the `temperature_kelvin` column expected by the downstream analysis scripts.
+
+The corrected city data are used in:
+
+- `Figure3.R`;
+- `Figure7-8.R`;
+- `Prior.R`; and
+- `Figure9d.R`.
+
+#### Spatial correction and missing WorldClim values
+
+WorldClim provides direct reference values only for locations covered by its land-temperature dataset.
+
+The prepared correction table retains all 266 LME grid locations and three validation stations, including locations without valid WorldClim values.
+
+Corrections are applied only where a direct WorldClim value is available. Missing offshore corrections are not automatically replaced by inverse-distance weighting (IDW).
+
+The corrected land-grid RDS is a separate subset product and cannot directly replace the complete 266-location historical LME archive used by `Assimilation_grid.R`.
+
+The treatment of offshore locations in spatial data assimilation remains separate from the three-city validation workflow.
+
+#### Upstream reproducibility
+
+The optional upstream procedure, original data sources, download instructions, and required external files are documented in:
+
+```text
+Data/Get_data/GetWorldClim.R
+Data/Get_data/README.md
+```
+
+The default reproducibility workflow does not require the original large NetCDF or WorldClim GeoTIFF files.
+
 
 
 ### `prepare_calibration.R`
