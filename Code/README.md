@@ -134,6 +134,8 @@ It:
 - interpolates the LME fields to the nominal GHCN station coordinates for Beijing, Shanghai, and Hong Kong; and
 - saves the annual and city-specific LME products.
 
+Analysis scripts convert the stored Kelvin temperatures back to degrees Celsius where required.
+
 Important outputs include:
 
 ```text
