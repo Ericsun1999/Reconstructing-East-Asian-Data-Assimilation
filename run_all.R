@@ -276,6 +276,21 @@ workflow <- list(
     )
   ),
   list(
+    id = "correct_lme_city",
+    script = file.path(
+      "Code",
+      "DataPreparation",
+      "apply_worldclim_correction.R"
+    ),
+    expected = c(
+      file.path(
+        "Output", "Intermediate", "LME",
+        "WorldClim_Corrected",
+        "lme_city3_annual_1368_1911.csv"
+      )
+    )
+  ),
+  list(
     id = "calibration",
     script = file.path(
       "Code",
