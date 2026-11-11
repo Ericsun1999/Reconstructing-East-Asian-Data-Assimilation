@@ -280,7 +280,7 @@ workflow <- list(
     script = file.path(
       "Code",
       "DataPreparation",
-      "apply_worldclim_correction.R"
+      "prepare_worldclim_bias_correction.R"
     ),
     expected = c(
       file.path(
