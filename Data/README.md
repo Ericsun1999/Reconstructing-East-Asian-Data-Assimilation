@@ -50,13 +50,13 @@ Data/LME data/a1.csv.gz
 Data/LME data/a2.csv.gz
 ...
 Data/LME data/a13.csv.gz
+Data/WorldClim/worldclim_offsets_all_269.csv
 ```
 
 The original LME NetCDF files are not redistributed in this repository because of their size. The optional upstream conversion script is retained under:
 
 ```text
 Data/Get_data/GetLME.R
-Data/WorldClim/worldclim_offsets_all_269.csv
 ```
 
 This script documents the conversion from the original NetCDF files to the prepared gzip-compressed member files, but it is not called by the default `run_all.R` workflow.
