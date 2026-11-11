@@ -28,6 +28,7 @@ Data/
 ├── Population/                    Historical population raster data
 ├── REACHES/                       Repository-supplied REACHES-related data products
 ├── Valid/                         City-specific assimilation files used for validation
+├── WorldClim/                     Prepared WorldClim bias-correction offsets
 ├── par/                           Reference city-specific prior-parameter estimates
 ├── GHCNv4.xlsx                    GHCN instrumental temperature data
 ├── data_dictionary.csv            Variable-level data documentation
@@ -55,6 +56,7 @@ The original LME NetCDF files are not redistributed in this repository because o
 
 ```text
 Data/Get_data/GetLME.R
+Data/WorldClim/worldclim_offsets_all_269.csv
 ```
 
 This script documents the conversion from the original NetCDF files to the prepared gzip-compressed member files, but it is not called by the default `run_all.R` workflow.
