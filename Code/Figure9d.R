@@ -191,6 +191,7 @@ generated_inputs <- list(
     "Output",
     "Intermediate",
     "LME",
+    "WorldClim_Corrected",
     "lme_city3_annual_1368_1911.csv"
   ),
   parameter_dir = here::here(
