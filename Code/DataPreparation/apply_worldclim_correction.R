@@ -20,7 +20,20 @@ offset_override <- Sys.getenv("WORLDCLIM_OFFSETS_FILE", unset = "")
 offset_file <- if (nzchar(offset_override)) {
   path.expand(offset_override)
 } else {
-  here::here("Data", "LME data", "worldclim_offsets_city3.csv")
+  offset_override <- Sys.getenv(
+  "WORLDCLIM_OFFSETS_FILE",
+  unset = ""
+)
+
+offset_file <- if (nzchar(offset_override)) {
+  path.expand(offset_override)
+} else {
+  here::here(
+    "Output",
+    "LME_Bias_Correction",
+    "worldclim_offsets_city3.csv"
+  )
+}
 }
 if (!file.exists(offset_file)) {
   stop("Missing WorldClim offset file: ", offset_file)
