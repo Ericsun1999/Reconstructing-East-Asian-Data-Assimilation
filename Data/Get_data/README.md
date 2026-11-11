@@ -116,7 +116,7 @@ That script:
 - reads the 13 prepared ensemble-member files;
 - converts monthly values to annual temperature fields;
 - constructs the 1368–1911 analysis period;
-- converts temperature from Kelvin to degrees Celsius;
+- converts the prepared temperatures from degrees Celsius to Kelvin to preserve the existing downstream data interface;
 - calculates the ensemble mean; and
 - spatially interpolates the LME fields to the nominal GHCN station coordinates used in the city-specific analyses.
 
