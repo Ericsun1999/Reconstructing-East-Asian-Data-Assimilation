@@ -336,6 +336,21 @@ Rscript --vanilla Data/Get_data/GetWorldClim.R
 
 The script extracts 1970–2000 monthly LME temperatures, calculates annual means, and uses a thin-plate regression spline (`bs = "tp"`, `k = 266`, `sp = 1e-8`) to obtain the LME climatology at the target locations.
 
+
+The interpolation uses all 266 native LME grid locations with equal fitting weights and untransformed longitude-latitude coordinates. The same spline basis, basis dimension, smoothing parameter, and coordinate specification are used for the historical and reference-period LME fields.
+
+Native-grid reconstruction errors are evaluated at locations with valid WorldClim land-temperature references. The resulting RMSE and maximum absolute errors for each ensemble member and reference year are saved in:
+
+```text
+Output/LME_Bias_Correction/lme_spline_native_grid_errors_modern.csv
+```
+
+The interpolation specification is also saved in:
+
+```text
+Data/WorldClim/lme_spline_specification_modern.csv
+```
+
 For each location `s`, the additive correction is:
 
 ```math
