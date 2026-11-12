@@ -85,7 +85,7 @@ fixed_lambda1 <- 1000
 fixed_lambda2 <- 10^1.5
 fixed_lambda3 <- 1000
 
-prior_max_iter <- 100L
+prior_max_iter <- 150L
 prior_tol <- 1e-6
 prior_verbose <- FALSE
 
