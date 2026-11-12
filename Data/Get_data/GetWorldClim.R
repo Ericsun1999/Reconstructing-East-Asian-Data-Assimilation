@@ -17,7 +17,151 @@ suppressPackageStartupMessages({
   library(mgcv)
   library(terra)
 })
-source(here::here("Code", "DataPreparation", "lme_spline_common.R"))
+# ============================================================
+# Local spline functions (self-contained; no external helper file).
+# Identical implementation in GetWorldClim.R and this script.
+# Native training: all 266 LME nodes; diagnostic scoring: direct land nodes.
+# ============================================================
+
+# Shared thin-plate regression-spline implementation for CESM-LME.
+# Used by both the 1970-2000 upstream climatology preparation and the
+# 1368-1911 historical WorldClim-correction/audit step.
+# The independently prepared historical city RDS is explicitly verified
+# against this operator before corrections are applied.
+
+lme_coordinate_key <- function(lon, lat) {
+  sprintf("%.8f|%.8f", as.numeric(lon), as.numeric(lat))
+}
+
+build_lme_spline_operator <- function(train_coords, target_coords) {
+  stopifnot(requireNamespace("mgcv", quietly = TRUE))
+  train_coords <- as.data.frame(train_coords)
+  target_coords <- as.data.frame(target_coords)
+  expected <- c("long", "lati")
+  if (!all(expected %in% names(train_coords)) ||
+      !all(expected %in% names(target_coords)) ||
+      nrow(train_coords) != 266L ||
+      any(!is.finite(as.matrix(train_coords[, expected]))) ||
+      any(!is.finite(as.matrix(target_coords[, expected]))) ||
+      anyDuplicated(lme_coordinate_key(train_coords$long, train_coords$lati))) {
+    stop("Invalid or duplicated 266-node LME training coordinates.")
+  }
+
+  # Untransformed longitude / latitude in decimal degrees, EPSG:4326.
+  # The original and reference-period fits use all 266 native grid nodes
+  # with equally weighted observations (w_i = 1); no separate sp selection.
+  basis_dimension <- 266L
+  fixed_sp <- 1e-8
+  smooth <- mgcv::smoothCon(
+    mgcv::s(long, lati, bs = "tp", k = basis_dimension),
+    data = train_coords, absorb.cons = TRUE, scale.penalty = TRUE
+  )[[1]]
+  if (length(smooth$S) != 1L) {
+    stop("Expected one mgcv thin-plate spline penalty matrix.")
+  }
+  train_design <- cbind(intercept = 1, smooth$X)
+  target_design <- cbind(
+    intercept = 1,
+    mgcv::PredictMat(smooth, target_coords)
+  )
+  penalty <- matrix(0, ncol(train_design), ncol(train_design))
+  penalty[-1, -1] <- smooth$S[[1]]
+  # Explicit weight specification: w_i = 1 for all 266 locations.
+  # This reduces to crossprod(X), exactly as in prepare_lme_annual.R.
+  weights <- rep(1, nrow(train_design))
+  normal <- crossprod(train_design, weights * train_design) +
+    fixed_sp * penalty
+  conditioning <- rcond(normal)
+  if (!is.finite(conditioning) || conditioning < 1e-14) {
+    stop("LME thin-plate spline system is numerically singular.")
+  }
+  operator <- target_design %*% solve(
+    normal,
+    sweep(t(train_design), 2L, weights, "*")
+  )
+  # Every member and year has the same operator; Kelvin and Celsius
+  # temperature differences have identical numerical magnitudes.
+  list(
+    operator = operator,
+    basis = "thin-plate regression spline (mgcv bs=tp)",
+    basis_dimension = basis_dimension,
+    coefficient_dimension = ncol(train_design),
+    smoothing_parameter = fixed_sp,
+    fitting_weights = "equal, 1 at each native grid point",
+    coordinate_specification =
+      "WGS84 EPSG:4326; raw longitude/latitude decimal degrees; no transform",
+    training_coordinate_signature = paste(
+      lme_coordinate_key(train_coords$long, train_coords$lati),
+      collapse = ";"
+    ),
+    reciprocal_condition_number = conditioning
+  )
+}
+
+lme_spline_specification <- function(fit, period) {
+  data.frame(
+    period = as.character(period),
+    basis = fit$basis,
+    k = fit$basis_dimension,
+    coefficient_dimension = fit$coefficient_dimension,
+    sp = fit$smoothing_parameter,
+    fitting_weights = fit$fitting_weights,
+    coordinate_specification = fit$coordinate_specification,
+    training_coordinate_signature = fit$training_coordinate_signature,
+    number_of_native_grid_nodes = 266L,
+    reciprocal_condition_number = fit$reciprocal_condition_number,
+    stringsAsFactors = FALSE
+  )
+}
+
+# Reconstruct with the FULL 266-node fitting grid, but score only the
+# subset with a direct WorldClim land reference. We intentionally do not
+# remove offshore nodes from the spline training data: doing so would
+# change the spline basis and historical/reference comparability.
+lme_spline_native_grid_errors <- function(predicted_native,
+                                          original_native,
+                                          years, members,
+                                          period,
+                                          diagnostic_rows) {
+  predicted_native <- matrix(predicted_native, nrow = 266L)
+  original_native <- matrix(original_native, nrow = 266L)
+  expected_fields <- length(years) * length(members)
+  if (!identical(dim(predicted_native), dim(original_native)) ||
+      ncol(predicted_native) != expected_fields ||
+      any(!is.finite(predicted_native)) ||
+      any(!is.finite(original_native))) {
+    stop("Invalid native-grid reconstruction diagnostic arrays.")
+  }
+  if (!is.numeric(diagnostic_rows) || length(diagnostic_rows) == 0L ||
+      anyNA(diagnostic_rows) ||
+      any(diagnostic_rows != as.integer(diagnostic_rows)) ||
+      any(diagnostic_rows < 1L | diagnostic_rows > 266L) ||
+      anyDuplicated(diagnostic_rows)) {
+    stop("Expected nonempty, unique land-node diagnostic row indices within 1:266.")
+  }
+  # Compare interpolated and original UNCORRECTED native-grid temperatures.
+  # The scored locations are specifically the direct-WorldClim land nodes.
+  errors <- (predicted_native - original_native)[diagnostic_rows, , drop = FALSE]
+  fields <- expand.grid(year = years, member = members,
+                        KEEP.OUT.ATTRS = FALSE,
+                        stringsAsFactors = FALSE)
+  data.frame(
+    period = as.character(period),
+    diagnostic_scope = "WorldClim_direct_land_grid_only",
+    number_of_training_nodes = 266L,
+    number_of_scored_land_nodes = length(diagnostic_rows),
+    member = fields$member,
+    year = fields$year,
+    rmse_C = sqrt(colMeans(errors^2)),
+    max_abs_error_C = apply(abs(errors), 2L, max),
+    mean_error_C = colMeans(errors),
+    stringsAsFactors = FALSE
+  )
+}
+
+# ============================================================
+# End local spline functions
+# ============================================================
 
 nc_dir <- path.expand(Sys.getenv("LME_NC_DIR", "~/Downloads/LME nc data"))
 wc_dir <- path.expand(Sys.getenv("WORLDCLIM_DIR", "~/Downloads/wc2.1_30s_tavg"))
