@@ -398,7 +398,13 @@ Output/Intermediate/Assimilation/assimilated_posterior_lme_grid_diagnostics.csv
 Output/Intermediate/Assimilation/assimilated_posterior_lme_grid_metadata.csv
 ```
 
-The full-grid assimilation uses the fixed spatial penalty values documented in the script.
+The spatial assimilation uses the fixed penalty values documented in the script. By default, `location_scope = "figure6"` processes the locations selected for Figure 6; setting `location_scope = "all_lme"` processes all native LME grid locations.
+
+#### Measurement-Equation Projection
+
+For each location, quantile mapping converts the kriged REACHES index to the LME temperature scale. A joint Monte Carlo calculation samples from the empirical distribution of annual kriging predictions and their associated prediction uncertainties. For each informative year, the corresponding kriging uncertainty determines a simulated pair of latent and kriged indices. Applying the fitted quantile map to both samples yields the intercept, slope, and projection-residual variance in the working measurement equation.
+
+The measurement Monte Carlo sample size defaults to 100,000 draws with a fixed random seed. The location-specific prior fitting uses a maximum of 150 iterations. The diagnostics file records the Monte Carlo configuration, measurement coefficients, prior convergence information, posterior displacement relative to LME, and numerical checks. Checkpoints are accepted only when their stored settings match the current configuration.
 
 ## Main-Manuscript Figure Scripts
 
@@ -618,6 +624,12 @@ Output/Supplementary/FigureS5d.png
 ```
 
 The script runs the annual Kalman filter and Rauch–Tung–Striebel smoother for all three cities.
+
+#### Measurement-Equation Projection
+
+The measurement-equation coefficients are estimated through a joint Monte Carlo projection using the empirical distribution of the kriged REACHES indices and their prediction standard deviations. Each draw samples a latent index from the empirical reference mixture, then generates a corresponding kriged index using the year-specific information fraction and kriging uncertainty. The fitted quantile map transforms both indices to the temperature scale.
+
+For each informative year, a linear projection of the simulated calibrated proxy on the simulated latent temperature provides the intercept, slope, and residual variance used in the Kalman measurement equation. The default sample size is 100,000 draws with a fixed random seed. The assimilation metadata also records the reference mean, reference sample size, Monte Carlo variance, posterior-minus-LME displacement, and the frequency with which the posterior falls below both contemporaneous inputs.
 
 Years without documentary information are retained in the annual state sequence and are handled through prediction-only Kalman steps.
 
