@@ -82,8 +82,16 @@ if (!input_mode %in% allowed_input_modes) {
   )
 }
 
-measurement_mc_size <- 10000L
+# B = 1e5 for the final L3 analysis; override for smoke tests.
+measurement_mc_size <- suppressWarnings(as.integer(
+  Sys.getenv("L3_MC_SIZE", unset = "100000")
+))
+if (length(measurement_mc_size) != 1L ||
+    is.na(measurement_mc_size) || measurement_mc_size < 1000L) {
+  stop("L3_MC_SIZE must be an integer >= 1000.")
+}
 measurement_mc_seed <- 1L
+measurement_projection_method <- "empirical_reference_joint_mc_v1"
 
 # The numerical representation of g(y) is constructed over a
 # very wide latent-Gaussian range. Increase grid_size for a finer
@@ -1442,174 +1450,107 @@ compute_measurement_parameters_mc <- function(
     vhat,
     g,
     n_mc,
-    seed) {
+    seed,
+    reference_yhat,
+    reference_nu,
+    target_nu = reference_nu) {
 
-  vhat <- as.numeric(
-    vhat
-  )
+  # L3: empirical-reference joint Monte Carlo projection.
+  # For L2 blocked CV, the reference values can be restricted
+  # to training years while target_nu comes from held-out years.
+  reference_yhat <- as.numeric(reference_yhat)
+  reference_nu <- as.numeric(reference_nu)
+  target_nu <- as.numeric(target_nu)
+  vhat <- as.numeric(vhat)
 
-  if (
-    any(!is.finite(
-      vhat
-    )) ||
-      any(
-        vhat <
-          -variance_tolerance
-      ) ||
-      any(
-        vhat >
-          sigmaY2 +
-            variance_tolerance
-      )
-  ) {
-    stop(
-      "All Var(Yhat_t) values must lie in [0, sigmaY2]."
-    )
+  if (!is.finite(sigmaY2) || sigmaY2 <= 0 ||
+      length(reference_yhat) == 0L ||
+      length(reference_yhat) != length(reference_nu) ||
+      length(vhat) == 0L ||
+      length(vhat) != length(target_nu) ||
+      any(!is.finite(reference_yhat)) ||
+      any(!is.finite(reference_nu)) ||
+      any(reference_nu < 0) ||
+      any(!is.finite(target_nu)) ||
+      any(target_nu < 0) ||
+      any(!is.finite(vhat)) ||
+      any(vhat < -variance_tolerance) ||
+      any(vhat > sigmaY2 + variance_tolerance)) {
+    stop("Invalid inputs to L3 empirical-reference joint MC.")
+  }
+  if (length(n_mc) != 1L || !is.finite(n_mc) ||
+      n_mc < 1000 || n_mc != as.integer(n_mc)) {
+    stop("n_mc must be an integer at least 1000.")
   }
 
-  vhat <- pmin(
-    pmax(
-      vhat,
-      0
-    ),
-    sigmaY2
-  )
+  # kappa_t = 1 - nu_t^2 / sigmaY2.
+  # The caller supplies vhat = sigmaY2 - nu_t^2,
+  # with any necessary numerical clipping documented upstream.
+  kappa <- pmin(pmax(vhat / sigmaY2, 0), 1)
+  reference_mean <- mean(reference_yhat)
+  n_reference <- length(reference_yhat)
 
-  set.seed(
-    seed
-  )
+  # Common random numbers across target years.
+  set.seed(seed)
+  index <- sample.int(n_reference, size = n_mc, replace = TRUE)
+  latent_y <- reference_yhat[index] +
+    reference_nu[index] * stats::rnorm(n_mc)
+  z2 <- stats::rnorm(n_mc)
 
-  number_of_years <- length(
-    vhat
-  )
+  X <- as.numeric(g(latent_y))
+  if (length(X) != n_mc || any(!is.finite(X))) {
+    stop("The L3 calibration map g returned invalid latent temperatures.")
+  }
+  mean_X <- mean(X)
+  centered_X <- X - mean_X
+  sumsq_X <- sum(centered_X^2)
+  if (!is.finite(sumsq_X) || sumsq_X <= 0) {
+    stop("The L3 MC calibration sample has zero temperature variance.")
+  }
 
-  alpha <- numeric(
-    number_of_years
-  )
+  n_targets <- length(vhat)
+  alpha <- numeric(n_targets)
+  beta <- numeric(n_targets)
+  vdelta <- numeric(n_targets)
+  maximum_absolute_latent_draw <- max(abs(latent_y))
 
-  beta <- numeric(
-    number_of_years
-  )
-
-  vdelta <- numeric(
-    number_of_years
-  )
-
-  maximum_absolute_latent_draw <- 0
-
-  for (
-    t in seq_len(
-      number_of_years
-    )
-  ) {
-
-    current_vhat <- vhat[t]
-
-    # This exact representation gives:
-    #   Var(Yhat) = current_vhat
-    #   Var(Y)    = sigmaY2
-    #   Cov(Y, Yhat) = current_vhat
-    #
-    # No rounding or clipping is applied because Y and Yhat are
-    # continuous latent Gaussian variables.
-    Yhat <- sqrt(
-      current_vhat
-    ) *
-      rnorm(
-        n_mc
-      )
-
-    Y <- Yhat +
-      sqrt(
-        pmax(
-          sigmaY2 -
-            current_vhat,
-          0
-        )
-      ) *
-      rnorm(
-        n_mc
-      )
+  for (t in seq_len(n_targets)) {
+    # Yhat_t = mean(Yhat_reference) +
+    #          kappa_t * (Y - mean(Yhat_reference)) +
+    #          sqrt(kappa_t) * nu_t * Z2.
+    latent_yhat <- reference_mean +
+      kappa[t] * (latent_y - reference_mean) +
+      sqrt(kappa[t]) * target_nu[t] * z2
 
     maximum_absolute_latent_draw <- max(
-      maximum_absolute_latent_draw,
-      abs(
-        Y
-      ),
-      abs(
-        Yhat
-      )
+      maximum_absolute_latent_draw, max(abs(latent_yhat))
     )
 
-    X <- g(
-      Y
-    )
-
-    Xstar <- g(
-      Yhat
-    )
-
-    variance_X <- stats::var(
-      X
-    )
-
-    if (
-      !is.finite(
-        variance_X
-      ) ||
-        variance_X <= 0
-    ) {
-      stop(
-        "A non-positive Monte Carlo variance was obtained at ",
-        "measurement year index ",
-        t,
-        "."
-      )
+    Xstar <- as.numeric(g(latent_yhat))
+    if (length(Xstar) != n_mc || any(!is.finite(Xstar))) {
+      stop("Invalid L3 MC calibrated proxies in target index ", t, ".")
     }
 
-    beta_t <- stats::cov(
-      Xstar,
-      X
-    ) /
-      variance_X
+    # OLS projection of g(Yhat_t) on intercept and g(Y).
+    mean_Xstar <- mean(Xstar)
+    beta_t <- sum(centered_X * (Xstar - mean_Xstar)) / sumsq_X
+    alpha_t <- mean_Xstar - beta_t * mean_X
+    delta <- Xstar - alpha_t - beta_t * X
 
-    alpha_t <- mean(
-      Xstar
-    ) -
-      beta_t *
-        mean(
-          X
-        )
-
-    delta <- Xstar -
-      alpha_t -
-      beta_t *
-        X
-
-    alpha[
-      t
-    ] <- alpha_t
-
-    beta[
-      t
-    ] <- beta_t
-
-    vdelta[
-      t
-    ] <- pmax(
-      stats::var(
-        delta
-      ),
-      1e-10
-    )
+    alpha[t] <- alpha_t
+    beta[t] <- beta_t
+    vdelta[t] <- max(mean(delta^2), 1e-10)
   }
 
   list(
     alpha = alpha,
     beta = beta,
     vdelta = vdelta,
-    maximum_absolute_latent_draw =
-      maximum_absolute_latent_draw
+    maximum_absolute_latent_draw = maximum_absolute_latent_draw,
+    reference_mean = reference_mean,
+    reference_n_years = n_reference,
+    reference_latent_mc_mean = mean(latent_y),
+    reference_latent_mc_variance = stats::var(latent_y)
   )
 }
 
@@ -2311,6 +2252,9 @@ process_city <- function(
     compute_measurement_parameters_mc(
       sigmaY2 = sigmaY2,
       vhat = clipped_vhat,
+      reference_yhat = city_kriging$reaches_index_mean,
+      reference_nu = city_kriging$reaches_index_sd,
+      target_nu = city_kriging$reaches_index_sd,
       g = quantile_mapping$g,
       n_mc = measurement_mc_size,
       seed =
@@ -2666,6 +2610,19 @@ process_city <- function(
       number_vhat_clipped,
     measurement_mc_size =
       measurement_mc_size,
+    measurement_projection_method =
+      measurement_projection_method,
+    l3_reference_kriging_index_mean =
+      measurement_parameters$reference_mean,
+    l3_reference_year_count =
+      measurement_parameters$reference_n_years,
+    l3_reference_latent_mc_variance =
+      measurement_parameters$reference_latent_mc_variance,
+    l3_mean_posterior_minus_lme_event =
+      mean(overlap$smoothed_temperature_celsius -
+           overlap$lme_ensemble_mean_celsius),
+    l3_proportion_posterior_below_both =
+      displacement_summary$proportion_below_both_inputs,
     mapping_latent_lower =
       quantile_mapping$latent_range[
         1
