@@ -237,6 +237,35 @@ The corrected city data are used in:
 - `Prior.R`; and
 - `Figure9d.R`.
 
+
+#### Spline Consistency and Reconstruction Diagnostics
+
+The historical and modern LME interpolation procedures use identical thin-plate regression-spline settings:
+
+- Spline basis: `bs = "tp"`;
+- Basis dimension: `k = 266`;
+- Fixed smoothing parameter: `sp = 1e-8`;
+- Coordinates: untransformed longitude and latitude in decimal degrees;
+- Fitting weights: equal weights for all 266 native LME grid locations.
+
+The spline calculations are implemented directly in the two preparation scripts without requiring an additional shared R file.
+
+All 266 native grid locations are retained for spline fitting. Native-grid reconstruction errors are evaluated only at locations with valid WorldClim land references.
+
+The historical diagnostics include:
+
+```text
+Output/Intermediate/LME/WorldClim_Corrected/
+    lme_spline_native_grid_errors_historical.csv
+    lme_spline_specification_historical.csv
+    lme_spline_audit_summary.csv
+```
+
+The script also checks whether the common spline settings reproduce the previously generated historical city series and verifies consistency with the modern LME interpolation specification.
+
+These diagnostics do not change the WorldClim bias-correction formula.
+
+
 #### Spatial correction and missing WorldClim values
 
 WorldClim provides direct reference values only for locations covered by its land-temperature dataset.
