@@ -17,6 +17,7 @@ suppressPackageStartupMessages({
   library(mgcv)
   library(terra)
 })
+source(here::here("Code", "DataPreparation", "lme_spline_common.R"))
 
 nc_dir <- path.expand(Sys.getenv("LME_NC_DIR", "~/Downloads/LME nc data"))
 wc_dir <- path.expand(Sys.getenv("WORLDCLIM_DIR", "~/Downloads/wc2.1_30s_tavg"))
@@ -83,7 +84,14 @@ if (file.exists(historical_file)) {
                 key(native_grid$longitude, native_grid$latitude))) {
     stop("Modern and historical native LME coordinates do not match.")
   }
-  message("Modern/historical native LME coordinates match (266 locations).")
+  if (!identical(
+        lme_coordinate_key(hc$long, hc$lati),
+        lme_coordinate_key(native_grid$longitude, native_grid$latitude))) {
+    stop("Historical and modern native LME coordinates match as sets but ",
+         "not in row order. Align the training order before using the ",
+         "same spline operator in both periods.")
+  }
+  message("Modern/historical native LME coordinates and order match (266 locations).")
 } else {
   message("Historical LME archive not found; coordinate cross-check skipped.")
 }
@@ -110,34 +118,30 @@ if (any(wc_monthly[wc_available, , drop = FALSE] < -80 |
 }
 locations$WorldClim_1970_2000_C <- rowMeans(wc_monthly)
 locations$worldclim_available <- wc_available
+# For the spline reconstruction-error audit, score only native GRID nodes
+# with a direct land reference. Keep ALL 266 nodes in the spline fit.
+land_diagnostic_rows <- which(wc_available[seq_len(nrow(native_grid))])
+if (length(land_diagnostic_rows) == 0L) {
+  stop("No native-grid land locations have valid WorldClim reference values.")
+}
+message("Spline fitting uses 266 native nodes; native reconstruction ",
+        "errors will be scored only at ", length(land_diagnostic_rows),
+        " directly referenced land nodes.")
 utils::write.csv(cbind(locations, wc_monthly),
                  file.path(diagnostic_dir, "worldclim_monthly_all_269.csv"),
                  row.names = FALSE)
 
-# Same thin-plate regression-spline operator used for historical city LME.
+# Same operator constructor is also used to audit historical fields.
 train_coords <- data.frame(long = native_grid$longitude,
                            lati = native_grid$latitude)
-smooth <- mgcv::smoothCon(
-  mgcv::s(long, lati, bs = "tp", k = 266),
-  data = train_coords, absorb.cons = TRUE, scale.penalty = TRUE
-)[[1]]
-train_design <- cbind(intercept = 1, smooth$X)
-target_design <- cbind(
-  intercept = 1,
-  mgcv::PredictMat(smooth, data.frame(long = locations$longitude,
-                                      lati = locations$latitude))
-)
-penalty <- matrix(0, ncol(train_design), ncol(train_design))
-penalty[-1, -1] <- smooth$S[[1]]
-fixed_sp <- 1e-8
-normal <- crossprod(train_design) + fixed_sp * penalty
-if (!is.finite(rcond(normal)) || rcond(normal) < 1e-14) {
-  stop("Thin-plate interpolation operator is numerically singular.")
-}
-operator <- target_design %*% solve(normal, t(train_design))
+target_coords <- data.frame(long = locations$longitude,
+                            lati = locations$latitude)
+spline_fit <- build_lme_spline_operator(train_coords, target_coords)
+operator <- spline_fit$operator
 
 # Modern CESM-LME annual values: all 13 members, each year 1970-2000.
 modern_records <- vector("list", 13L)
+modern_native_errors <- vector("list", 13L)
 for (j in 1:13) {
   path <- netcdf_file(j)
   if (!file.exists(path)) stop("Missing NetCDF: ", path)
@@ -179,6 +183,16 @@ for (j in 1:13) {
     rowMeans(native_monthly[, cols, drop = FALSE])
   }, numeric(nrow(native_grid)))
   annual_locations <- operator %*% annual
+  # At the first 266 targets, compare spline predictions against the
+  # original annual native-grid temperatures, not against corrected values.
+  modern_native_errors[[j]] <- lme_spline_native_grid_errors(
+    predicted_native = annual_locations[seq_len(266L), , drop = FALSE],
+    original_native = annual,
+    years = reference_years,
+    members = members[j],
+    period = "modern_1970_2000",
+    diagnostic_rows = land_diagnostic_rows
+  )
   modern_records[[j]] <- data.frame(
     site = rep(locations$site, times = length(reference_years)),
     member = members[j],
@@ -189,6 +203,16 @@ for (j in 1:13) {
   rm(arr, native_monthly, annual, annual_locations)
 }
 modern <- do.call(rbind, modern_records)
+modern_errors <- do.call(rbind, modern_native_errors)
+utils::write.csv(
+  modern_errors,
+  file.path(diagnostic_dir, "lme_spline_native_grid_errors_modern.csv"),
+  row.names = FALSE
+)
+message("Modern LAND-only native-grid spline RMSE (pooled, ",
+        length(land_diagnostic_rows), " scored land nodes): ",
+        signif(sqrt(mean(modern_errors$rmse_C^2)), 5), " C; max abs: ",
+        signif(max(modern_errors$max_abs_error_C), 5), " C")
 stopifnot(nrow(modern) == 269L * 13L * 31L,
           all(is.finite(modern$temp_C)))
 utils::write.csv(modern,
@@ -212,9 +236,61 @@ if (!all(is.finite(locations$d_C[locations$worldclim_available]))) {
   stop("Nonfinite direct WorldClim correction.")
 }
 
-# Small prepared input intended for version control.
+# Compare regenerated offsets with the previously tracked prepared input.
+# If they differ, the newly computed values replace the old file, and the
+# change is recorded for review before committing the new input to GitHub.
 prepared_file <- file.path(prepared_dir, "worldclim_offsets_all_269.csv")
+if (file.exists(prepared_file)) {
+  old <- utils::read.csv(prepared_file, stringsAsFactors = FALSE)
+  if (all(c("site", "d_C", "worldclim_available") %in% names(old)) &&
+      !anyDuplicated(old$site)) {
+    index <- match(locations$site, old$site)
+    if (!anyNA(index)) {
+      difference <- locations$d_C - old$d_C[index]
+      comparison <- data.frame(
+        site = locations$site,
+        old_offset_C = old$d_C[index],
+        regenerated_offset_C = locations$d_C,
+        difference_C = difference,
+        old_worldclim_available = old$worldclim_available[index],
+        new_worldclim_available = locations$worldclim_available
+      )
+      utils::write.csv(
+        comparison,
+        file.path(diagnostic_dir, "lme_spline_offset_before_after.csv"),
+        row.names = FALSE
+      )
+      comparable <- is.finite(difference)
+      if (any(comparable) && max(abs(difference[comparable])) > 1e-5) {
+        warning("Recomputed WorldClim offsets differ from the previous ",
+                "prepared input. Review lme_spline_offset_before_after.csv ",
+                "and commit the regenerated CSV after checking the changes.")
+      }
+      if (any(as.logical(old$worldclim_available[index]) !=
+              locations$worldclim_available)) {
+        warning("WorldClim availability masks have changed since the ",
+                "previous prepared offsets.")
+      }
+    }
+  }
+}
+# Small prepared input intended for version control.
 utils::write.csv(locations, prepared_file, row.names = FALSE)
+# Mark the modern spline audit complete only after all 13 NetCDF members
+# have been processed and the regenerated offset CSV has been saved.
+modern_specification <- lme_spline_specification(
+  spline_fit, period = "modern_1970_2000"
+)
+utils::write.csv(
+  modern_specification,
+  file.path(diagnostic_dir, "lme_spline_specification_modern.csv"),
+  row.names = FALSE
+)
+utils::write.csv(
+  modern_specification,
+  file.path(prepared_dir, "lme_spline_specification_modern.csv"),
+  row.names = FALSE
+)
 utils::write.csv(locations[locations$type == "grid", ],
                  file.path(diagnostic_dir, "worldclim_offsets_grid266.csv"),
                  row.names = FALSE)
