@@ -136,6 +136,8 @@ Output/Intermediate/Precipitation/AugmentationDiagnostics/
 
 These include block/year CSV summaries, the newly informative years, event-category counts and combinations, source-record counts, and two-degree spatial count grids. The geographic figure, `augmentation_spatial_site_year.png`, plots the original site-year coordinates (not two-degree centers), using the same world-border projection and RdBu temperature-index palette as `Figure2.R`; inferred zeros are shown with separate grey outlined markers. The previous filename `augmentation_spatial_2deg.png` is also written for compatibility. The annual coverage panels use Figure 2(a)'s red columns and black LOESS smooth, while the temperature-category count panels use Figure 2(b)'s grey histogram appearance. The script writes `augmentation_counts_by_year.png`, `augmentation_temperature_level_counts.png`, and `augmentation_temperature_level_shares.png` (the latter compares category proportions). The event-category plot follows the same grey-panel style. The diagnostics do not run calibration, kriging, or assimilation.
 
+An optional five-block predictive-log-score calibration of the extra temperature-scale measurement variance is implemented in `Code/Analysis/cv_observation_variance.R`. Its outputs are generated separately under `Output/Intermediate/ObservationVariance/original/` or `Output/Intermediate/ObservationVariance/augmented/`; neither the selected variance nor the held-out diagnostics are source observations. They are not committed to `Data/`, and the exact workbook identity is recorded by MD5 to keep fits associated with the matching documentary input.
+
 
 From the repository root, run the descriptive analysis with:
 
