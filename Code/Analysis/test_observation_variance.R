@@ -14,7 +14,7 @@ stopifnot(isTRUE(all.equal(V, c(4, 2, 1.5), tolerance = 1e-12)))
 residual <- c(-2, 2, -2, 2)
 base <- rep(1, length(residual))
 objective <- function(u) predictive_log_score(residual, base, u)
-fit <- stats::optimize(objective, c(0, 20))
+fit <- stats::optimize(objective, c(0, 20), tol = 1e-10)
 stopifnot(
   abs(fit$minimum - 3) < 1e-5,
   objective(fit$minimum) < objective(0),
