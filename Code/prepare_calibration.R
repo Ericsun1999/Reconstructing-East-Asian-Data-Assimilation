@@ -38,7 +38,9 @@ library(mvtnorm)
 # 1. Numerical settings
 # ------------------------------------------------------------
 
-calibration_engine <- "monte_carlo"
+calibration_engine <- Sys.getenv(
+  "REACHES_CALIBRATION_ENGINE", unset = "monte_carlo"
+)
 stopifnot(
   calibration_engine %in% c(
     "analytic",
@@ -108,10 +110,31 @@ augmented_temperature_file <- here::here(
   "temperature_site_year_augmented.csv"
 )
 
-output_directory <- here::here(
-  "Output",
-  "Intermediate"
+output_directory <- Sys.getenv(
+  "L2_CV_CALIBRATION_OUTPUT_DIR",
+  unset = here::here("Output", "Intermediate")
 )
+output_directory <- path.expand(output_directory)
+
+# A CV fold estimates covariance using training years only. The
+# complete cleaned site-year data are kept separately for scoring
+# held-out documentary observations, never for model fitting.
+cv_holdout_start <- Sys.getenv("L2_CV_HOLDOUT_START", unset = "")
+cv_holdout_end <- Sys.getenv("L2_CV_HOLDOUT_END", unset = "")
+if (xor(nzchar(cv_holdout_start), nzchar(cv_holdout_end))) {
+  stop("Both L2_CV_HOLDOUT_START and L2_CV_HOLDOUT_END are required.")
+}
+cv_holdout <- if (nzchar(cv_holdout_start)) {
+  start <- suppressWarnings(as.integer(cv_holdout_start))
+  end <- suppressWarnings(as.integer(cv_holdout_end))
+  if (anyNA(c(start, end)) || start < 1368L ||
+      end > 1911L || start > end) {
+    stop("Invalid L2_CV_HOLDOUT_START/L2_CV_HOLDOUT_END.")
+  }
+  c(start, end)
+} else {
+  NULL
+}
 
 dir.create(
   output_directory,
@@ -266,13 +289,28 @@ temp2 <- temperature_raw %>%
     lat
   )
 
+all_site_years <- if (is.null(cv_holdout)) NULL else temp2
+if (!is.null(cv_holdout)) {
+  temp2 <- temp2 %>%
+    filter(!between(year, cv_holdout[1L], cv_holdout[2L]))
+  if (nrow(temp2) == 0L || length(unique(temp2$year)) < 2L) {
+    stop("The training fold has insufficient REACHES observations.")
+  }
+  message(
+    "Training-only covariance fit: excluding ",
+    cv_holdout[1L], "-", cv_holdout[2L],
+    "; remaining site-years = ", nrow(temp2)
+  )
+}
+
 event_years <- sort(
   unique(
     temp2$year
   )
 )
 
-if (temperature_input_mode == "original" && length(event_years) != 524L) {
+if (is.null(cv_holdout) &&
+    temperature_input_mode == "original" && length(event_years) != 524L) {
   warning(
     "The manuscript describes 524 REACHES event years, but ",
     length(event_years),
@@ -1453,6 +1491,8 @@ results <- list(
   temperature_input_mode = temperature_input_mode,
   temperature_source_file = temperature_source_file,
   temp2 = temp2,
+  all_site_years = all_site_years,
+  cv_holdout = cv_holdout,
   var_fit2 = var_fit2,
   vario_fit2 = vario_fit2,
   diagnostics = list(
