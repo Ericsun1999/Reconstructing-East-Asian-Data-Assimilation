@@ -244,6 +244,48 @@ by_block <- yearly %>%
   )))
 write_result(by_block, "augmentation_counts_by_block.csv")
 
+# Compare the entire ordinal distribution, not only the zero share.
+level_distribution <- bind_rows(
+  augmented %>%
+    filter(!is_inferred_zero) %>%
+    count(block, level, name = "site_years") %>%
+    mutate(dataset = "recorded_only"),
+  augmented %>%
+    count(block, level, name = "site_years") %>%
+    mutate(dataset = "with_inferred_zero")
+) %>%
+  group_by(dataset, block) %>%
+  mutate(
+    total_site_years = sum(site_years),
+    proportion = site_years / total_site_years
+  ) %>%
+  ungroup() %>%
+  arrange(block, dataset, level)
+write_result(
+  level_distribution,
+  "augmentation_temperature_level_by_block.csv"
+)
+total_level_distribution <- bind_rows(
+  augmented %>%
+    filter(!is_inferred_zero) %>%
+    count(level, name = "site_years") %>%
+    mutate(dataset = "recorded_only"),
+  augmented %>%
+    count(level, name = "site_years") %>%
+    mutate(dataset = "with_inferred_zero")
+) %>%
+  group_by(dataset) %>%
+  mutate(
+    total_site_years = sum(site_years),
+    proportion = site_years / total_site_years
+  ) %>%
+  ungroup()
+write_result(
+  total_level_distribution,
+  "augmentation_temperature_level_overall.csv"
+)
+
+
 # Non-exclusive event categories: a site-year may belong to multiple groups.
 category_fields <- c(
   "rain_event", "no_rain", "drought", "snow_event",
@@ -353,6 +395,23 @@ p_spatial <- spatial %>%
 ggsave(
   file.path(output_dir, "augmentation_spatial_2deg.png"),
   p_spatial, width = 11, height = 6, dpi = 180, bg = "white"
+)
+
+p_levels <- total_level_distribution %>%
+  ggplot(aes(
+    x = dataset, y = proportion, fill = factor(level)
+  )) +
+  geom_col(width = 0.6) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  labs(
+    title = "Temperature-index distribution before and after augmentation",
+    x = "Documentary input", y = "Proportion",
+    fill = "Temperature index"
+  ) +
+  theme_minimal(base_size = 11)
+ggsave(
+  file.path(output_dir, "augmentation_temperature_level_shares.png"),
+  p_levels, width = 9, height = 5, dpi = 180, bg = "white"
 )
 
 p_events <- category_totals %>%
