@@ -489,10 +489,16 @@ p_spatial <- ggplot() +
     xlim = c(98, 124.5),
     ylim = c(19, 42.5)
   ) +
+  # Figure 5 uses nine continuous RdBu colors over [-2, 2].
+  # The first seven anchors cover [-2, 1] at the same half-unit
+  # intervals, preserving the original colors without displaying
+  # an unobserved 1-to-2 interval in the ordinal-index legend.
   scale_colour_gradientn(
-    colours = rev(RColorBrewer::brewer.pal(n = 9, name = "RdBu")),
-    limits = c(-2, 2),
-    breaks = c(-2, -1, 0, 1, 2),
+    colours = rev(
+      RColorBrewer::brewer.pal(n = 9, name = "RdBu")
+    )[seq_len(7L)],
+    limits = c(-2, 1),
+    breaks = c(-2, -1, 0, 1),
     na.value = "transparent",
     guide = "colourbar",
     name = "Temperature index"
