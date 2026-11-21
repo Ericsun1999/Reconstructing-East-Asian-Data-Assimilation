@@ -28,6 +28,7 @@ library(ggplot2)
 source(here::here("Code", "Analysis", "extra_observation_variance.R"))
 
 years <- 1368:1911
+analysis_years <- years
 folds <- data.frame(
   fold = sprintf("fold_%d", 1:5),
   start = c(1368L, 1501L, 1601L, 1701L, 1801L),
@@ -190,15 +191,14 @@ if (anyNA(lme_city_data)) stop("Invalid LME city observations.")
 
 # Cache the independent LME sample and annual prior, not the
 # documentary calibration, across all REACHES held-out blocks.
-city_fixed <- lapply(city_config, function(config) {
-  name <- names(city_config)[
-    vapply(city_config, identical, logical(1L), config)
-  ][1L]
+city_fixed <- lapply(names(city_config), function(name) {
+  config <- city_config[[name]]
   lme <- read_lme_city(name, config, lme_city_data)
   prior <- read_city_prior(config$code, input_files$parameters)
   list(lme = lme, prior = prior,
        state_variance = annual_unconditional_variance(prior$M, prior$r2))
 })
+names(city_fixed) <- names(city_config)
 
 rscript <- Sys.which("Rscript")
 if (!nzchar(rscript)) stop("Rscript executable was not found.")
