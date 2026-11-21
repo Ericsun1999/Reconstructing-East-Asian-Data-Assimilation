@@ -213,6 +213,9 @@ fit_covariance_fold <- function(fold) {
     compatible <- !inherits(old, "try-error") &&
       identical(old$temperature_input_mode, input_mode) &&
       identical(old$temperature_source_md5, source_md5) &&
+      identical(old$calibration_script_md5, unname(tools::md5sum(
+        here::here("Code", "prepare_calibration.R")
+      ))) &&
       identical(as.integer(old$cv_holdout), c(fold$start, fold$end)) &&
       identical(old$vario_fit2$calibration_engine, calibration_engine) &&
       !is.null(old$all_site_years)
