@@ -466,8 +466,7 @@ p_spatial <- ggplot() +
   facet_wrap(~ source_type, ncol = 2) +
   coord_map(
     xlim = c(98, 124.5),
-    ylim = c(19, 42.5),
-    expand = FALSE
+    ylim = c(19, 42.5)
   ) +
   scale_colour_gradientn(
     colours = RColorBrewer::brewer.pal(n = 9, name = "Blues"),
