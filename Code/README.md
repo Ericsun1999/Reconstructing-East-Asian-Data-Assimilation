@@ -348,7 +348,7 @@ Output:
 Output/Intermediate/REACHES/temperature_site_year_augmented.csv
 ```
 
-Additional audit and yearly/block summaries are written to the same directory.
+Additional audit and yearly/block summaries are written to the same directory. The source workbooks use longitude and latitude rounded to eight decimal places for site-year matching to avoid spurious floating-point duplicates; observed temperature categories remain unchanged. Recreate the augmented CSV after changing the preparation script.
 
 To prepare and use this optional input:
 
