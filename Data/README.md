@@ -32,7 +32,8 @@ Data/
 ├── par/                           Reference city-specific prior-parameter estimates
 ├── GHCNv4.xlsx                    GHCN instrumental temperature data
 ├── data_dictionary.csv            Variable-level data documentation
-├── temperature index value.v1.xlsx       
+├── precipitation index value.xlsx   REACHES documentary precipitation records
+├── temperature index value.v1.xlsx  REACHES documentary temperature records
 └── README.md
 ```
 
@@ -61,7 +62,7 @@ Data/Get_data/GetLME.R
 
 This script documents the conversion from the original NetCDF files to the prepared gzip-compressed member files, but it is not called by the default `run_all.R` workflow.
 
-## 1. REACHES Documentary Temperature Data
+## 1. REACHES Documentary Temperature and Precipitation Data
 
 The main REACHES source file is:
 
@@ -82,6 +83,51 @@ This file is used by several parts of the analysis, including:
 - the held-out interval-compatibility validation.
 
 The documentary temperature index is an ordinal, dimensionless quantity. Missing values are represented as `NA` after import into R.
+
+### Documentary precipitation data
+
+The accompanying annual and seasonal REACHES precipitation records are available in:
+
+```text
+Data/precipitation index value.xlsx
+```
+
+The workbook includes the annual worksheet `全年降水分級` and seasonal worksheets. The documentary precipitation analyses described below use **only the annual worksheet**, to avoid mixing annual and seasonal entries.
+
+The two source workbooks contain documentary event identifiers, historical years, and georeferenced locations. The analysis uses year, longitude, and latitude to join the precipitation and temperature records at the **site-year level**. This association does **not** require the two records to come from the same text or the same season. Text and event identifiers are retained where available for interpretation and source auditing.
+
+The following scripts use the precipitation workbook:
+
+- `Code/Analysis/precip_temperature_joint_distribution.R`: estimates the empirical distribution of recorded temperature indices by preliminary rain, snow, and hail event-code categories, conditional on a recorded temperature index at the same site-year. The category rules are provisional and should be checked against the REACHES event-code dictionary. The analysis does not fill missing temperatures. It writes tables and a plot under `Output/Intermediate/Precipitation/`.
+- `Code/Analysis/prepare_precipitation_augmented_reaches.R`: creates an optional site-year temperature input with a working value of zero for site-years that have an annual precipitation record but no recorded temperature index. Existing temperature indices are preserved exactly. Precipitation entries include dry-weather and other precipitation-related documentary events: this working rule treats a precipitation record as evidence of documentary availability, not necessarily evidence that precipitation occurred.
+
+The augmented input and its source-audit tables are written to:
+
+```text
+Output/Intermediate/REACHES/temperature_site_year_augmented.csv
+Output/Intermediate/REACHES/temperature_inferred_zero_audit.csv
+Output/Intermediate/REACHES/temperature_augmented_metadata.csv
+Output/Intermediate/REACHES/temperature_augmented_by_block.csv
+Output/Intermediate/REACHES/temperature_augmented_by_year.csv
+```
+
+The `source_type` and `is_inferred_zero` fields distinguish observed temperature categories from inferred zero values. The original Excel workbooks are never overwritten. An inferred zero is an explicit modeling assumption rather than a documented normal-temperature event.
+
+From the repository root, run the descriptive analysis with:
+
+```bash
+Rscript --vanilla Code/Analysis/precip_temperature_joint_distribution.R
+```
+
+To enable the augmented temperature input for the full reproduction workflow:
+
+```bash
+REACHES_TEMPERATURE_INPUT=augmented REPRODUCTION_MODE=full Rscript --vanilla run_all.R
+```
+
+The default workflow uses the original temperature workbook. When `REACHES_TEMPERATURE_INPUT=augmented`, the master workflow generates the site-year dataset before covariance calibration and kriging. To compare both analyses, retain separate copies of the generated outputs because both modes use the same `Output/` paths. The precipitation workbook is used by default from `Data/`; the optional `REACHES_PRECIPITATION_FILE` environment variable can override its path.
+
+### REACHES-related prepared data
 
 The directory:
 
