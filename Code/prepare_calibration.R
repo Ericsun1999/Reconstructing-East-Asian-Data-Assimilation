@@ -111,7 +111,7 @@ augmented_temperature_file <- here::here(
 )
 
 output_directory <- Sys.getenv(
-  "L2_CV_CALIBRATION_OUTPUT_DIR",
+  "REACHES_CV_CALIBRATION_OUTPUT_DIR",
   unset = here::here("Output", "Intermediate")
 )
 output_directory <- path.expand(output_directory)
@@ -119,17 +119,17 @@ output_directory <- path.expand(output_directory)
 # A CV fold estimates covariance using training years only. The
 # complete cleaned site-year data are kept separately for scoring
 # held-out documentary observations, never for model fitting.
-cv_holdout_start <- Sys.getenv("L2_CV_HOLDOUT_START", unset = "")
-cv_holdout_end <- Sys.getenv("L2_CV_HOLDOUT_END", unset = "")
+cv_holdout_start <- Sys.getenv("REACHES_CV_HOLDOUT_START", unset = "")
+cv_holdout_end <- Sys.getenv("REACHES_CV_HOLDOUT_END", unset = "")
 if (xor(nzchar(cv_holdout_start), nzchar(cv_holdout_end))) {
-  stop("Both L2_CV_HOLDOUT_START and L2_CV_HOLDOUT_END are required.")
+  stop("Both REACHES_CV_HOLDOUT_START and REACHES_CV_HOLDOUT_END are required.")
 }
 cv_holdout <- if (nzchar(cv_holdout_start)) {
   start <- suppressWarnings(as.integer(cv_holdout_start))
   end <- suppressWarnings(as.integer(cv_holdout_end))
   if (anyNA(c(start, end)) || start < 1368L ||
       end > 1911L || start > end) {
-    stop("Invalid L2_CV_HOLDOUT_START/L2_CV_HOLDOUT_END.")
+    stop("Invalid REACHES_CV_HOLDOUT_START/REACHES_CV_HOLDOUT_END.")
   }
   c(start, end)
 } else {
