@@ -137,20 +137,28 @@ tokens <- strsplit(precipitation$event_codes, ";", fixed = TRUE)
 has_prefix <- function(codes, prefix) {
   any(startsWith(trimws(codes), prefix))
 }
-rain_code <- vapply(tokens, has_prefix, logical(1L), prefix = "100")
 no_rain_code <- vapply(tokens, has_prefix, logical(1L), prefix = "10011")
-snow_code <- vapply(tokens, has_prefix, logical(1L), prefix = "101")
 snow_absence_code <- vapply(
   tokens, has_prefix, logical(1L), prefix = "10111"
 )
 hail_code <- vapply(tokens, has_prefix, logical(1L), prefix = "1021")
 drought_code <- vapply(tokens, has_prefix, logical(1L), prefix = "300")
+# Positive and negative codes may coexist within one record, so
+# exclusions must be applied token by token, not across the record.
+rain_event_code <- vapply(tokens, function(codes) {
+  codes <- trimws(codes)
+  any(startsWith(codes, "100") & !startsWith(codes, "10011"))
+}, logical(1L))
+snow_event_code <- vapply(tokens, function(codes) {
+  codes <- trimws(codes)
+  any(startsWith(codes, "101") & !startsWith(codes, "10111"))
+}, logical(1L))
 precipitation <- precipitation %>%
   mutate(
-    rain_event = rain_code & !no_rain_code,
+    rain_event = rain_event_code,
     no_rain = no_rain_code,
     drought = drought_code | grepl("旱", description),
-    snow_event = snow_code & !snow_absence_code,
+    snow_event = snow_event_code,
     snow_absence_or_prayer = snow_absence_code,
     hail_event = hail_code
   )
