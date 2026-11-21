@@ -11,7 +11,10 @@ library(tidyr)
 library(readr)
 library(ggplot2)
 
-precip_file <- path.expand("~/Downloads/precipitation index value.xlsx")
+precip_file <- path.expand(Sys.getenv(
+  "REACHES_PRECIPITATION_FILE",
+  unset = here::here("Data", "precipitation index value.xlsx")
+))
 temp_file <- here::here("Data", "temperature index value.v1.xlsx")
 output_dir <- here::here("Output", "Intermediate", "Precipitation")
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
@@ -185,7 +188,7 @@ plot <- ggplot(conditional, aes(x = C, y = probability, fill = factor(Z))) +
   theme_minimal(base_size = 12)
 
 ggsave(file.path(output_dir, "precip_temperature_conditional.png"),
-       plot = plot, width = 8, height = 5, dpi = 160)
+       plot = plot, width = 8, height = 5, dpi = 160, bg = "white")
 
 print(conditional)
 message("Outputs saved to: ", output_dir)
