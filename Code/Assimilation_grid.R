@@ -111,7 +111,12 @@ coordinate_tolerance <- 1e-8
 resume_from_checkpoint <- TRUE
 checkpoint_every <- 1L
 remove_checkpoint_on_success <- TRUE
-save_data_valid_copy <- TRUE
+# Keep checked-in validation data untouched for alternative
+# observation-variance and augmented-input runs.
+save_data_valid_copy <-
+  !nzchar(Sys.getenv("REACHES_EXTRA_VARIANCE_FILE", unset = "")) &&
+  identical(Sys.getenv("REACHES_TEMPERATURE_INPUT",
+                       unset = "original"), "original")
 
 output_dir <- here::here(
   "Output",
@@ -2335,6 +2340,11 @@ checkpoint_settings <- list(
   measurement_projection_method = measurement_projection_method,
   extra_observation_variance = extra_variance$u,
   extra_variance_file_md5 = extra_variance$file_md5,
+  reaches_input_md5 = unname(tools::md5sum(c(
+    input_files$reaches_mean,
+    input_files$reaches_variance,
+    input_files$reaches_metadata
+  ))),
   sigmaY2 = sigmaY2
 )
 
@@ -2896,6 +2906,7 @@ spatial_metadata <- data.frame(
   extra_variance_source = extra_variance$mode,
   extra_variance_file = extra_variance$file,
   extra_variance_file_md5 = extra_variance$file_md5,
+  writes_validation_copy = save_data_valid_copy,
   lme_archive_file = input_files$lme_archive,
   reaches_mean_file = input_files$reaches_mean,
   reaches_variance_file = input_files$reaches_variance,
