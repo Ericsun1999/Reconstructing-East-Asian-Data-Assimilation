@@ -291,6 +291,37 @@ The default reproducibility workflow does not require the original large NetCDF 
 
 
 
+### Preparing the documentary temperature input
+
+`Code/Analysis/prepare_precipitation_augmented_reaches.R` constructs an optional site-year temperature-index dataset from the annual temperature and precipitation worksheets. It preserves the recorded temperature category wherever one exists and assigns a working index of zero only to site-years with an annual precipitation record and no recorded temperature category. This is a documentary-availability assumption, not a direct temperature observation.
+
+The procedure keeps source flags, original text/event identifiers, and precipitation event codes. Annual precipitation records are used as evidence of documentary availability regardless of their rain/snow/hail or dry-weather classification. The original spreadsheets remain unchanged.
+
+Default inputs:
+
+```text
+Data/temperature index value.v1.xlsx
+~/Downloads/precipitation index value(1).xlsx
+```
+
+Output:
+
+```text
+Output/Intermediate/REACHES/temperature_site_year_augmented.csv
+```
+
+Additional audit and yearly/block summaries are written to the same directory.
+
+To prepare and use this optional input:
+
+```bash
+Rscript --vanilla Code/Analysis/prepare_precipitation_augmented_reaches.R
+REACHES_TEMPERATURE_INPUT=augmented Rscript --vanilla Code/prepare_calibration.R
+Rscript --vanilla Code/Get_tempe_all_data.R
+```
+
+The precipitation input path can be changed with `REACHES_PRECIPITATION_FILE`. By default, `prepare_calibration.R` continues to use the original temperature spreadsheet; set `REACHES_TEMPERATURE_INPUT=augmented` explicitly to select the augmented input. Separate runs of the full downstream workflow are needed when comparing the two input versions.
+
 ### `prepare_calibration.R`
 
 This script estimates the calibration quantities used by the interval-censored covariance and kriging procedures.
