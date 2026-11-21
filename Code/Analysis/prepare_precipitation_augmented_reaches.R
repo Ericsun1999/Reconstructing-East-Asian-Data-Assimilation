@@ -52,6 +52,9 @@ for (file in c(precip_file, temperature_file)) {
 
 # Read the annual worksheets only; do not combine annual and
 # seasonal summaries.
+# Coordinates are rounded to eight decimal places in both inputs
+# before site-year matching. This removes negligible floating-point
+# discrepancies that would otherwise create duplicate site-years.
 temp_sheet <- readxl::read_excel(
   temperature_file, sheet = "全年溫度分級", col_types = "text"
 )
@@ -80,8 +83,8 @@ temperature <- temp_sheet %>%
   transmute(
     source_order = row_number(),
     year = suppressWarnings(as.integer(.data[["資料判斷後，所屬年份"]])),
-    long = suppressWarnings(as.numeric(.data[["空間-經度"]])),
-    lat = suppressWarnings(as.numeric(.data[["空間-緯度"]])),
+    long = round(suppressWarnings(as.numeric(.data[["空間-經度"]])), 8),
+    lat = round(suppressWarnings(as.numeric(.data[["空間-緯度"]])), 8),
     level = suppressWarnings(as.integer(.data[["溫度等級"]])),
     temperature_text_id = .data[["資料編號-文本ID"]],
     temperature_event_id = .data[["資料編號-事件編碼"]]
@@ -105,8 +108,8 @@ temperature_site_year <- temperature %>%
 precipitation <- precip_sheet %>%
   transmute(
     year = suppressWarnings(as.integer(.data[["資料判斷後，所屬年份"]])),
-    long = suppressWarnings(as.numeric(.data[["空間-經度"]])),
-    lat = suppressWarnings(as.numeric(.data[["空間-緯度"]])),
+    long = round(suppressWarnings(as.numeric(.data[["空間-經度"]])), 8),
+    lat = round(suppressWarnings(as.numeric(.data[["空間-緯度"]])), 8),
     precipitation_text_id = .data[["資料編號-文本ID"]],
     precipitation_event_id = .data[["資料編號-事件編碼"]],
     precipitation_event_codes = .data[["事件編碼"]]
@@ -170,6 +173,10 @@ augmented <- bind_rows(
 # Validate that all observed temperature site-years are preserved
 # and that no undocumented site-year was filled.
 key_columns <- c("year", "long", "lat")
+if (anyDuplicated(temperature_site_year[key_columns]) ||
+    anyDuplicated(precipitation_site_year[key_columns])) {
+  stop("Input site-year keys must be unique after coordinate normalization.")
+}
 if (anyDuplicated(augmented[key_columns])) {
   stop("Duplicated site-year keys in the augmented dataset.")
 }
