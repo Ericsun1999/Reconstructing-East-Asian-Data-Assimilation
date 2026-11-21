@@ -367,6 +367,20 @@ input_files <- select_input_set(
   precomputed_inputs = precomputed_inputs
 )
 
+# An explicitly selected blocked-CV variance is applied once inside
+# the measurement-error term. Older reproducibility runs retain u = 0.
+source(here::here("Code", "Analysis", "extra_observation_variance.R"))
+if (nzchar(Sys.getenv("REACHES_EXTRA_VARIANCE_FILE", unset = "")) &&
+    identical(input_files$reaches_metadata,
+              precomputed_inputs$reaches_metadata)) {
+  stop("Additional variance requires freshly generated REACHES kriging.")
+}
+extra_variance <- read_extra_observation_variance(
+  input_files$reaches_metadata
+)
+message("Additional observation variance (Celsius^2): ",
+        signif(extra_variance$u, 7))
+
 message(
   "Figure 9(d) input mode: ",
   input_mode
@@ -2284,7 +2298,9 @@ process_city <- function(
 
   annual_data$alpha <- NA_real_
   annual_data$beta <- NA_real_
+  annual_data$vdelta_mc <- NA_real_
   annual_data$vdelta <- NA_real_
+  annual_data$extra_observation_variance <- NA_real_
 
   annual_data$implied_latent_kriging_variance[
     event_indices
@@ -2298,9 +2314,17 @@ process_city <- function(
     event_indices
   ] <- measurement_parameters$beta
 
-  annual_data$vdelta[
+  annual_data$vdelta_mc[
     event_indices
   ] <- measurement_parameters$vdelta
+
+  annual_data$extra_observation_variance[
+    event_indices
+  ] <- extra_variance$u
+
+  annual_data$vdelta[
+    event_indices
+  ] <- measurement_parameters$vdelta + extra_variance$u
 
   smoother_output <- kalman_filter_smoother_annual(
     mu = prior$mu,
@@ -2359,6 +2383,8 @@ process_city <- function(
       calibrated_reaches_celsius,
       alpha,
       beta,
+      vdelta_mc,
+      extra_observation_variance,
       vdelta,
       effective_proxy_temperature_celsius,
       observation_weight,
@@ -2612,6 +2638,10 @@ process_city <- function(
       measurement_mc_size,
     measurement_projection_method =
       measurement_projection_method,
+    extra_observation_variance = extra_variance$u,
+    extra_variance_source = extra_variance$mode,
+    extra_variance_file = extra_variance$file,
+    extra_variance_file_md5 = extra_variance$file_md5,
     l3_reference_kriging_index_mean =
       measurement_parameters$reference_mean,
     l3_reference_year_count =
