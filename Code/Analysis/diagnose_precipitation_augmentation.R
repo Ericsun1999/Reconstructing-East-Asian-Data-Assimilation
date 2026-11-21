@@ -411,24 +411,89 @@ ggsave(
   p_year, width = 12, height = 5, dpi = 180, bg = "white"
 )
 
-p_spatial <- spatial %>%
-  ggplot(aes(
-    x = longitude_cell_center, y = latitude_cell_center,
-    fill = site_years
-  )) +
-  geom_tile(width = 2, height = 2) +
-  facet_wrap(~ source_type, ncol = 2) +
-  coord_equal() +
-  scale_fill_viridis_c(trans = "log1p") +
-  labs(
-    title = "Geographic density of documentary site-years",
-    subtitle = "Two-degree cells; counts summed across 1368-1911",
-    x = "Longitude", y = "Latitude", fill = "Site-years"
+# Use the same geographic frame as Figure2(c): grey world borders,
+# geographic projection, and point markers. Each point represents a
+# two-degree cell center, with its color encoding the site-year count.
+# A sequential palette is used because counts do not have a natural zero
+# midpoint (unlike the signed temperature index shown in Figure2(c)).
+if (!requireNamespace("mapproj", quietly = TRUE)) {
+  stop(
+    "The package 'mapproj' is required for the Figure 2 map projection. ",
+    "Install it with renv::install('mapproj')."
+  )
+}
+if (!requireNamespace("maps", quietly = TRUE)) {
+  stop(
+    "The package 'maps' is required for world borders. ",
+    "Install it with renv::install('maps')."
+  )
+}
+if (!requireNamespace("RColorBrewer", quietly = TRUE)) {
+  stop(
+    "The package 'RColorBrewer' is required for the map palette. ",
+    "Install it with renv::install('RColorBrewer')."
+  )
+}
+
+spatial_plot_data <- spatial %>%
+  mutate(
+    source_type = factor(
+      source_type,
+      levels = c("observed_temperature", "inferred_zero_precipitation"),
+      labels = c("Recorded temperature", "Inferred zero")
+    )
+  )
+
+p_spatial <- ggplot() +
+  borders(
+    database = "world",
+    xlim = c(95, 126),
+    ylim = c(19, 45),
+    fill = NA,
+    colour = "grey30",
+    linewidth = 0.35
   ) +
-  theme_minimal(base_size = 11)
+  geom_point(
+    data = spatial_plot_data,
+    aes(
+      x = longitude_cell_center,
+      y = latitude_cell_center,
+      colour = site_years
+    ),
+    size = 3,
+    alpha = 0.9
+  ) +
+  facet_wrap(~ source_type, ncol = 2) +
+  coord_map(
+    xlim = c(98, 124.5),
+    ylim = c(19, 42.5),
+    expand = FALSE
+  ) +
+  scale_colour_gradientn(
+    colours = RColorBrewer::brewer.pal(n = 9, name = "Blues"),
+    trans = "sqrt",
+    name = "Site-years\nper 2-degree cell"
+  ) +
+  labs(
+    title = "Geographic coverage of documentary site-years",
+    subtitle = "Aggregated to 2-degree cells, 1368-1911",
+    x = "Longitude",
+    y = "Latitude"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    panel.grid.major = element_line(colour = "grey92", linewidth = 0.2),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank(),
+    panel.background = element_rect(fill = "white", colour = NA),
+    strip.background = element_rect(fill = "grey95", colour = "grey80"),
+    strip.text = element_text(face = "bold"),
+    legend.key.height = grid::unit(3, "cm"),
+    plot.title = element_text(face = "bold")
+  )
 ggsave(
   file.path(output_dir, "augmentation_spatial_2deg.png"),
-  p_spatial, width = 11, height = 6, dpi = 180, bg = "white"
+  p_spatial, width = 11, height = 6, dpi = 300, bg = "white"
 )
 
 p_levels <- total_level_distribution %>%
