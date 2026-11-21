@@ -411,36 +411,31 @@ ggsave(
   p_year, width = 12, height = 5, dpi = 180, bg = "white"
 )
 
-# Use the same geographic frame as Figure2(c): grey world borders,
-# geographic projection, and point markers. Each point represents a
-# two-degree cell center, with its color encoding the site-year count.
-# A sequential palette is used because counts do not have a natural zero
-# midpoint (unlike the signed temperature index shown in Figure2(c)).
+# Plot actual site-year locations, following Figure 2(c).
+# The two-degree count grids remain available as separate CSV summaries.
+# Inferred zeros are outlined in grey to distinguish documentary
+# assumptions from observed ordinal temperature categories.
 if (!requireNamespace("mapproj", quietly = TRUE)) {
-  stop(
-    "The package 'mapproj' is required for the Figure 2 map projection. ",
-    "Install it with renv::install('mapproj')."
-  )
+  stop("Package 'mapproj' is required for coord_map().")
 }
 if (!requireNamespace("maps", quietly = TRUE)) {
-  stop(
-    "The package 'maps' is required for world borders. ",
-    "Install it with renv::install('maps')."
-  )
+  stop("Package 'maps' is required for world borders.")
 }
 if (!requireNamespace("RColorBrewer", quietly = TRUE)) {
-  stop(
-    "The package 'RColorBrewer' is required for the map palette. ",
-    "Install it with renv::install('RColorBrewer')."
-  )
+  stop("Package 'RColorBrewer' is required for the Figure 2 palette.")
 }
 
-spatial_plot_data <- spatial %>%
+spatial_site_year_points <- bind_rows(
+  augmented %>%
+    filter(!is_inferred_zero) %>%
+    mutate(panel = "Recorded only"),
+  augmented %>%
+    mutate(panel = "With inferred zeros")
+) %>%
   mutate(
-    source_type = factor(
-      source_type,
-      levels = c("observed_temperature", "inferred_zero_precipitation"),
-      labels = c("Recorded temperature", "Inferred zero")
+    panel = factor(
+      panel,
+      levels = c("Recorded only", "With inferred zeros")
     )
   )
 
@@ -450,50 +445,66 @@ p_spatial <- ggplot() +
     xlim = c(95, 126),
     ylim = c(19, 45),
     fill = NA,
-    colour = "grey30",
-    linewidth = 0.35
+    colour = "grey30"
   ) +
   geom_point(
-    data = spatial_plot_data,
-    aes(
-      x = longitude_cell_center,
-      y = latitude_cell_center,
-      colour = site_years
-    ),
-    size = 3,
+    data = spatial_site_year_points %>%
+      filter(is_inferred_zero),
+    aes(x = long, y = lat),
+    shape = 21,
+    size = 1,
+    stroke = 0.15,
+    fill = "grey94",
+    colour = "grey55",
+    alpha = 0.8
+  ) +
+  geom_point(
+    data = spatial_site_year_points %>%
+      filter(!is_inferred_zero),
+    aes(x = long, y = lat, colour = level),
+    size = 1,
     alpha = 0.9
   ) +
-  facet_wrap(~ source_type, ncol = 2) +
+  facet_wrap(~ panel, ncol = 2) +
   coord_map(
     xlim = c(98, 124.5),
     ylim = c(19, 42.5)
   ) +
   scale_colour_gradientn(
-    colours = RColorBrewer::brewer.pal(n = 9, name = "Blues"),
-    trans = "sqrt",
-    name = "Site-years\nper 2-degree cell"
+    colours = rev(RColorBrewer::brewer.pal(n = 9, name = "RdBu")),
+    limits = c(-2, 2),
+    breaks = c(-2, -1, 0, 1, 2),
+    na.value = "transparent",
+    guide = "colourbar",
+    name = "Temperature index"
   ) +
   labs(
-    title = "Geographic coverage of documentary site-years",
-    subtitle = "Aggregated to 2-degree cells, 1368-1911",
-    x = "Longitude",
-    y = "Latitude"
+    title = "Documentary temperature-index coverage",
+    subtitle = "Site-year locations, 1368-1911",
+    caption = "Grey outlined points represent inferred zeros.",
+    x = "long",
+    y = "lat"
   ) +
-  theme_bw(base_size = 12) +
+  theme_gray(base_size = 13) +
   theme(
-    panel.grid.major = element_line(colour = "grey92", linewidth = 0.2),
-    panel.grid.minor = element_blank(),
-    panel.border = element_blank(),
-    panel.background = element_rect(fill = "white", colour = NA),
-    strip.background = element_rect(fill = "grey95", colour = "grey80"),
+    text = element_text(size = 13),
     strip.text = element_text(face = "bold"),
-    legend.key.height = grid::unit(3, "cm"),
-    plot.title = element_text(face = "bold")
+    legend.key.height = grid::unit(2.5, "cm"),
+    legend.position = "right",
+    plot.caption = element_text(hjust = 0, colour = "grey40")
   )
-ggsave(
-  file.path(output_dir, "augmentation_spatial_2deg.png"),
-  p_spatial, width = 11, height = 6, dpi = 300, bg = "white"
-)
+
+# Keep the existing output filename for compatibility, and provide
+# an accurately named file for the site-year scatterplot.
+for (filename in c(
+  "augmentation_spatial_site_year.png",
+  "augmentation_spatial_2deg.png"
+)) {
+  ggsave(
+    file.path(output_dir, filename),
+    p_spatial, width = 11, height = 5.8, dpi = 300, bg = "white"
+  )
+}
 
 p_levels <- total_level_distribution %>%
   ggplot(aes(
