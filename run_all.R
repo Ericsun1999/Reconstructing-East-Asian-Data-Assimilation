@@ -596,6 +596,38 @@ workflow <- list(
   )
 )
 
+# Select the documentary temperature input for covariance calibration.
+# When augmented observations are requested, construct them before the
+# calibration step. The default workflow continues to use the original data.
+temperature_input_mode <- Sys.getenv(
+  "REACHES_TEMPERATURE_INPUT", unset = "original"
+)
+if (!temperature_input_mode %in% c("original", "augmented")) {
+  stop("REACHES_TEMPERATURE_INPUT must be original or augmented.")
+}
+if (temperature_input_mode == "augmented") {
+  calibration_position <- which(vapply(
+    workflow, function(step) identical(step$id, "calibration"), logical(1L)
+  ))
+  if (length(calibration_position) != 1L) {
+    stop("The calibration step is missing or duplicated.")
+  }
+  workflow <- append(
+    workflow,
+    list(list(
+      id = "augment_temperature",
+      script = file.path(
+        "Code", "Analysis", "prepare_precipitation_augmented_reaches.R"
+      ),
+      expected = file.path(
+        "Output", "Intermediate", "REACHES",
+        "temperature_site_year_augmented.csv"
+      )
+    )),
+    after = calibration_position - 1L
+  )
+}
+
 step_ids <- vapply(
   workflow,
   function(step) {
@@ -683,6 +715,18 @@ required_core_input_files <- c(
     "GHCNv4.xlsx"
   )
 )
+
+if (temperature_input_mode == "augmented") {
+  required_core_input_files <- c(
+    required_core_input_files,
+    path.expand(Sys.getenv(
+      "REACHES_PRECIPITATION_FILE",
+      unset = file.path(
+        repository_root, "Data", "precipitation index value.xlsx"
+      )
+    ))
+  )
+}
 
 missing_core_input_files <- required_core_input_files[
   !file.exists(
