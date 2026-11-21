@@ -134,7 +134,7 @@ Outputs are saved under:
 Output/Intermediate/Precipitation/AugmentationDiagnostics/
 ```
 
-These include block/year CSV summaries, the newly informative years, event-category counts and combinations, source-record counts, two-degree spatial count grids, and corresponding plots. The diagnostics do not run calibration, kriging, or assimilation.
+These include block/year CSV summaries, the newly informative years, event-category counts and combinations, source-record counts, and two-degree spatial count grids. The geographic figure, `augmentation_spatial_site_year.png`, plots the original site-year coordinates (not two-degree centers), using the same world-border projection and RdBu temperature-index palette as `Figure2.R`; inferred zeros are shown with separate grey outlined markers. The previous filename `augmentation_spatial_2deg.png` is also written for compatibility. The diagnostics do not run calibration, kriging, or assimilation.
 
 
 From the repository root, run the descriptive analysis with:
