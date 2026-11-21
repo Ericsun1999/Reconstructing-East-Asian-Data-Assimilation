@@ -315,7 +315,7 @@ The script creates conditional-frequency tables, sample-size summaries, candidat
 
 ### Augmentation diagnostics
 
-`Code/Analysis/diagnose_precipitation_augmentation.R` checks an existing `temperature_site_year_augmented.csv` against the two original annual REACHES workbooks. It verifies that all observed temperature indices are unchanged and that every inferred zero has annual precipitation documentation. It reports the before/after distribution across historical periods, geographic two-degree cells, precipitation event-code categories, and the newly informative years.
+`Code/Analysis/diagnose_precipitation_augmentation.R` checks an existing `temperature_site_year_augmented.csv` against the two original annual REACHES workbooks. It verifies that all observed temperature indices are unchanged and that every inferred zero has annual precipitation documentation. It reports the before/after distributions of the ordinal temperature index (−2, −1, 0, 1) and documentary site-year counts across historical periods, geographic two-degree cells, precipitation event-code categories, and the newly informative years.
 
 The event-code groupings are preliminary and non-exclusive. No-rain and drought events remain valid documentary evidence for the inferred-zero rule; grouping them separately is only for audit and sensitivity analysis. The snow-absence/prayer group includes some prayer narratives and must not be interpreted as exclusively explicit no-snow observations.
 
