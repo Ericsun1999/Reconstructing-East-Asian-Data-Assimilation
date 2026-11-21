@@ -97,6 +97,17 @@ input_file <- here::here(
   "temperature index value.v1.xlsx"
 )
 
+temperature_input_mode <- Sys.getenv(
+  "REACHES_TEMPERATURE_INPUT", unset = "original"
+)
+if (!temperature_input_mode %in% c("original", "augmented")) {
+  stop("REACHES_TEMPERATURE_INPUT must be original or augmented.")
+}
+augmented_temperature_file <- here::here(
+  "Output", "Intermediate", "REACHES",
+  "temperature_site_year_augmented.csv"
+)
+
 output_directory <- here::here(
   "Output",
   "Intermediate"
@@ -117,54 +128,87 @@ calibration_file <- file.path(
 # 2. Read and clean REACHES observations
 # ------------------------------------------------------------
 
-if (!file.exists(input_file)) {
+temperature_source_file <- if (temperature_input_mode == "augmented") {
+  augmented_temperature_file
+} else {
+  input_file
+}
+
+if (!file.exists(temperature_source_file)) {
   stop(
-    "The REACHES input file was not found: ",
-    input_file
+    "The REACHES input file was not found: ", temperature_source_file,
+    if (temperature_input_mode == "augmented") {
+      "\nRun Code/Analysis/prepare_precipitation_augmented_reaches.R first."
+    } else {
+      ""
+    }
   )
 }
 
-temperature_raw <- readxl::read_excel(
-  input_file,
-  col_types = c(
-    "skip",
-    "skip",
-    "numeric",
-    "numeric",
-    "skip",
-    "skip",
-    "skip",
-    "skip",
-    "skip",
-    "numeric",
-    "numeric",
-    "skip",
-    "skip"
+if (temperature_input_mode == "augmented") {
+  # The augmented input has one row per site-year.
+  augmented_input <- readr::read_csv(
+    temperature_source_file, show_col_types = FALSE
   )
-)
-
-names(temperature_raw) <- c(
-  "level",
-  "year",
-  "long",
-  "lat"
-)
-
-temperature_raw <- temperature_raw %>%
-  transmute(
-    source_order = row_number(),
-    level = as.numeric(level),
-    year = as.integer(year),
-    long = as.numeric(long),
-    lat = as.numeric(lat)
-  ) %>%
-  filter(
-    year >= 1368L,
-    year <= 1911L,
-    level %in% ordinal_values,
-    is.finite(long),
-    is.finite(lat)
+  required_columns <- c(
+    "level", "year", "long", "lat", "number_of_source_records"
   )
+  if (!all(required_columns %in% names(augmented_input))) {
+    stop("Missing augmented temperature columns: ",
+         paste(setdiff(required_columns, names(augmented_input)),
+               collapse = ", "))
+  }
+  if (anyDuplicated(augmented_input[c("year", "long", "lat")])) {
+    stop("Duplicated site-year keys in the augmented input.")
+  }
+  temperature_raw <- augmented_input %>%
+    transmute(
+      source_order = row_number(),
+      level = as.numeric(level),
+      year = as.integer(year),
+      long = as.numeric(long),
+      lat = as.numeric(lat),
+      number_of_source_records = as.integer(number_of_source_records)
+    )
+  invalid_input <- is.na(temperature_raw$year) |
+    !between(temperature_raw$year, 1368L, 1911L) |
+    is.na(temperature_raw$level) |
+    !temperature_raw$level %in% ordinal_values |
+    !is.finite(temperature_raw$long) |
+    !is.finite(temperature_raw$lat) |
+    is.na(temperature_raw$number_of_source_records)
+  if (any(invalid_input, na.rm = TRUE)) {
+    stop("The augmented input contains invalid site-year records.")
+  }
+} else {
+  temperature_raw <- readxl::read_excel(
+    temperature_source_file,
+    col_types = c(
+      "skip", "skip", "numeric", "numeric",
+      "skip", "skip", "skip", "skip", "skip",
+      "numeric", "numeric", "skip", "skip"
+    )
+  )
+  names(temperature_raw) <- c(
+    "level", "year", "long", "lat"
+  )
+  temperature_raw <- temperature_raw %>%
+    transmute(
+      source_order = row_number(),
+      level = as.numeric(level),
+      year = as.integer(year),
+      long = as.numeric(long),
+      lat = as.numeric(lat),
+      number_of_source_records = 1L
+    ) %>%
+    filter(
+      year >= 1368L,
+      year <= 1911L,
+      level %in% ordinal_values,
+      is.finite(long),
+      is.finite(lat)
+    )
+}
 
 mode_first <- function(
     values,
@@ -206,7 +250,7 @@ temp2 <- temperature_raw %>%
       level,
       source_order
     ),
-    number_of_source_records = n(),
+    number_of_source_records = sum(number_of_source_records),
     .groups = "drop"
   ) %>%
   dplyr::select(
@@ -228,7 +272,7 @@ event_years <- sort(
   )
 )
 
-if (length(event_years) != 524L) {
+if (temperature_input_mode == "original" && length(event_years) != 524L) {
   warning(
     "The manuscript describes 524 REACHES event years, but ",
     length(event_years),
@@ -1406,6 +1450,8 @@ vario_fit2 <- list(
 )
 
 results <- list(
+  temperature_input_mode = temperature_input_mode,
+  temperature_source_file = temperature_source_file,
   temp2 = temp2,
   var_fit2 = var_fit2,
   vario_fit2 = vario_fit2,
@@ -1465,6 +1511,7 @@ calibration_parameter_summary <- bind_rows(
   mutate(
     number_of_event_years = length(event_years),
     calibration_engine = calibration_engine,
+    temperature_input_mode = temperature_input_mode,
     elapsed_minutes = elapsed_minutes
   )
 
