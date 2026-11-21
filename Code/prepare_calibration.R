@@ -1491,6 +1491,9 @@ results <- list(
   temperature_input_mode = temperature_input_mode,
   temperature_source_file = temperature_source_file,
   temperature_source_md5 = unname(tools::md5sum(temperature_source_file)),
+  calibration_script_md5 = unname(tools::md5sum(
+    here::here("Code", "prepare_calibration.R")
+  )),
   temp2 = temp2,
   all_site_years = all_site_years,
   cv_holdout = cv_holdout,
