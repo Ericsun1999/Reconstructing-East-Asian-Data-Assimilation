@@ -101,6 +101,8 @@ The following scripts use the precipitation workbook:
 - `Code/Analysis/precip_temperature_joint_distribution.R`: estimates the empirical distribution of recorded temperature indices by preliminary rain, snow, and hail event-code categories, conditional on a recorded temperature index at the same site-year. The category rules are provisional and should be checked against the REACHES event-code dictionary. The analysis does not fill missing temperatures. It writes tables and a plot under `Output/Intermediate/Precipitation/`.
 - `Code/Analysis/prepare_precipitation_augmented_reaches.R`: creates an optional site-year temperature input with a working value of zero for site-years that have an annual precipitation record but no recorded temperature index. Existing temperature indices are preserved exactly. Precipitation entries include dry-weather and other precipitation-related documentary events: this working rule treats a precipitation record as evidence of documentary availability, not necessarily evidence that precipitation occurred.
 
+Both source workbooks are matched using longitude and latitude rounded to eight decimal places, avoiding spurious distinctions caused by floating-point coordinate representations. The observed ordinal temperature values are preserved. Recreate the augmented CSV after updating the preparation script to apply this normalization.
+
 The augmented input and its source-audit tables are written to:
 
 ```text
