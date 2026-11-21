@@ -177,7 +177,8 @@ if (length(year2) == 0L) {
   )
 }
 
-if (length(year2) != 524L) {
+if (!identical(calibration_results$temperature_input_mode, "augmented") &&
+    length(year2) != 524L) {
   warning(
     "The manuscript describes 524 event years, but ",
     length(year2),
