@@ -113,6 +113,28 @@ Output/Intermediate/REACHES/temperature_augmented_by_year.csv
 
 The `source_type` and `is_inferred_zero` fields distinguish observed temperature categories from inferred zero values. The original Excel workbooks are never overwritten. An inferred zero is an explicit modeling assumption rather than a documented normal-temperature event.
 
+### Augmentation diagnostics
+
+The optional script `Code/Analysis/diagnose_precipitation_augmentation.R` validates the augmented site-year file against the original annual temperature workbook and precipitation records. It does not change the inferred-zero rule or write to either source workbook. In particular, **all annual precipitation-related records, including no-rain and drought reports, are eligible** to support the documentary-availability assumption.
+
+The script summarizes the original and augmented temperature-index counts for the full 1368–1911 period and five historical blocks; counts and coverage for years newly represented after augmentation; two-degree geographic density cells; supporting precipitation-record multiplicity; and event-code categories. Rain, no rain, drought, snow, snow absence/prayer, and hail are preliminary **non-exclusive** event descriptors, not a partition of the data. The snow-absence/prayer code group does not imply an explicit observation of no snow in every record. No temperature index is derived from these categories.
+
+After running the data-preparation script, the diagnostics can be generated independently:
+
+```bash
+Rscript --vanilla Code/Analysis/prepare_precipitation_augmented_reaches.R
+Rscript --vanilla Code/Analysis/diagnose_precipitation_augmentation.R
+```
+
+Outputs are saved under:
+
+```text
+Output/Intermediate/Precipitation/AugmentationDiagnostics/
+```
+
+These include block/year CSV summaries, the newly informative years, event-category counts and combinations, source-record counts, two-degree spatial count grids, and corresponding plots. The diagnostics do not run calibration, kriging, or assimilation.
+
+
 From the repository root, run the descriptive analysis with:
 
 ```bash
