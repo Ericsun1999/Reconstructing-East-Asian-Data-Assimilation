@@ -29,7 +29,9 @@ Data/Get_data/README.md
 Code/
 ├── Analysis/
 │   ├── coverage_population_GAM.R
-│   └── interval_compatibility.R
+│   ├── interval_compatibility.R
+│   ├── precip_temperature_joint_distribution.R
+│   └── prepare_precipitation_augmented_reaches.R
 ├── DataPreparation/
 │   ├── prepare_lme_annual.R
 │   └── prepare_worldclim_bias_correction.R
@@ -291,6 +293,25 @@ The default reproducibility workflow does not require the original large NetCDF 
 
 
 
+### Precipitation/temperature co-occurrence analysis
+
+`Code/Analysis/precip_temperature_joint_distribution.R` uses the annual precipitation and temperature worksheets to estimate the conditional distribution of recorded temperature-index categories for provisional rain, snow, and hail event-code groups. Records are paired by site and year; they need not come from the same historical text or season. The classification may overlap across precipitation categories, and the script does not impute any temperature value.
+
+Inputs:
+
+```text
+Data/precipitation index value.xlsx
+Data/temperature index value.v1.xlsx
+```
+
+Run:
+
+```bash
+Rscript --vanilla Code/Analysis/precip_temperature_joint_distribution.R
+```
+
+The script creates conditional-frequency tables, sample-size summaries, candidate site-years and an event-code audit under `Output/Intermediate/Precipitation/`.
+
 ### Preparing the documentary temperature input
 
 `Code/Analysis/prepare_precipitation_augmented_reaches.R` constructs an optional site-year temperature-index dataset from the annual temperature and precipitation worksheets. It preserves the recorded temperature category wherever one exists and assigns a working index of zero only to site-years with an annual precipitation record and no recorded temperature category. This is a documentary-availability assumption, not a direct temperature observation.
@@ -301,7 +322,7 @@ Default inputs:
 
 ```text
 Data/temperature index value.v1.xlsx
-~/Downloads/precipitation index value(1).xlsx
+Data/precipitation index value.xlsx
 ```
 
 Output:
@@ -320,7 +341,13 @@ REACHES_TEMPERATURE_INPUT=augmented Rscript --vanilla Code/prepare_calibration.R
 Rscript --vanilla Code/Get_tempe_all_data.R
 ```
 
-The precipitation input path can be changed with `REACHES_PRECIPITATION_FILE`. By default, `prepare_calibration.R` continues to use the original temperature spreadsheet; set `REACHES_TEMPERATURE_INPUT=augmented` explicitly to select the augmented input. Separate runs of the full downstream workflow are needed when comparing the two input versions.
+The precipitation input path can be changed with `REACHES_PRECIPITATION_FILE`. By default, `prepare_calibration.R` continues to use the original temperature spreadsheet; set `REACHES_TEMPERATURE_INPUT=augmented` explicitly to select the augmented input. The complete master workflow automatically creates the augmented site-year dataset before covariance calibration when this mode is selected:
+
+```bash
+REACHES_TEMPERATURE_INPUT=augmented REPRODUCTION_MODE=full Rscript --vanilla run_all.R
+```
+
+Both input versions write downstream results to the same `Output/` paths, so save separate output copies if comparing them.
 
 ### `prepare_calibration.R`
 
