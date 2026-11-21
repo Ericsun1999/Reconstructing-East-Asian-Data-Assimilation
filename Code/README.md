@@ -366,6 +366,99 @@ REACHES_TEMPERATURE_INPUT=augmented REPRODUCTION_MODE=full Rscript --vanilla run
 
 Both input versions write downstream results to the same `Output/` paths, so save separate output copies if comparing them.
 
+### Blocked calibration of additional measurement variance
+
+Code/Analysis/cv_observation_variance.R fits one nonnegative
+additional measurement-error variance (in Celsius squared) from five
+disjoint calendar holdouts: 1368–1500, 1501–1600, 1601–1700,
+1701–1800, and 1801–1911.
+
+For each fold, prepare_calibration.R refits the spatial covariance on
+**training years only**, saving results in a fold-specific directory.
+The original interval-censored kriging functions are applied at the
+three city locations with those training-only covariance parameters.
+Quantile-mapping reference distributions and the joint Monte Carlo
+measurement projection also use **training-year kriging outputs only**.
+The independent LME ensemble and annual state-space prior are reused
+unchanged. Held-out calendar years provide validation proxies only.
+
+The held-out Gaussian predictive mean and variance are
+
+\[
+m_t=\alpha_t+\beta_t\mu_t,\qquad
+S_t(0)=\beta_t^2V_t+v_{\delta,t},
+\]
+
+with the unconditional prior variance computed as
+\(V_1=r_1^2\) and \(V_t=M_{t-1}^2V_{t-1}+r_t^2\).
+For a common nonnegative \(u\), the criterion is
+
+\[
+\mathrm{CV}(u)=\frac{1}{2n}\sum_{\mathrm{held\ out}}
+\left[\log\{2\pi[S_t(0)+u]\}+
+\frac{(X_t^\ast-m_t)^2}{S_t(0)+u}\right].
+\]
+
+The pooled three-city/year criterion is a composite predictive log
+score; the scalar fitted \(u\) is shared across all spatial locations.
+No Kalman filtering/smoothing on held-out data is used to tune \(u\).
+
+From the repository root, run the numerical smoke test and then the
+full five-fold fit:
+
+~~~bash
+Rscript --vanilla Code/Analysis/test_observation_variance.R
+Rscript --vanilla Code/Analysis/cv_observation_variance.R
+~~~
+
+The fold covariance fit uses the deterministic analytic calibration
+engine by default, while the standard full-data covariance calibration
+continues to default to Monte Carlo. The fold engine can be changed
+through REACHES_CV_CALIBRATION_ENGINE=monte_carlo. The measurement
+Monte Carlo draw count is controlled by REACHES_CV_MC_SIZE (default
+100000). REACHES_CV_ONLY_FOLD=fold_1 runs a single pipeline check
+without writing a selected five-fold variance.
+
+Generated results are kept separate from the normal model products:
+
+~~~text
+Output/Intermediate/ObservationVariance/original/
+  selected_u.csv
+  heldout_score_components.csv
+  fold_covariance.csv
+  cv_score_curve.csv
+  cv_score_by_fold.csv
+  cv_score_by_city.csv
+  cv_score_curve.png
+  fold_1/ ... fold_5/ (training-only covariance fits and logs)
+~~~
+
+Before applying the result, regenerate Code/Get_tempe_all_data.R
+outputs if their REACHES kriging metadata predates source-identity
+tracking. With an up-to-date generated REACHES fit, explicitly
+supply the selected variance:
+
+~~~bash
+REACHES_EXTRA_VARIANCE_FILE="$PWD/Output/Intermediate/ObservationVariance/original/selected_u.csv" \
+  Rscript --vanilla Code/Figure9d.R
+
+REACHES_EXTRA_VARIANCE_FILE="$PWD/Output/Intermediate/ObservationVariance/original/selected_u.csv" \
+  Rscript --vanilla Code/Assimilation_grid.R
+~~~
+
+For the augmented input, set REACHES_TEMPERATURE_INPUT=augmented
+while fitting the five folds and use the corresponding variance at
+Output/Intermediate/ObservationVariance/augmented/selected_u.csv
+along with freshly generated augmented kriging products.
+
+The variance loader verifies input mode and source-workbook MD5
+against the generated kriging metadata. It refuses to apply a
+variance fitted for a different dataset. Both assimilation scripts
+retain the original u=0 behavior unless
+REACHES_EXTRA_VARIANCE_FILE is explicitly provided. When enabled,
+the fitted u is added **once** to the Monte Carlo measurement-error
+variance and is propagated by the Kalman filter and RTS smoother.
+
 ### `prepare_calibration.R`
 
 This script estimates the calibration quantities used by the interval-censored covariance and kriging procedures.
