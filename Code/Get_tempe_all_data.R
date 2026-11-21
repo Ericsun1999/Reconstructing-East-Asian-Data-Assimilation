@@ -101,6 +101,7 @@ if (!file.exists(calibration_file)) {
 calibration_results <- readRDS(
   calibration_file
 )
+calibration_file_md5 <- unname(tools::md5sum(calibration_file))
 
 required_objects <- c(
   "temp2",
@@ -1039,6 +1040,7 @@ if (
         tolerance = 0
       )
     ) &&
+    identical(checkpoint$calibration_file_md5, calibration_file_md5) &&
     identical(
       dim(
         checkpoint$mean_matrix
@@ -1209,6 +1211,7 @@ for (
       list(
         years = year2,
         parameters = parameter_vector,
+        calibration_file_md5 = calibration_file_md5,
         mean_matrix = mean_matrix,
         variance_matrix =
           variance_matrix,
@@ -1470,6 +1473,7 @@ if (
         tolerance = 0
       )
     ) &&
+    identical(city_checkpoint$calibration_file_md5, calibration_file_md5) &&
     isTRUE(
       all.equal(
         city_checkpoint$city_locations,
@@ -1633,6 +1637,7 @@ for (
         years = year2,
         parameters =
           parameter_vector,
+        calibration_file_md5 = calibration_file_md5,
         city_locations =
           city_locations,
         city_mean_matrix =
