@@ -29,6 +29,7 @@ Data/Get_data/README.md
 Code/
 ├── Analysis/
 │   ├── coverage_population_GAM.R
+│   ├── diagnose_precipitation_augmentation.R
 │   ├── interval_compatibility.R
 │   ├── precip_temperature_joint_distribution.R
 │   └── prepare_precipitation_augmented_reaches.R
@@ -311,6 +312,22 @@ Rscript --vanilla Code/Analysis/precip_temperature_joint_distribution.R
 ```
 
 The script creates conditional-frequency tables, sample-size summaries, candidate site-years and an event-code audit under `Output/Intermediate/Precipitation/`.
+
+### Augmentation diagnostics
+
+`Code/Analysis/diagnose_precipitation_augmentation.R` checks an existing `temperature_site_year_augmented.csv` against the two original annual REACHES workbooks. It verifies that all observed temperature indices are unchanged and that every inferred zero has annual precipitation documentation. It reports the before/after distribution across historical periods, geographic two-degree cells, precipitation event-code categories, and the newly informative years.
+
+The event-code groupings are preliminary and non-exclusive. No-rain and drought events remain valid documentary evidence for the inferred-zero rule; grouping them separately is only for audit and sensitivity analysis. The snow-absence/prayer group includes some prayer narratives and must not be interpreted as exclusively explicit no-snow observations.
+
+Run the preparation and diagnostics without launching the rest of the workflow:
+
+```bash
+Rscript --vanilla Code/Analysis/prepare_precipitation_augmented_reaches.R
+Rscript --vanilla Code/Analysis/diagnose_precipitation_augmentation.R
+```
+
+CSV summaries and PNG figures are written to `Output/Intermediate/Precipitation/AugmentationDiagnostics/`. No assimilation or full-workflow run is required.
+
 
 ### Preparing the documentary temperature input
 
