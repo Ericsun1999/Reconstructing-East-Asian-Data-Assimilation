@@ -359,6 +359,18 @@ input_files <- select_input_set(
   precomputed_inputs = precomputed_inputs
 )
 
+source(here::here("Code", "Analysis", "extra_observation_variance.R"))
+if (nzchar(Sys.getenv("REACHES_EXTRA_VARIANCE_FILE", unset = "")) &&
+    identical(input_files$reaches_metadata,
+              precomputed_inputs$reaches_metadata)) {
+  stop("Additional variance requires freshly generated REACHES kriging.")
+}
+extra_variance <- read_extra_observation_variance(
+  input_files$reaches_metadata
+)
+message("Additional observation variance (Celsius^2): ",
+        signif(extra_variance$u, 7))
+
 message(
   "Spatial assimilation location scope: ",
   location_scope
@@ -2321,6 +2333,8 @@ checkpoint_settings <- list(
   measurement_mc_size = measurement_mc_size,
   measurement_mc_seed = measurement_mc_seed,
   measurement_projection_method = measurement_projection_method,
+  extra_observation_variance = extra_variance$u,
+  extra_variance_file_md5 = extra_variance$file_md5,
   sigmaY2 = sigmaY2
 )
 
@@ -2578,8 +2592,10 @@ process_location <- function(location_index) {
   beta[event_year_indices] <-
     measurement_parameters$beta
 
+  # Add the fitted discrepancy once to the measurement error.
+  # The RTS smoother already propagates it through the Kalman update.
   vdelta[event_year_indices] <-
-    measurement_parameters$vdelta
+    measurement_parameters$vdelta + extra_variance$u
 
   smoother <- kalman_filter_smoother_annual(
     mu = prior_fit$mu,
@@ -2630,6 +2646,9 @@ process_location <- function(location_index) {
     number_of_event_years = length(event_years),
     measurement_mc_size = measurement_mc_size,
     measurement_projection_method = measurement_projection_method,
+    extra_observation_variance = extra_variance$u,
+    extra_variance_source = extra_variance$mode,
+    extra_variance_file_md5 = extra_variance$file_md5,
     l3_reference_kriging_index_mean =
       measurement_parameters$reference_mean,
     l3_reference_year_count =
@@ -2873,6 +2892,10 @@ spatial_metadata <- data.frame(
   mapping_grid_size = mapping_grid_size,
   lme_cdf_grid_size = lme_cdf_grid_size,
   elapsed_minutes = elapsed_minutes,
+  extra_observation_variance = extra_variance$u,
+  extra_variance_source = extra_variance$mode,
+  extra_variance_file = extra_variance$file,
+  extra_variance_file_md5 = extra_variance$file_md5,
   lme_archive_file = input_files$lme_archive,
   reaches_mean_file = input_files$reaches_mean,
   reaches_variance_file = input_files$reaches_variance,
