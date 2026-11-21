@@ -33,13 +33,14 @@ assign_block <- function(year) {
     year <= 1500L ~ "1368-1500",
     year <= 1600L ~ "1501-1600",
     year <= 1700L ~ "1601-1700",
+    year <= 1800L ~ "1701-1800",
     TRUE ~ "1801-1911"
   )
 }
 
 precip_file <- path.expand(Sys.getenv(
   "REACHES_PRECIPITATION_FILE",
-  unset = "~/Downloads/precipitation index value(1).xlsx"
+  unset = here::here("Data", "precipitation index value.xlsx")
 ))
 temperature_file <- here::here("Data", "temperature index value.v1.xlsx")
 output_dir <- here::here("Output", "Intermediate", "REACHES")
