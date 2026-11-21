@@ -393,22 +393,41 @@ write_result(
   "augmentation_spatial_2deg_by_block.csv"
 )
 
-p_year <- yearly %>%
-  select(year, recorded_temperature, inferred_zero) %>%
+# Use the same red annual bars and black LOESS line as Figure 2(a).
+# Both panels show total site-year counts with the same vertical scale.
+year_plot_data <- yearly %>%
+  select(year, recorded_temperature, augmented_total) %>%
   pivot_longer(
-    cols = c(recorded_temperature, inferred_zero),
-    names_to = "record_type", values_to = "site_years"
+    cols = c(recorded_temperature, augmented_total),
+    names_to = "dataset", values_to = "n"
   ) %>%
-  ggplot(aes(x = year, y = site_years, fill = record_type)) +
-  geom_col(width = 0.95) +
-  labs(
-    title = "Documentary temperature coverage before and after augmentation",
-    x = "Year", y = "Site-year count", fill = "Source"
+  mutate(
+    dataset = factor(
+      dataset,
+      levels = c("recorded_temperature", "augmented_total"),
+      labels = c("Recorded only", "With inferred zeros")
+    )
+  )
+
+p_year <- ggplot(year_plot_data, aes(x = year, y = n)) +
+  geom_col(fill = "red", colour = "red", width = 0.95) +
+  geom_smooth(
+    method = "loess",
+    span = 0.3,
+    colour = "black",
+    linewidth = 1,
+    se = FALSE
   ) +
-  theme_minimal(base_size = 11)
+  facet_wrap(~ dataset, ncol = 2) +
+  labs(x = "year", y = "count") +
+  theme_gray() +
+  theme(
+    text = element_text(size = 15),
+    strip.text = element_text(face = "bold")
+  )
 ggsave(
   file.path(output_dir, "augmentation_counts_by_year.png"),
-  p_year, width = 12, height = 5, dpi = 180, bg = "white"
+  p_year, width = 12, height = 4.8, dpi = 300, bg = "white"
 )
 
 # Plot actual site-year locations, following Figure 2(c).
@@ -506,21 +525,53 @@ for (filename in c(
   )
 }
 
-p_levels <- total_level_distribution %>%
-  ggplot(aes(
-    x = dataset, y = proportion, fill = factor(level)
-  )) +
-  geom_col(width = 0.6) +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
-  labs(
-    title = "Temperature-index distribution before and after augmentation",
-    x = "Documentary input", y = "Proportion",
-    fill = "Temperature index"
+# Match Figure 2(b)'s neutral-grey histogram appearance.
+# Because the temperature index is discrete, geom_col() reproduces its
+# four category counts exactly (rather than using arbitrary histogram bins).
+level_plot_data <- total_level_distribution %>%
+  mutate(
+    level = factor(level, levels = c(-2L, -1L, 0L, 1L)),
+    dataset = factor(
+      dataset,
+      levels = c("recorded_only", "with_inferred_zero"),
+      labels = c("Recorded only", "With inferred zeros")
+    )
+  )
+
+p_levels <- ggplot(level_plot_data, aes(x = level, y = site_years)) +
+  geom_col(fill = "grey35", width = 0.9) +
+  facet_wrap(~ dataset, ncol = 2) +
+  labs(x = "level", y = "count") +
+  theme_gray() +
+  theme(
+    text = element_text(size = 15),
+    strip.text = element_text(face = "bold")
+  )
+ggsave(
+  file.path(output_dir, "augmentation_temperature_level_counts.png"),
+  p_levels, width = 9, height = 4.8, dpi = 300, bg = "white"
+)
+
+# Retain the before/after proportion comparison in a second grey-panel
+# figure, rather than overwriting the count-based Figure 2(b) analogue.
+p_level_shares <- ggplot(
+  level_plot_data, aes(x = level, y = proportion)
+) +
+  geom_col(fill = "grey35", width = 0.9) +
+  facet_wrap(~ dataset, ncol = 2) +
+  scale_y_continuous(
+    labels = scales::percent_format(accuracy = 1),
+    limits = c(0, 1)
   ) +
-  theme_minimal(base_size = 11)
+  labs(x = "level", y = "proportion") +
+  theme_gray() +
+  theme(
+    text = element_text(size = 15),
+    strip.text = element_text(face = "bold")
+  )
 ggsave(
   file.path(output_dir, "augmentation_temperature_level_shares.png"),
-  p_levels, width = 9, height = 5, dpi = 180, bg = "white"
+  p_level_shares, width = 9, height = 4.8, dpi = 300, bg = "white"
 )
 
 p_events <- category_totals %>%
@@ -535,10 +586,11 @@ p_events <- category_totals %>%
     subtitle = "Non-exclusive event-code categories; totals may overlap",
     x = "Event category", y = "Inferred-zero site-years"
   ) +
-  theme_minimal(base_size = 11)
+  theme_gray() +
+  theme(text = element_text(size = 15))
 ggsave(
   file.path(output_dir, "augmentation_event_category_counts.png"),
-  p_events, width = 9, height = 5, dpi = 180, bg = "white"
+  p_events, width = 9, height = 5, dpi = 300, bg = "white"
 )
 
 metadata <- tibble(
