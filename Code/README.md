@@ -458,6 +458,11 @@ retain the original u=0 behavior unless
 REACHES_EXTRA_VARIANCE_FILE is explicitly provided. When enabled,
 the fitted u is added **once** to the Monte Carlo measurement-error
 variance and is propagated by the Kalman filter and RTS smoother.
+The spatial-assimilation checkpoint also fingerprints all three input
+REACHES kriging files, preventing reuse after input changes. To protect
+the repository's reference products, runs with extra variance or
+augmented documentary input do not overwrite the copies in Data/Valid;
+the new results remain under Output/Intermediate/Assimilation/.
 
 ### `prepare_calibration.R`
 
