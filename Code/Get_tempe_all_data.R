@@ -1784,7 +1784,18 @@ if (file.exists(
 # 14. Save diagnostics and metadata
 # ------------------------------------------------------------
 
+# Preserve the exact input identity for downstream variance calibration.
+temperature_source_file <- calibration_results$temperature_source_file
+if (is.null(temperature_source_file) ||
+    !file.exists(temperature_source_file)) {
+  stop("The calibration's original REACHES source file is unavailable.")
+}
+temperature_source_md5 <- unname(tools::md5sum(temperature_source_file))
+
 metadata <- data.frame(
+  temperature_input_mode = calibration_results$temperature_input_mode,
+  temperature_source_md5 = temperature_source_md5,
+  calibration_file_md5 = calibration_file_md5,
   number_of_event_years =
     length(
       year2
