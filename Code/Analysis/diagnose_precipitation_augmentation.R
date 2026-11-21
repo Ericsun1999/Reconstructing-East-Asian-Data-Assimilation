@@ -65,12 +65,26 @@ if (!all(required %in% names(augmented))) {
 augmented <- augmented %>%
   mutate(
     year = as.integer(year),
+    long = round(as.numeric(long), 8),
+    lat = round(as.numeric(lat), 8),
     level = as.integer(level),
     is_inferred_zero = as.logical(is_inferred_zero),
     block = assign_block(year)
   )
 key <- c("year", "long", "lat")
-if (anyDuplicated(augmented[key])) stop("Duplicate augmented site-year.")
+if (anyDuplicated(augmented[key])) {
+  duplicate_keys <- augmented %>%
+    count(across(all_of(key))) %>%
+    filter(n > 1L)
+  write_result(duplicate_keys, "augmentation_duplicate_coordinates.csv")
+  stop(
+    "Duplicate augmented site-years after rounding coordinates to eight ",
+    "decimal places. Rerun ",
+    "Code/Analysis/prepare_precipitation_augmented_reaches.R ",
+    "to rebuild the normalized dataset. See ",
+    file.path(output_dir, "augmentation_duplicate_coordinates.csv")
+  )
+}
 if (any(is.na(augmented$is_inferred_zero))) {
   stop("Missing inferred-zero flags.")
 }
@@ -93,8 +107,8 @@ temperature_source <- readxl::read_excel(
 ) %>%
   transmute(
     year = suppressWarnings(as.integer(.data[["資料判斷後，所屬年份"]])),
-    long = suppressWarnings(as.numeric(.data[["空間-經度"]])),
-    lat = suppressWarnings(as.numeric(.data[["空間-緯度"]])),
+    long = round(suppressWarnings(as.numeric(.data[["空間-經度"]])), 8),
+    lat = round(suppressWarnings(as.numeric(.data[["空間-緯度"]])), 8),
     level = suppressWarnings(as.integer(.data[["溫度等級"]]))
   ) %>%
   filter(
@@ -107,12 +121,32 @@ temperature_source <- readxl::read_excel(
 recorded <- augmented %>%
   filter(!is_inferred_zero) %>%
   select(all_of(key), level)
+recorded_missing_from_source <- anti_join(
+  recorded, temperature_source, by = c(key, "level")
+)
+source_missing_from_recorded <- anti_join(
+  temperature_source, recorded, by = c(key, "level")
+)
 if (nrow(recorded) != nrow(temperature_source) ||
-    nrow(anti_join(recorded, temperature_source,
-                   by = c(key, "level"))) != 0L ||
-    nrow(anti_join(temperature_source, recorded,
-                   by = c(key, "level"))) != 0L) {
-  stop("The recorded temperature site-years do not match the source workbook.")
+    nrow(recorded_missing_from_source) > 0L ||
+    nrow(source_missing_from_recorded) > 0L) {
+  write_result(
+    recorded_missing_from_source,
+    "augmentation_recorded_not_in_source.csv"
+  )
+  write_result(
+    source_missing_from_recorded,
+    "augmentation_source_not_in_recorded.csv"
+  )
+  stop(
+    "The recorded temperature site-years differ from the source workbook: ",
+    nrow(recorded), " recorded, ",
+    nrow(temperature_source), " original, ",
+    nrow(recorded_missing_from_source), " unmatched recorded, ",
+    nrow(source_missing_from_recorded), " unmatched source. ",
+    "Inspect the augmentation_recorded_not_in_source.csv and ",
+    "augmentation_source_not_in_recorded.csv diagnostic files."
+  )
 }
 
 precipitation <- readxl::read_excel(
@@ -120,8 +154,8 @@ precipitation <- readxl::read_excel(
 ) %>%
   transmute(
     year = suppressWarnings(as.integer(.data[["資料判斷後，所屬年份"]])),
-    long = suppressWarnings(as.numeric(.data[["空間-經度"]])),
-    lat = suppressWarnings(as.numeric(.data[["空間-緯度"]])),
+    long = round(suppressWarnings(as.numeric(.data[["空間-經度"]])), 8),
+    lat = round(suppressWarnings(as.numeric(.data[["空間-緯度"]])), 8),
     event_codes = coalesce(.data[["事件編碼"]], ""),
     description = coalesce(.data[["事件-事件敘述"]], "")
   ) %>%
