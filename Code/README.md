@@ -326,7 +326,7 @@ Rscript --vanilla Code/Analysis/prepare_precipitation_augmented_reaches.R
 Rscript --vanilla Code/Analysis/diagnose_precipitation_augmentation.R
 ```
 
-CSV summaries and PNG figures are written to `Output/Intermediate/Precipitation/AugmentationDiagnostics/`. No assimilation or full-workflow run is required.
+CSV summaries and PNG figures are written to `Output/Intermediate/Precipitation/AugmentationDiagnostics/`. The primary geographic figure is `augmentation_spatial_site_year.png`: it shows exact site-year coordinates on the Figure 2(c) map, using the original RdBu palette for recorded temperature indices and grey outlined markers for inferred zeros, in before/after panels. Two-degree cell counts remain available as CSV files; the figure is also saved under the previous `augmentation_spatial_2deg.png` filename for compatibility. No assimilation or full-workflow run is required.
 
 
 ### Preparing the documentary temperature input
