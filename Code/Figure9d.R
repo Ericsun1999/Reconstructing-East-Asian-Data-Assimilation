@@ -389,7 +389,8 @@ if (nzchar(Sys.getenv("REACHES_EXTRA_VARIANCE_FILE", unset = "")) &&
   stop("Additional variance requires freshly generated REACHES kriging.")
 }
 extra_variance <- read_extra_observation_variance(
-  input_files$reaches_metadata
+  input_files$reaches_metadata,
+  projection_method = measurement_projection_method
 )
 message("Additional observation variance (Celsius^2): ",
         signif(extra_variance$u, 7))
