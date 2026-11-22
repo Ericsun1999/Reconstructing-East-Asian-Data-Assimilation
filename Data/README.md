@@ -98,8 +98,8 @@ The two source workbooks contain documentary event identifiers, historical years
 
 The following scripts use the precipitation workbook:
 
-- `Code/Analysis/precip_temperature_joint_distribution.R`: estimates the empirical distribution of recorded temperature indices by preliminary rain, snow, and hail event-code categories, conditional on a recorded temperature index at the same site-year. The category rules are provisional and should be checked against the REACHES event-code dictionary. The analysis does not fill missing temperatures. It writes tables and a plot under `Output/Intermediate/Precipitation/`.
-- `Code/Analysis/prepare_precipitation_augmented_reaches.R`: creates an optional site-year temperature input with a working value of zero for site-years that have an annual precipitation record but no recorded temperature index. Existing temperature indices are preserved exactly. Precipitation entries include dry-weather and other precipitation-related documentary events: this working rule treats a precipitation record as evidence of documentary availability, not necessarily evidence that precipitation occurred.
+- `Code/SupportingAnalyses/precip_temperature_joint_distribution.R`: estimates the empirical distribution of recorded temperature indices by preliminary rain, snow, and hail event-code categories, conditional on a recorded temperature index at the same site-year. The category rules are provisional and should be checked against the REACHES event-code dictionary. The analysis does not fill missing temperatures. It writes tables and a plot under `Output/Intermediate/Precipitation/`.
+- `Code/DataPreparation/prepare_precipitation_augmented_reaches.R`: creates an optional site-year temperature input with a working value of zero for site-years that have an annual precipitation record but no recorded temperature index. Existing temperature indices are preserved exactly. Precipitation entries include dry-weather and other precipitation-related documentary events: this working rule treats a precipitation record as evidence of documentary availability, not necessarily evidence that precipitation occurred.
 
 Both source workbooks are matched using longitude and latitude rounded to eight decimal places, avoiding spurious distinctions caused by floating-point coordinate representations. The observed ordinal temperature values are preserved. Recreate the augmented CSV after updating the preparation script to apply this normalization.
 
@@ -117,15 +117,15 @@ The `source_type` and `is_inferred_zero` fields distinguish observed temperature
 
 ### Augmentation diagnostics
 
-The optional script `Code/Analysis/diagnose_precipitation_augmentation.R` validates the augmented site-year file against the original annual temperature workbook and precipitation records. It does not change the inferred-zero rule or write to either source workbook. In particular, **all annual precipitation-related records, including no-rain and drought reports, are eligible** to support the documentary-availability assumption.
+The optional script `Code/SupportingAnalyses/diagnose_precipitation_augmentation.R` validates the augmented site-year file against the original annual temperature workbook and precipitation records. It does not change the inferred-zero rule or write to either source workbook. In particular, **all annual precipitation-related records, including no-rain and drought reports, are eligible** to support the documentary-availability assumption.
 
 The script summarizes the original and augmented temperature-index counts and full ordinal-category proportions for the 1368–1911 period and five historical blocks; counts and coverage for years newly represented after augmentation; two-degree geographic density cells; supporting precipitation-record multiplicity; and event-code categories. Rain, no rain, drought, snow, snow absence/prayer, and hail are preliminary **non-exclusive** event descriptors, not a partition of the data. The snow-absence/prayer code group does not imply an explicit observation of no snow in every record. No temperature index is derived from these categories.
 
 After running the data-preparation script, the diagnostics can be generated independently:
 
 ```bash
-Rscript --vanilla Code/Analysis/prepare_precipitation_augmented_reaches.R
-Rscript --vanilla Code/Analysis/diagnose_precipitation_augmentation.R
+Rscript --vanilla Code/DataPreparation/prepare_precipitation_augmented_reaches.R
+Rscript --vanilla Code/SupportingAnalyses/diagnose_precipitation_augmentation.R
 ```
 
 Outputs are saved under:
@@ -136,13 +136,13 @@ Output/Intermediate/Precipitation/AugmentationDiagnostics/
 
 These include block/year CSV summaries, the newly informative years, event-category counts and combinations, source-record counts, and two-degree spatial count grids. The geographic figure, `augmentation_spatial_site_year.png`, plots the original site-year coordinates (not two-degree centers), using the same world-border projection and RdBu temperature-index palette as `Figure2.R`; inferred zeros are shown with separate grey outlined markers. The previous filename `augmentation_spatial_2deg.png` is also written for compatibility. The annual coverage panels use Figure 2(a)'s red columns and black LOESS smooth, while the temperature-category count panels use Figure 2(b)'s grey histogram appearance. The script writes `augmentation_counts_by_year.png`, `augmentation_temperature_level_counts.png`, and `augmentation_temperature_level_shares.png` (the latter compares category proportions). The event-category plot follows the same grey-panel style. The diagnostics do not run calibration, kriging, or assimilation.
 
-An optional five-block predictive-log-score calibration of the extra temperature-scale measurement variance is implemented in `Code/Analysis/cv_observation_variance.R`. Its outputs are generated separately under `Output/Intermediate/ObservationVariance/original/` or `Output/Intermediate/ObservationVariance/augmented/`; neither the selected variance nor the held-out diagnostics are source observations. They are not committed to `Data/`, and the exact workbook identity is recorded by MD5 to keep fits associated with the matching documentary input.
+An optional five-block predictive-log-score calibration of the extra temperature-scale measurement variance is implemented in `Code/SupportingAnalyses/cv_observation_variance.R`. Its outputs are generated separately under `Output/Intermediate/ObservationVariance/original/` or `Output/Intermediate/ObservationVariance/augmented/`; neither the selected variance nor the held-out diagnostics are source observations. They are not committed to `Data/`, and the exact workbook identity is recorded by MD5 to keep fits associated with the matching documentary input.
 
 
 From the repository root, run the descriptive analysis with:
 
 ```bash
-Rscript --vanilla Code/Analysis/precip_temperature_joint_distribution.R
+Rscript --vanilla Code/SupportingAnalyses/precip_temperature_joint_distribution.R
 ```
 
 To enable the augmented temperature input for the full reproduction workflow:
