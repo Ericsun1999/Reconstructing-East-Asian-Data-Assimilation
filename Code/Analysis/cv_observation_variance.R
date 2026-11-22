@@ -406,13 +406,25 @@ for (k in seq_len(nrow(active_folds))) {
 
 all_scores <- bind_rows(fold_observations)
 covariance_table <- bind_rows(fold_covariance)
-readr::write_csv(all_scores,
-                 file.path(output_dir, "heldout_score_components.csv"))
-readr::write_csv(covariance_table,
-                 file.path(output_dir, "fold_covariance.csv"))
+# A single-fold smoke test must never overwrite the pooled five-fold
+# products, including any previously fitted selected_u.csv.
+is_partial_run <- nrow(active_folds) != nrow(folds)
+results_dir <- if (is_partial_run) {
+  file.path(output_dir, "smoke", as.character(active_folds$fold[1L]))
+} else {
+  output_dir
+}
+dir.create(results_dir, recursive = TRUE, showWarnings = FALSE)
+readr::write_csv(
+  all_scores, file.path(results_dir, "heldout_score_components.csv")
+)
+readr::write_csv(
+  covariance_table, file.path(results_dir, "fold_covariance.csv")
+)
 
-if (nrow(active_folds) != nrow(folds)) {
-  message("One-fold diagnostic run complete. No selected variance written.")
+if (is_partial_run) {
+  message("One-fold diagnostic run complete: ", results_dir,
+          ". Existing five-fold results were not modified.")
 } else {
   if (anyDuplicated(all_scores[c("year", "city")])) {
     stop("Duplicate held-out city/year evaluations.")
@@ -425,21 +437,44 @@ if (nrow(active_folds) != nrow(folds)) {
   residual <- all_scores$predictive_residual
   base <- all_scores$baseline_predictive_variance
   loss <- function(u) predictive_log_score(residual, base, u)
+  derivative <- function(u) {
+    S <- base + u
+    mean(0.5 * (1 / S - residual^2 / S^2))
+  }
   upper <- max(1, 10 * stats::var(residual), 10 * max(base))
-  for (i in 1:8) {
-    optimum <- optimize(loss, c(0, upper))
-    if (optimum$minimum < 0.98 * upper) break
-    upper <- upper * 4
+  for (i in seq_len(10L)) {
+    if (derivative(upper) > 0) break
+    upper <- 4 * upper
   }
-  if (optimum$minimum >= 0.98 * upper) {
-    stop("The discrepancy variance optimum did not bracket.")
+  if (!is.finite(upper) || !is.finite(derivative(upper)) ||
+      derivative(upper) <= 0) {
+    stop("Could not bracket the additional-variance objective.")
   }
-  u_opt <- if (loss(0) <= optimum$objective) 0 else optimum$minimum
-  if (u_opt < 1e-8) u_opt <- 0
-  u_grid <- sort(unique(c(
-    0, u_opt,
-    exp(seq(log(1e-8), log(upper), length.out = 200))
+
+  # Heterogeneous base variances need not give a unimodal profile.
+  # Scan logarithmically, refine every detected local minimum, and
+  # compare with the constrained boundary u = 0.
+  coarse <- sort(unique(c(
+    0, exp(seq(log(1e-10), log(upper), length.out = 401L))
   )))
+  coarse_loss <- vapply(coarse, loss, numeric(1L))
+  n_grid <- length(coarse)
+  local <- which(
+    coarse_loss[2:(n_grid - 1L)] <= coarse_loss[1:(n_grid - 2L)] &
+    coarse_loss[2:(n_grid - 1L)] <= coarse_loss[3:n_grid]
+  ) + 1L
+  candidates <- c(0, upper)
+  for (idx in local) {
+    refined <- stats::optimize(
+      loss, c(coarse[idx - 1L], coarse[idx + 1L]), tol = 1e-10
+    )
+    candidates <- c(candidates, coarse[idx], refined$minimum)
+  }
+  u_opt <- candidates[which.min(
+    vapply(candidates, loss, numeric(1L))
+  )]
+  if (u_opt < 1e-8) u_opt <- 0
+  u_grid <- sort(unique(c(coarse, u_opt)))
   cv_grid <- data.frame(
     u = u_grid,
     predictive_log_score = vapply(u_grid, loss, numeric(1L))
