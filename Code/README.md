@@ -418,6 +418,12 @@ The final validation script independently recomputes the
 held-out predictive means, variances, residuals, scores, and
 source-input MD5, and checks disjoint five-fold city/year coverage.
 It writes cv_validation_summary.csv only when all checks pass.
+It also produces cv_fold_variance_diagnostics.csv (per-fold
+baseline-variance quantiles and score contributions),
+cv_largest_zero_variance_scores.csv (30 largest baseline-score
+city/years), and cv_score_curve_zoom.png (the profile near the
+selected nonnegative variance), without rerunning covariance
+calibration or changing the selected_u.csv result.
 
 The one-fold test stores its combined diagnostic tables under
 Output/Intermediate/ObservationVariance/original/smoke/fold_1/
