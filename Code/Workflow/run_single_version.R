@@ -1061,17 +1061,40 @@ child_expression <- paste0(
   ", chdir = FALSE)"
 )
 
-status <- system2(
-  command = rscript_executable,
-  args = c(
-    "--vanilla",
-    "-e",
-    shQuote(child_expression)
-  ),
-  stdout = log_file,
-  stderr = log_file,
-  wait = TRUE
-)
+# Prior.R reports every CV parameter combination. Display those
+# messages live while keeping the exact same output in its log.
+# A Bash pipeline with pipefail preserves Rscript's nonzero exit status,
+# rather than accidentally reporting the exit status of tee.
+# Other steps retain their existing log-only behavior.
+if (identical(step$id, "prior") &&
+    .Platform$OS.type != "windows" &&
+    nzchar(Sys.which("bash")) &&
+    nzchar(Sys.which("tee"))) {
+  live_command <- paste(
+    shQuote(rscript_executable),
+    "--vanilla", "-e", shQuote(child_expression),
+    "2>&1 |", shQuote(Sys.which("tee")), shQuote(log_file)
+  )
+  status <- system2(
+    command = Sys.which("bash"),
+    args = c("-o", "pipefail", "-c", shQuote(live_command)),
+    stdout = "",
+    stderr = "",
+    wait = TRUE
+  )
+} else {
+  status <- system2(
+    command = rscript_executable,
+    args = c(
+      "--vanilla",
+      "-e",
+      shQuote(child_expression)
+    ),
+    stdout = log_file,
+    stderr = log_file,
+    wait = TRUE
+  )
+}
 
   end_time <- Sys.time()
 
