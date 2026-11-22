@@ -49,11 +49,24 @@ The CV scripts require a complete LME/Prior input set; the
 augmentation diagnosis requires the prepared inferred-zero site-years.
 The commands above are **optional** and are not invoked by the main
 manuscript workflow.
+By default the optional CV script uses the **original**
+reference-centered measurement projection (v1), matching the primary
+manuscript reconstruction. An alternative zero-centered exploratory
+projection can be requested explicitly:
+
+```bash
+REACHES_CV_PROJECTION_METHOD=empirical_reference_zero_centered_joint_mc_v2 \
+Rscript --vanilla Code/SupportingAnalyses/cv_observation_variance.R
+```
+
 Re-estimating a new variance with another measurement equation must
 not be silently mixed with the original-model variance used in the
 main two-version comparison. The historical original-model estimate
 can be applied with a **common fixed value** to both documentary
-versions to isolate the data-input sensitivity.
+versions to isolate the data-input sensitivity. Numerical validation
+supports either named version; an older selected file without
+projection-version metadata can be checked numerically but its model
+identity cannot be certified from the file alone.
 
 The mathematical helper functions for loading the additional variance,
 computing the unconditional annual prior variance and evaluating
