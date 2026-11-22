@@ -307,7 +307,7 @@ for (k in seq_len(nrow(active_folds))) {
     old_covariance <- readr::read_csv(
       old_covariance_file, show_col_types = FALSE
     ) %>%
-      filter(.data$fold == fold$fold)
+      filter(.data$fold == .env$fold$fold)
     existing_city <- readr::read_csv(
       city_file, show_col_types = FALSE
     )
