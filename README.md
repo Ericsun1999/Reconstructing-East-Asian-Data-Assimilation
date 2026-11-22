@@ -489,3 +489,7 @@ The version-specific reproducibility archive is available on Zenodo:
 The analysis code in this repository is licensed under the [MIT License](LICENSE).
 
 Third-party datasets remain subject to the terms and conditions of their original providers.
+
+## Generative AI Use
+
+Generative AI (ChatGPT) was used to assist with reviewing, modifying, and organizing portions of the R code and repository documentation. Scientific and methodological decisions, interpretation of results, and responsibility for verifying the code and analyses remain with the authors.
