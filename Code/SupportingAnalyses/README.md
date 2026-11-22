@@ -24,17 +24,31 @@ These checks are not a replacement for the manuscript's primary
 reconstruction, and the complete manuscript workflow does not need to
 refit the additional variance at every run.
 
-The standalone scripts, when run from the **repository root**, are:
+The numerical test can run from the **repository root**:
 
 ```bash
 Rscript --vanilla Code/SupportingAnalyses/test_observation_variance.R
+```
+
+For the canonical dual-version workflow, the generated LME/Prior and
+inferred-zero datasets reside inside the independent project
+workspaces. Run the other diagnostics from the relevant workspace:
+
+```bash
+# After completing run_all.R --all, from the repository root:
+cd Output/Reconstructions/original
 Rscript --vanilla Code/SupportingAnalyses/cv_observation_variance.R
 Rscript --vanilla Code/SupportingAnalyses/validate_observation_variance_cv.R
+
+# Go to the inferred-zero version to inspect the augmented input:
+cd ../inferred-zero
 Rscript --vanilla Code/SupportingAnalyses/diagnose_precipitation_augmentation.R
 ```
 
-The CV scripts need independently generated LME/Prior inputs; the
-augmentation diagnosis needs the generated site-year input.
+The CV scripts require a complete LME/Prior input set; the
+augmentation diagnosis requires the prepared inferred-zero site-years.
+The commands above are **optional** and are not invoked by the main
+manuscript workflow.
 Re-estimating a new variance with another measurement equation must
 not be silently mixed with the original-model variance used in the
 main two-version comparison. The historical original-model estimate
@@ -57,8 +71,12 @@ executing the full Figure 9(d) workflow.
 Run separately if needed:
 
 ```bash
-Rscript --vanilla Code/SupportingAnalyses/kriging_city_only.R
+# From the repository root, with standalone analysis inputs available:
 Rscript --vanilla Code/SupportingAnalyses/precip_temperature_joint_distribution.R
+
+# From a completed original or inferred-zero project workspace:
+cd Output/Reconstructions/inferred-zero
+Rscript --vanilla Code/SupportingAnalyses/kriging_city_only.R
 ```
 
 The city-only kriging utility writes ordinary generated REACHES paths.
