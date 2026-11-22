@@ -175,13 +175,13 @@ Data/WorldClim/worldclim_offsets_all_269.csv
 
 The prepared input contains additive corrections for 266 native LME grid locations and three validation stations.
 
-For each location \(s\), the correction is defined by:
+For each location $s$, the correction is defined by:
 
 $$
 d(s) = \overline{W}(s) - \overline{L}_{1970:2000}(s),
 $$
 
-where \(\overline{W}(s)\) is the WorldClim climatological mean and \(\overline{L}_{1970:2000}(s)\) is the corresponding mean of the 13 LME members over 1970–2000.
+where $\overline{W}(s)$ is the WorldClim climatological mean and $\overline{L}_{1970:2000}(s)$ is the corresponding mean of the 13 LME members over 1970–2000.
 
 #### Historical LME correction
 
@@ -197,7 +197,7 @@ The WorldClim correction is applied afterward as a constant location-specific ad
 
 $$ T_{\mathrm{corrected}}(s,t,j) = T_{\mathrm{original}}(s,t,j) + d(s), $$
 
-where \(t\) denotes calendar year and \(j\) denotes ensemble member.
+where $t$ denotes calendar year and $j$ denotes ensemble member.
 
 The same correction is used for every historical year and ensemble member.
 
@@ -384,24 +384,24 @@ unchanged. Held-out calendar years provide validation proxies only.
 
 The held-out Gaussian predictive mean and variance are
 
-\[
+$
 m_t=\alpha_t+\beta_t\mu_t,\qquad
 S_t(0)=\beta_t^2V_t+v_{\delta,t},
-\]
+$
 
 with the unconditional prior variance computed as
-\(V_1=r_1^2\) and \(V_t=M_{t-1}^2V_{t-1}+r_t^2\).
-For a common nonnegative \(u\), the criterion is
+$V_1=r_1^2$ and $V_t=M_{t-1}^2V_{t-1}+r_t^2$.
+For a common nonnegative $u$, the criterion is
 
-\[
+$
 \mathrm{CV}(u)=\frac{1}{2n}\sum_{\mathrm{held\ out}}
 \left[\log\{2\pi[S_t(0)+u]\}+
 \frac{(X_t^\ast-m_t)^2}{S_t(0)+u}\right].
-\]
+$
 
 The pooled three-city/year criterion is a composite predictive log
-score; the scalar fitted \(u\) is shared across all spatial locations.
-No Kalman filtering/smoothing on held-out data is used to tune \(u\).
+score; the scalar fitted $u$ is shared across all spatial locations.
+No Kalman filtering/smoothing on held-out data is used to tune $u$.
 
 The measurement projection has two explicit versions. The historical
 empirical-reference projection (empirical_reference_joint_mc_v1)
@@ -534,7 +534,7 @@ The optional documentary augmentation analysis is designed as a
 **sensitivity comparison**, not a replacement of the original model.
 For the primary comparison, keep the original measurement projection,
 the same LME/prior inputs, the same joint-Monte-Carlo draw count, and
-the same additional variance \(u\) in both runs. This isolates the
+the same additional variance $u$ in both runs. This isolates the
 change in the documentary observation dataset. Do **not** rerun
 blocked CV merely to complete this comparison.
 
@@ -548,7 +548,7 @@ results while switching the source workbook:
   model settings. A snapshot is never silently replaced.
 - Analysis/compare_augmentation_reconstructions.R compares two
   verified snapshots. It refuses to compare runs with different
-  measurement projection versions, fixed \(u\), or measurement
+  measurement projection versions, fixed $u$, or measurement
   Monte Carlo draw counts; it also verifies identical LME city priors
   and ensemble means across the 544 annual years.
 
