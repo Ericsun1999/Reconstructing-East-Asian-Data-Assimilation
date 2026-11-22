@@ -59,6 +59,85 @@ Code/
 
 All scripts should be executed from the repository root. The scripts use project-relative paths through `here::here()` and should not require manually changing the working directory.
 
+## Versioned manuscript reconstruction (primary and sensitivity)
+
+For the current documentary sensitivity analysis, use the versioned
+controller rather than two sequential unversioned runs. The **primary**
+reconstruction includes the documented site-years with inferred zero
+temperature indices; **Original** uses only the recorded temperature
+indices and serves as the sensitivity reference. Inferred zeros are
+distinguished from observed temperature categories in the input
+provenance and descriptive maps.
+
+From the repository root:
+
+~~~bash
+git pull
+REPRODUCTION_MODE=full Rscript --vanilla Code/Analysis/run_reconstruction_versions.R --all
+~~~
+
+This executes the shared 13-member LME annual preparation, WorldClim
+bias correction and \`Prior.R\` **once**. Both documentary-input
+workspaces then reuse the exact same prepared LME and prior files
+while separately recalibrating REACHES, recomputing complete spatial
+kriging, and regenerating Figures 2–10, Supplementary Figures S1–S5,
+associated tables, diagnostics and Kalman posteriors.
+
+Outputs are **physically separate, including intermediate data**:
+
+~~~text
+Output/Reconstructions/
+  shared/Output/Intermediate/LME/              one common LME
+  shared/Output/Intermediate/Prior/            one common prior
+  inferred-zero/Output/Figure2/ ... Figure10/   PRIMARY
+  inferred-zero/Output/Supplementary/           PRIMARY
+  inferred-zero/Output/Intermediate/            PRIMARY
+  inferred-zero/Output/Logs/                    PRIMARY
+  original/Output/Figure2/ ... Figure10/        SENSITIVITY
+  original/Output/Supplementary/                SENSITIVITY
+  original/Output/Intermediate/                 SENSITIVITY
+  original/Output/Logs/                         SENSITIVITY
+  Comparison/city/
+  Comparison/grid/
+~~~
+
+The controller isolates each run in a project workspace. Its Data/Valid
+folder is separate from tracked reference data, and the output
+workspaces are not overwritten by switching source variants.
+The two versions use the original measurement projection, the
+same Monte Carlo settings and a **common fixed extra observation
+variance** from the Original blocked-CV fit (unless a different
+nonnegative value is explicitly supplied with \`--u=VALUE\`).
+This isolates the effect of the inferred-zero input; the Original
+fit is not misrepresented as an independently fitted Augmented u.
+The one-time LME/prior source files are fingerprinted to prevent
+accidental reuse after the corresponding inputs or code change.
+
+To perform stages separately:
+
+~~~bash
+Rscript --vanilla Code/Analysis/run_reconstruction_versions.R --prepare-shared
+Rscript --vanilla Code/Analysis/run_reconstruction_versions.R --variant=inferred-zero
+Rscript --vanilla Code/Analysis/run_reconstruction_versions.R --variant=original
+Rscript --vanilla Code/Analysis/run_reconstruction_versions.R --compare-only
+~~~
+
+Set \`REPRODUCTION_MODE=full\` for manuscript results; smoke mode is only
+a pipeline test. Use \`--rebuild-shared\` deliberately if the independent
+LME/prior inputs or code change, and then rerun *both* documentary
+versions. Existing snapshots are protected against silent replacement.
+
+The coverage/population and interval-compatibility diagnostics still
+describe recorded REACHES temperature events; inferred-zero site-years
+should not be misinterpreted as directly observed temperature events.
+The supplementary spatial comparison aligns geographic locations
+even when Figure 6 cluster memberships change between versions.
+
+The unversioned \`run_all.R\` command remains available for legacy
+reproducibility, but it writes to shared Output/ locations and does
+**not** preserve two separate documentary versions. Use the controller
+above when producing both series of manuscript figures.
+
 ## Master Workflow
 
 The master workflow is defined in:
