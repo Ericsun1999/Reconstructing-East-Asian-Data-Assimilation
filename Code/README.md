@@ -451,9 +451,15 @@ is a first run or the cache fails validation, remove the flag to
 recompute kriging. Existing covariance fits are reused separately
 when their input MD5 and calibration-script MD5 match.
 
-Any selected_u.csv written before the zero-centered projection
-correction is obsolete; rerun the full five-fold fit. The independent
-validation script refuses to validate an obsolete selected file.
+The version-specific CV validator requires a variance fitted
+under the corrected projection. The earlier fit obtained under the
+original projection is still a valid result for that *original*
+measurement model; it should not be relabeled as a corrected-projection
+fit. To use the original estimate for the documentary-input sensitivity
+comparison, hold its numerical value fixed in both reconstructions via
+REACHES_EXTRA_VARIANCE_FIXED, as documented below. This does not refit
+u, alter the original measurement equation, or represent the old
+fit as an independently calibrated augmented-data variance.
 
 The one-fold test stores its combined diagnostic tables under
 Output/Intermediate/ObservationVariance/original/smoke/fold_1/
@@ -521,6 +527,109 @@ REACHES kriging files, preventing reuse after input changes. To protect
 the repository's reference products, runs with extra variance or
 augmented documentary input do not overwrite the copies in Data/Valid;
 the new results remain under Output/Intermediate/Assimilation/.
+
+### Comparing reconstructions with and without inferred zeros
+
+The optional documentary augmentation analysis is designed as a
+**sensitivity comparison**, not a replacement of the original model.
+For the primary comparison, keep the original measurement projection,
+the same LME/prior inputs, the same joint-Monte-Carlo draw count, and
+the same additional variance \(u\) in both runs. This isolates the
+change in the documentary observation dataset. Do **not** rerun
+blocked CV merely to complete this comparison.
+
+Two analysis-only utilities protect against silently overwriting
+results while switching the source workbook:
+
+- Analysis/snapshot_augmentation_reconstruction.R captures an
+  input-identity-verified Original or Augmented run before changing
+  source datasets. It checks the calibration RDS, kriging metadata,
+  actual documentary-input MD5, posterior outputs, and assimilation
+  model settings. A snapshot is never silently replaced.
+- Analysis/compare_augmentation_reconstructions.R compares two
+  verified snapshots. It refuses to compare runs with different
+  measurement projection versions, fixed \(u\), or measurement
+  Monte Carlo draw counts; it also verifies identical LME city priors
+  and ensemble means across the 544 annual years.
+
+Use the *existing original-projection* estimate of u as an identical
+fixed input in both cases. Alternatively, set u=0 in **both** runs
+for a no-extra-variance comparison. The fixed-u setting labels the
+sensitivity run clearly; it does not claim that u was calibrated
+independently for Augmented observations.
+
+After git pull, from the repository root:
+
+~~~bash
+export REACHES_MEASUREMENT_PROJECTION_METHOD=empirical_reference_joint_mc_v1
+export REACHES_WRITE_VALIDATION_COPY=0
+export REACHES_EXTRA_VARIANCE_FIXED=$(Rscript --vanilla -e 'cat(sprintf("%.17g", read.csv("Output/Intermediate/ObservationVariance/original/selected_u.csv")$selected_u[1]))')
+unset REACHES_EXTRA_VARIANCE_FILE
+
+# Original analysis; use the SAME script and parameters for Augmented.
+REACHES_TEMPERATURE_INPUT=original Rscript --vanilla Code/prepare_calibration.R
+Rscript --vanilla Code/Get_tempe_all_data.R
+Rscript --vanilla Code/Figure9d.R
+
+# Capture city results BEFORE changing the documentary input.
+Rscript --vanilla Code/Analysis/snapshot_augmentation_reconstruction.R original city
+
+# Optional: for a complete spatial-grid sensitivity analysis, run:
+Rscript --vanilla Code/Assimilation_grid.R
+Rscript --vanilla Code/Analysis/snapshot_augmentation_reconstruction.R original grid
+
+# Switch documentary inputs (original spreadsheet is never modified).
+Rscript --vanilla Code/Analysis/prepare_precipitation_augmented_reaches.R
+REACHES_TEMPERATURE_INPUT=augmented Rscript --vanilla Code/prepare_calibration.R
+Rscript --vanilla Code/Get_tempe_all_data.R
+Rscript --vanilla Code/Figure9d.R
+
+Rscript --vanilla Code/Analysis/snapshot_augmentation_reconstruction.R augmented city
+Rscript --vanilla Code/Analysis/compare_augmentation_reconstructions.R city
+
+# Run these only if the Original spatial-grid snapshot also exists:
+Rscript --vanilla Code/Assimilation_grid.R
+Rscript --vanilla Code/Analysis/snapshot_augmentation_reconstruction.R augmented grid
+Rscript --vanilla Code/Analysis/compare_augmentation_reconstructions.R grid
+~~~
+
+The two-stage setup allows an inexpensive three-city comparison
+first, followed by the complete spatial comparison if both grid
+snapshots are available. Because the usual scripts write to shared
+Output/ locations, **capture Original before switching to Augmented**.
+The environment variable REACHES_WRITE_VALIDATION_COPY=0 prevents
+spatial sensitivity runs from updating the versioned Data/Valid
+reference products.
+
+Comparisons are stored under:
+
+~~~text
+Output/Intermediate/AugmentationSensitivity/
+  original/city/
+  augmented/city/
+  original/grid/               (optional)
+  augmented/grid/              (optional)
+  Comparison/city/
+    city_summary.csv
+    city_by_block.csv
+    city_year_differences.csv
+    covariance_comparison.csv
+    city_posterior_mean_shifts.png
+    city_posterior_sd_ratios.png
+  Comparison/grid/             (optional)
+    grid_location_summary.csv
+    grid_year_differences.csv
+    grid_by_block.csv
+    grid_mean_difference_map.png
+~~~
+
+The plotted posterior-mean difference is compared against the
+Original posterior SD as a magnitude reference; it is **not**
+a significance test or a confidence interval for the difference,
+since the Original and Augmented posteriors are correlated.
+The original-versus-augmented comparison should be accompanied
+by the separate site-year provenance and duplicate-key
+diagnostics from diagnose_precipitation_augmentation.R.
 
 ### `prepare_calibration.R`
 
