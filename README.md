@@ -168,10 +168,12 @@ should not be misinterpreted as directly observed temperature events.
 The supplementary spatial comparison aligns geographic locations
 even when Figure 6 cluster memberships change between versions.
 
-The unversioned `run_all.R` command remains available for legacy
-reproducibility, but it writes to shared Output/ locations and does
-**not** preserve two separate documentary versions. Use the controller
-above when producing both series of manuscript figures.
+The repository-root `run_all.R` is now the **versioned controller**:
+running it with no arguments (or with `--all`) launches both documentary
+input versions. For legacy *individual-step* runs only, the
+`run_all.R --only=<step>` interface is still available; those steps
+write to root-level `Output/` locations and do **not** create separate
+versioned results. Use `run_all.R --all` for the complete comparison.
 
 ## Reproducing the Complete Analysis
 
