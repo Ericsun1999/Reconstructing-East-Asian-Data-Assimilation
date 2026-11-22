@@ -4,12 +4,19 @@ This directory contains the data-preparation, statistical-analysis, validation, 
 
 > **Reconstructing East Asian Temperatures from 1368 to 1911 Using Historical Documents, Climate Models, and Data Assimilation**
 
-The preferred method for reproducing the analysis is to use the master workflow from the repository root:
+For the current two-version manuscript reconstruction, the
+recommended entry point is the versioned controller from the
+repository root:
 
 ```bash
 REPRODUCTION_MODE=full \
-Rscript --vanilla run_all.R
+Rscript --vanilla Code/Analysis/run_reconstruction_versions.R --all
 ```
+
+The independent LME and dynamic prior are estimated once and reused,
+while the inferred-zero primary figures and Original sensitivity
+figures remain in different output workspaces. The original unversioned
+`run_all.R` workflow is retained for legacy reproduction.
 
 Detailed descriptions of the input data are available in:
 
@@ -130,6 +137,11 @@ versions. Existing snapshots are protected against silent replacement.
 The coverage/population and interval-compatibility diagnostics still
 describe recorded REACHES temperature events; inferred-zero site-years
 should not be misinterpreted as directly observed temperature events.
+Figure 2 and Supplementary Figure S2 distinguish inferred zero
+site-years with outlined markers. The Original descriptive count
+plots use recorded documentary entries, while the inferred-zero
+version uses aggregated site-years; use the explicit site-year audit
+tables for a denominator-matched comparison of reporting density.
 The supplementary spatial comparison aligns geographic locations
 even when Figure 6 cluster memberships change between versions.
 
