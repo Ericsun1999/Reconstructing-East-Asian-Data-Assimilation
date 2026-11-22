@@ -52,6 +52,10 @@ if (stage == "grid") {
     file.path(city_dir, paste0(
       "assimilated_posterior_lme_grid_",
       c("mean.csv", "variance.csv", "metadata.csv")
+    )),
+    file.path(reaches_dir, c(
+      "reaches_kriging_lme_grid_mean.csv",
+      "reaches_kriging_lme_grid_variance.csv"
     ))
   )
 }
@@ -139,7 +143,9 @@ if (stage == "grid") {
   if (nrow(grid_meta) != 1L ||
       !all(c(
         "process_variance", "measurement_mc_size",
-        "extra_observation_variance"
+        "measurement_projection_method", "extra_observation_variance",
+        "reaches_mean_md5", "reaches_variance_md5",
+        "reaches_metadata_md5"
       ) %in% names(grid_meta)) ||
       !isTRUE(all.equal(
         as.numeric(grid_meta$process_variance[1L]),
@@ -150,7 +156,29 @@ if (stage == "grid") {
         as.numeric(grid_meta$extra_observation_variance[1L]),
         as.numeric(city_meta$extra_observation_variance[1L]),
         tolerance = 1e-8
-      ))) {
+      )) ||
+      !identical(
+        as.character(grid_meta$measurement_projection_method[1L]),
+        as.character(city_meta$measurement_projection_method[1L])
+      ) ||
+      as.integer(grid_meta$measurement_mc_size[1L]) !=
+        as.integer(city_meta$measurement_mc_size[1L]) ||
+      !identical(
+        as.character(grid_meta$reaches_metadata_md5[1L]),
+        unname(tools::md5sum(kriging_meta_file))
+      ) ||
+      !identical(
+        as.character(grid_meta$reaches_mean_md5[1L]),
+        unname(tools::md5sum(file.path(
+          reaches_dir, "reaches_kriging_lme_grid_mean.csv"
+        )))
+      ) ||
+      !identical(
+        as.character(grid_meta$reaches_variance_md5[1L]),
+        unname(tools::md5sum(file.path(
+          reaches_dir, "reaches_kriging_lme_grid_variance.csv"
+        )))
+      )) {
     stop("Spatial assimilation metadata do not match city/kriging run.")
   }
 }
