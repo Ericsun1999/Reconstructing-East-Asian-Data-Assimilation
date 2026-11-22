@@ -135,6 +135,11 @@ for (f in city_files) {
 }
 
 if (stage == "grid") {
+  if ("kriging_scope" %in% names(kriging_meta) &&
+      identical(as.character(kriging_meta$kriging_scope[1L]),
+                "city_only")) {
+    stop("A city-only kriging run cannot be snapshotted as a spatial grid.")
+  }
   grid_meta <- readr::read_csv(
     file.path(
       city_dir, "assimilated_posterior_lme_grid_metadata.csv"
