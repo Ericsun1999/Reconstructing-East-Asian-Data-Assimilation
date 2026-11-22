@@ -187,6 +187,20 @@ if (clean_run) {
     repository_root,
     "Output"
   )
+  versioned_directory <- file.path(
+    output_directory, "Reconstructions"
+  )
+  if (dir.exists(versioned_directory) &&
+      !identical(Sys.getenv(
+        "REACHES_ALLOW_VERSIONED_OUTPUT_DELETE", unset = ""
+      ), "1")) {
+    stop(
+      "--clean would erase the separate Original and inferred-zero ",
+      "manuscript results under Output/Reconstructions/. ",
+      "Archive them first. To delete them intentionally, set ",
+      "REACHES_ALLOW_VERSIONED_OUTPUT_DELETE=1."
+    )
+  }
 
   if (dir.exists(
     output_directory
