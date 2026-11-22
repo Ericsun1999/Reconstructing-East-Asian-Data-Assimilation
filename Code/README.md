@@ -411,7 +411,13 @@ full five-fold fit:
 Rscript --vanilla Code/Analysis/test_observation_variance.R
 REACHES_CV_ONLY_FOLD=fold_1 Rscript --vanilla Code/Analysis/cv_observation_variance.R
 Rscript --vanilla Code/Analysis/cv_observation_variance.R
+Rscript --vanilla Code/Analysis/validate_observation_variance_cv.R
 ~~~
+
+The final validation script independently recomputes the
+held-out predictive means, variances, residuals, scores, and
+source-input MD5, and checks disjoint five-fold city/year coverage.
+It writes cv_validation_summary.csv only when all checks pass.
 
 The one-fold test stores its combined diagnostic tables under
 Output/Intermediate/ObservationVariance/original/smoke/fold_1/
