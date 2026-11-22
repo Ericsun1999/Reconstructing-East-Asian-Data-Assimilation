@@ -45,20 +45,24 @@ Code/
 │   └── prepare_precipitation_augmented_reaches.R
 ├── SupportingAnalyses/            Optional diagnostics and exploration
 │   ├── README.md                  Explanations and optional commands
-│   └── (six supporting .R scripts)
+│   └── (five supporting .R scripts)
 ├── Workflow/
 │   └── run_single_version.R       Internal worker called by run_all.R
 ├── Supplementary/                 Supplementary figures S1–S3 scripts
 ├── Figure2.R ... Figure10.R        Main figure scripts
 ├── Figure9d.R                     Measurement variance helper definitions
+├── cv_observation_variance.R      Required Original-input blocked-CV estimator
 ├── Get_tempe_all_data.R
 ├── Prior.R
 └── prepare_calibration.R
 ```
 
-All commands below are run from the repository root. The six
-SupportingAnalyses scripts are not part of the automatic full
-reproduction; see [their documentation](SupportingAnalyses/README.md).
+All commands below are run from the repository root. The five
+SupportingAnalyses scripts are optional diagnostics or exploratory
+methods and are not required by the full reproduction; see
+[their documentation](SupportingAnalyses/README.md). The Original-input
+observation-variance CV estimator is a required upstream step and is
+called automatically from the root `run_all.R`.
 
 ## Versioned manuscript reconstruction (primary and sensitivity)
 
@@ -107,8 +111,13 @@ folder is separate from tracked reference data, and the output
 workspaces are not overwritten by switching source variants.
 The two versions use the original measurement projection, the
 same Monte Carlo settings and a **common fixed extra observation
-variance** from the Original blocked-CV fit (unless a different
-nonnegative value is explicitly supplied with `--u=VALUE`).
+variance** estimated by the Original-input five-block CV
+(`Code/cv_observation_variance.R`). The controller fits this value
+automatically after the shared LME/prior are ready, or reuses the estimate
+if source and workflow fingerprints match. The generated fit is stored at
+`Output/Reconstructions/original/Output/Intermediate/ObservationVariance/original/selected_u.csv`.
+For deliberate sensitivity checks, use `--u=VALUE` to bypass CV and
+supply an independently justified nonnegative constant.
 This isolates the effect of the inferred-zero input; the Original
 fit is not misrepresented as an independently fitted Augmented u.
 The one-time LME/prior source files are fingerprinted to prevent
@@ -124,9 +133,11 @@ Rscript --vanilla run_all.R --compare-only
 ~~~
 
 Set `REPRODUCTION_MODE=full` for manuscript results; smoke mode is only
-a pipeline test. Use `--rebuild-shared` deliberately if the independent
-LME/prior inputs or code change, and then rerun *both* documentary
-versions. Existing snapshots are protected against silent replacement.
+a pipeline test and uses `u=0` by default to avoid the costly five-block
+CV. In full mode, no separate CV command is required.
+Use `--rebuild-shared` deliberately if the independent LME/prior inputs
+or code change, and then rerun *both* documentary versions. Existing
+snapshots are protected against silent replacement.
 
 The coverage/population and interval-compatibility diagnostics still
 describe recorded REACHES temperature events; inferred-zero site-years
@@ -438,17 +449,36 @@ selects `REACHES_TEMPERATURE_INPUT` for each run automatically.
 
 ### Additional measurement variance
 
-Figure 9(d) defines the nonnegative additional measurement variance
-loader as part of its measurement-equation implementation; the spatial
-assimilation script imports only that named function.
+`Code/cv_observation_variance.R` is a **required upstream estimation
+step** for the default full two-version reconstruction. It estimates
+the nonnegative additional measurement variance `u` using five temporal
+holdout blocks of the **original recorded-temperature input only**.
+The root `run_all.R` automatically runs this estimator after preparing
+the shared LME/prior, before launching either documentary-input
+reconstruction. It reuses the saved estimate only when input-data,
+CV-script and shared-prior fingerprints and CV settings are compatible.
 
-The two manuscript reconstruction versions hold the same Original
-blocked-CV estimate fixed, to isolate the effect of inferred-zero
-documentary inputs. The five-fold CV fitting and numerical validation
-scripts are preserved as **optional supporting analyses**, documented
-at [SupportingAnalyses/README.md](SupportingAnalyses/README.md).
+The estimate and its diagnostic score curves are written under:
 
-The full reproduction does not rerun blocked CV.
+```text
+Output/Reconstructions/original/Output/Intermediate/ObservationVariance/original/
+  selected_u.csv
+  cv_score_curve.csv
+  cv_score_by_fold.csv
+  cv_score_by_city.csv
+  cv_score_curve.png
+```
+
+Both manuscript versions apply the same Original-input estimate to isolate
+the effect of inferred-zero documentary observations. The measurement
+variance loader and mathematical helpers remain in `Code/Figure9d.R`,
+which is used by spatial assimilation. Additional numerical testing,
+independent CV validation and precipitation-input diagnostics are **optional**
+and documented in [SupportingAnalyses/README.md](SupportingAnalyses/README.md).
+
+For a deliberate fixed-`u` sensitivity run, `run_all.R --all --u=VALUE`
+bypasses CV; the supplied value must be independently justified. Smoke
+mode defaults to `u=0` and is not suitable for manuscript figures.
 
 ### Comparing reconstructions with and without inferred zeros
 
