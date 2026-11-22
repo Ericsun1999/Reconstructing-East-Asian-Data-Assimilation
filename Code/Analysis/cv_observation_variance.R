@@ -359,6 +359,7 @@ for (k in seq_len(nrow(active_folds))) {
       reference_nu = training$nu,
       target_nu = held_out$nu,
       g = mapping$g,
+      center_mode = "zero",
       n_mc = n_mc,
       seed = 1L + ci
     )
@@ -514,6 +515,8 @@ if (is_partial_run) {
     source_file = normalizePath(source_path),
     calibration_engine = calibration_engine,
     mc_size = n_mc,
+    measurement_projection_method =
+      "empirical_reference_zero_centered_joint_mc_v2",
     score_type = "pooled_city_year_predictive_log_score",
     lme_prior_source = names(valid_inputs)[1L]
   )
