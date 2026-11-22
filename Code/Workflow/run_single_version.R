@@ -631,7 +631,7 @@ if (temperature_input_mode == "augmented") {
     list(list(
       id = "augment_temperature",
       script = file.path(
-        "Code", "Analysis", "prepare_precipitation_augmented_reaches.R"
+        "Code", "DataPreparation", "prepare_precipitation_augmented_reaches.R"
       ),
       expected = file.path(
         "Output", "Intermediate", "REACHES",
