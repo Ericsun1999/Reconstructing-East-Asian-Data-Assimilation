@@ -447,7 +447,7 @@ run_variant <- function(name) {
 }
 
 compare_versions <- function() {
-  Sys.setenv(REACHES_L4_VERSION_ROOT = reconstruction_root)
+  Sys.setenv(REACHES_COMPARISON_VERSION_ROOT = reconstruction_root)
   for (stage in c("city", "grid")) {
     message("\nComparing ", stage, " reconstructions ...")
     previous <- getwd()
