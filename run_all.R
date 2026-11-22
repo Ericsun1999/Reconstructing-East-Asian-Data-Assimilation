@@ -1,1230 +1,541 @@
-# ============================================================
-# Master reproducibility workflow
-#
-# Usage from the repository root:
-#
-#   Rscript --vanilla run_all.R
-#   Rscript --vanilla run_all.R --clean
-#   Rscript --vanilla run_all.R --only=figure2
-#   Rscript --vanilla run_all.R --only=figure4
-#   Rscript --vanilla run_all.R --only=kriging
-#
-# Reproducible input boundary:
-#   - The public workflow begins with Data/LME data/a1.csv.gz,
-#     ..., a13.csv.gz.
-#   - Data/Get_data/GetLME.R documents the optional conversion
-#     from the original NetCDF files, but is not run here because
-#     those upstream NetCDF files are not redistributed.
-#
-# Design:
-#   - Every analysis script is launched in a separate clean R
-#     session using Rscript --vanilla.
-#   - The workflow stops immediately when a script fails.
-#   - Standard output and errors are written to Output/Logs/.
-#   - A machine-readable run manifest is written after every step.
-#
-# IMPORTANT:
-#   Review the `workflow` object below and make its paths match
-#   the final repository. Add any computational figure/table
-#   scripts that are not yet listed.
-# ============================================================
+here::i_am("run_all.R")
 
-# ------------------------------------------------------------
-# 1. Locate repository root without depending on the here package
-# ------------------------------------------------------------
-
-command_line <- commandArgs(
-  trailingOnly = FALSE
-)
-
-file_argument <- grep(
-  "^--file=",
-  command_line,
-  value = TRUE
-)
-
-if (length(file_argument) != 1L) {
-  stop(
-    "run_all.R must be executed with Rscript."
-  )
+# Legacy single-step compatibility. The default entry point now runs
+# both documentary input versions, while --only and --clean remain
+# available to reproduce a specific historical workflow stage.
+legacy_arguments <- commandArgs(trailingOnly = TRUE)
+if (any(grepl("^--only=", legacy_arguments)) ||
+    "--clean" %in% legacy_arguments ||
+    "--skip-shared" %in% legacy_arguments) {
+  source(here::here("Code", "Workflow", "run_single_version.R"),
+         local = FALSE)
+  quit(save = "no", status = 0L)
 }
 
-run_all_file <- sub(
-  "^--file=",
-  "",
-  file_argument
+# Independent, fully versioned reproductions:
+#   inferred-zero = primary reconstruction (Original + documented zeros)
+#   original      = sensitivity reconstruction (temperature records only)
+#
+# All figure, supplementary, calibration, kriging, posterior, validation
+# and log outputs remain in separate workspaces under:
+#   Output/Reconstructions/inferred-zero/Output/
+#   Output/Reconstructions/original/Output/
+#
+# The independent LME products and penalized prior are prepared ONCE:
+#   Output/Reconstructions/shared/Output/Intermediate/{LME,Prior}/
+# Both versioned workspaces link those directories read-only in intent.
+#
+# Usage (from the real repository root):
+#   Rscript --vanilla run_all.R --all
+#   Rscript --vanilla run_all.R --prepare-shared
+#   Rscript --vanilla run_all.R --variant=inferred-zero
+#   Rscript --vanilla run_all.R --variant=original
+#   Rscript --vanilla run_all.R --compare-only
+#   Rscript --vanilla run_all.R --all --u=0
+#
+# By default u comes from the original blocked-CV selected_u.csv.
+# This controller does not change the statistical methods.
+
+arguments <- commandArgs(trailingOnly = TRUE)
+choices <- c("--all", "--prepare-shared", "--compare-only",
+             "--rebuild-shared")
+variant_arg <- grep("^--variant=", arguments, value = TRUE)
+u_arg <- grep("^--u=", arguments, value = TRUE)
+unknown <- arguments[
+  !arguments %in% choices &
+  !grepl("^--variant=", arguments) &
+  !grepl("^--u=", arguments)
+]
+if (length(unknown) ||
+    length(variant_arg) > 1L || length(u_arg) > 1L) {
+  stop("Unknown or repeated arguments: ",
+       paste(c(unknown, variant_arg[-1L], u_arg[-1L]),
+             collapse = ", "))
+}
+actions <- c(
+  all = "--all" %in% arguments,
+  prepare_shared = "--prepare-shared" %in% arguments,
+  compare_only = "--compare-only" %in% arguments,
+  variant = length(variant_arg) == 1L
 )
-
-repository_root <- dirname(
-  normalizePath(
-    run_all_file,
-    winslash = "/",
-    mustWork = TRUE
-  )
-)
-
-setwd(
-  repository_root
-)
-
-options(
-  stringsAsFactors = FALSE
-)
-
-Sys.setenv(
-  TZ = "UTC"
-)
-
-# ------------------------------------------------------------
-# 2. Parse command-line options
-# ------------------------------------------------------------
-
-arguments <- commandArgs(
-  trailingOnly = TRUE
-)
-
-clean_run <- "--clean" %in% arguments
-skip_shared <- "--skip-shared" %in% arguments
-
-only_argument <- grep(
-  "^--only=",
-  arguments,
-  value = TRUE
-)
-
-only_step <- if (length(only_argument) == 1L) {
-  sub(
-    "^--only=",
-    "",
-    only_argument
-  )
+if (sum(actions) > 1L) {
+  stop("Choose one action: --all, --prepare-shared, --variant=..., ",
+       "or --compare-only.")
+}
+if (!any(actions)) actions["all"] <- TRUE
+requested_variant <- if (actions["variant"]) {
+  sub("^--variant=", "", variant_arg)
 } else {
   ""
 }
-
-unknown_arguments <- arguments[
-  !arguments %in% c("--clean", "--skip-shared") &
-    !grepl(
-      "^--only=",
-      arguments
-    )
-]
-
-if (length(unknown_arguments) > 0L) {
-  stop(
-    "Unknown argument(s): ",
-    paste(
-      unknown_arguments,
-      collapse = ", "
-    )
-  )
+if (actions["variant"] &&
+    !requested_variant %in% c("inferred-zero", "original")) {
+  stop("--variant must be inferred-zero or original.")
+}
+if ("--rebuild-shared" %in% arguments && actions["compare_only"]) {
+  stop("--rebuild-shared is not meaningful with --compare-only.")
 }
 
-# ------------------------------------------------------------
-# 3. Optional cleanup
-# ------------------------------------------------------------
-
-remove_generated_validation_files <- function() {
-
-  validation_directory <- file.path(
-    repository_root,
-    "Data",
-    "Valid"
-  )
-
-  if (!dir.exists(
-    validation_directory
-  )) {
-    return(
-      invisible(
-        NULL
-      )
-    )
-  }
-
-  generated_patterns <- c(
-    "^assimilation_(Beijing|Shanghai|HongKong)\\.csv$",
-    "^assimilated_posterior_lme_grid_(mean|variance)\\.csv$"
-  )
-
-  validation_files <- list.files(
-    validation_directory,
-    full.names = TRUE
-  )
-
-  generated_files <- validation_files[
-    vapply(
-      basename(
-        validation_files
-      ),
-      function(filename) {
-        any(
-          grepl(
-            generated_patterns,
-            filename
-          )
-        )
-      },
-      logical(1)
-    )
-  ]
-
-  if (length(generated_files) > 0L) {
-    unlink(
-      generated_files,
-      force = TRUE
-    )
-  }
-
-  invisible(
-    NULL
-  )
+repository_root <- here::here()
+reconstruction_root <- file.path(
+  repository_root, "Output", "Reconstructions"
+)
+rscript <- Sys.which("Rscript")
+if (!nzchar(rscript)) stop("Rscript was not found on PATH.")
+reproduction_mode <- Sys.getenv("REPRODUCTION_MODE", unset = "full")
+if (!reproduction_mode %in% c("full", "smoke")) {
+  stop("REPRODUCTION_MODE must be full or smoke.")
+}
+if (nzchar(Sys.getenv("WORLDCLIM_OFFSETS_FILE", unset = ""))) {
+  stop("The versioned common run uses the repository's prepared ",
+       "WorldClim offsets. Unset WORLDCLIM_OFFSETS_FILE so the ",
+       "shared-input fingerprint matches the actual data.")
+}
+# Calendar holdout settings are for cross-validation, not a full
+# reconstruction. Never allow inherited terminal exports to silently
+# restrict the historical source years or reroute calibration output.
+Sys.unsetenv(c(
+  "REACHES_CV_HOLDOUT_START", "REACHES_CV_HOLDOUT_END",
+  "REACHES_CV_CALIBRATION_OUTPUT_DIR", "REACHES_CV_ONLY_FOLD",
+  "REACHES_CV_REUSE_CITY_KRIGING"
+))
+if (actions["all"] || actions["variant"] ||
+    actions["prepare_shared"]) {
+  dir.create(reconstruction_root, recursive = TRUE, showWarnings = FALSE)
 }
 
-if (clean_run) {
-
-  output_directory <- file.path(
-    repository_root,
-    "Output"
-  )
-  versioned_directory <- file.path(
-    output_directory, "Reconstructions"
-  )
-  if (dir.exists(versioned_directory) &&
-      !identical(Sys.getenv(
-        "REACHES_ALLOW_VERSIONED_OUTPUT_DELETE", unset = ""
-      ), "1")) {
-    stop(
-      "--clean would erase the separate Original and inferred-zero ",
-      "manuscript results under Output/Reconstructions/. ",
-      "Archive them first. To delete them intentionally, set ",
-      "REACHES_ALLOW_VERSIONED_OUTPUT_DELETE=1."
-    )
+# Resolve the selected Original-input variance estimate once. Both documentary inputs
+# deliberately use the SAME observation error setting.
+fixed_u <- NA_real_
+variance_source <- ""
+if (actions["all"] || actions["variant"]) {
+  u_option <- if (length(u_arg)) {
+    sub("^--u=", "", u_arg[1L])
+  } else {
+    "from-cv"
   }
-
-  if (dir.exists(
-    output_directory
-  )) {
-    message(
-      "Removing generated Output directory: ",
-      output_directory
+  if (identical(u_option, "from-cv")) {
+    cv_file <- file.path(
+      repository_root, "Output", "Intermediate",
+      "ObservationVariance", "original", "selected_u.csv"
     )
-
-    unlink(
-      output_directory,
-      recursive = TRUE,
-      force = TRUE
-    )
+    if (!file.exists(cv_file)) {
+      stop("Missing original blocked-CV variance: ", cv_file,
+           "\nUse --u=<nonnegative-number> only if you have ",
+           "independently verified the intended original-model u.")
+    }
+    chosen <- read.csv(cv_file, check.names = FALSE)
+    if (nrow(chosen) != 1L || !"selected_u" %in% names(chosen)) {
+      stop("The original CV estimate is incomplete.")
+    }
+    if ("temperature_input_mode" %in% names(chosen) &&
+        !identical(as.character(chosen$temperature_input_mode[1L]),
+                   "original")) {
+      stop("The selected variance is not from Original observations.")
+    }
+    if ("measurement_projection_method" %in% names(chosen) &&
+        !is.na(chosen$measurement_projection_method[1L]) &&
+        !identical(
+          as.character(chosen$measurement_projection_method[1L]),
+          "empirical_reference_joint_mc_v1"
+        )) {
+      stop("The saved u was fitted under another measurement ",
+           "projection; do not use it with the original model.")
+    }
+    fixed_u <- as.numeric(chosen$selected_u[1L])
+    variance_source <- normalizePath(cv_file, winslash = "/")
+  } else {
+    fixed_u <- suppressWarnings(as.numeric(u_option))
+    variance_source <- paste0("explicit:", u_option)
   }
-
-  remove_generated_validation_files()
+  if (length(fixed_u) != 1L ||
+      !is.finite(fixed_u) || fixed_u < 0) {
+    stop("The common additional observation variance must be ",
+         "a finite nonnegative number.")
+  }
 }
 
-log_directory <- file.path(
-  repository_root,
-  "Output",
-  "Logs"
-)
-
-dir.create(
-  log_directory,
-  recursive = TRUE,
-  showWarnings = FALSE
-)
-
-# ------------------------------------------------------------
-# 4. Workflow definition
-#
-# Each step contains:
-#   id       : compact command-line identifier
-#   script   : path relative to repository root
-#   expected : key outputs that must exist after successful run
-#
-# Keep this list in dependency order.
-# ------------------------------------------------------------
-
-workflow <- list(
-  list(
-    id = "figure2",
-    script = file.path(
-      "Code",
-      "Figure2.R"
-    ),
-    expected = c(
-      file.path(
-        "Output",
-        "Figure2",
-        "Figure2(a).png"
-      ),
-      file.path(
-        "Output",
-        "Figure2",
-        "Figure2(b).png"
-      ),
-      file.path(
-        "Output",
-        "Figure2",
-        "Figure2(c).png"
-      )
-    )
-  ),
-  list(
-    id = "prepare_lme",
-    script = file.path(
-      "Code",
-      "DataPreparation",
-      "prepare_lme_annual.R"
-    ),
-    expected = c(
-      file.path(
-        "Output",
-        "Intermediate",
-        "LME",
-        "lme_annual_1368_1911.rds"
-      ),
-      file.path(
-        "Output",
-        "Intermediate",
-        "LME",
-        "lme_city3_annual_1368_1911.csv"
-      )
-    )
-  ),
-  list(
-    id = "correct_lme_city",
-    script = file.path(
-      "Code",
-      "DataPreparation",
-      "prepare_worldclim_bias_correction.R"
-    ),
-    expected = c(
-      file.path(
-        "Output", "Intermediate", "LME",
-        "WorldClim_Corrected",
-        "lme_city3_annual_1368_1911.csv"
-      )
-    )
-  ),
-  list(
-    id = "calibration",
-    script = file.path(
-      "Code",
-      "prepare_calibration.R"
-    ),
-    expected = c(
-      file.path(
-        "Output",
-        "Intermediate",
-        "calibration_parameters.rds"
-      )
-    )
-  ),
-  list(
-    id = "figure4",
-    script = file.path(
-      "Code",
-      "Figure4.R"
-    ),
-    expected = c(
-      file.path(
-        "Output",
-        "Figure4",
-        "Figure4(a).png"
-      ),
-      file.path(
-        "Output",
-        "Figure4",
-        "Figure4(b).png"
-      ),
-      file.path(
-        "Output",
-        "Figure4",
-        "Figure4(c).png"
-      )
-    )
-  ),
-  list(
-    id = "kriging",
-    script = file.path(
-      "Code",
-      "Get_tempe_all_data.R"
-    ),
-    expected = c(
-      file.path(
-        "Output",
-        "Intermediate",
-        "REACHES",
-        "reaches_kriging_lme_grid_mean.csv"
-      ),
-      file.path(
-        "Output",
-        "Intermediate",
-        "REACHES",
-        "reaches_kriging_city3_mean.csv"
-      ),
-      file.path(
-        "Output",
-        "Intermediate",
-        "REACHES",
-        "reaches_kriging_city3_sd.csv"
-      )
-    )
-  ),
-  list(
-    id = "figure3",
-    script = file.path(
-      "Code",
-      "Figure3.R"
-    ),
-    expected = character(
-      0
-    )
-  ),
-  list(
-    id = "figure5",
-    script = file.path(
-      "Code",
-      "Figure5.R"
-    ),
-    expected = character(
-      0
-    )
-  ),
-  list(
-    id = "figure6",
-    script = file.path(
-      "Code",
-      "Figure6.R"
-    ),
-    expected = c(
-      file.path(
-        "Output",
-        "Figure6",
-        "Figure6_cluster_assignments.csv"
-      )
-    )
-  ),
-  list(
-    id = "figure7e",
-    script = file.path(
-      "Code",
-      "Figure7e.R"
-    ),
-    expected = character(
-      0
-    )
-  ),
-  list(
-    id = "figure7_8",
-    script = file.path(
-      "Code",
-      "Figure7-8.R"
-    ),
-    expected = character(
-      0
-    )
-  ),
-  list(
-    id = "prior",
-    script = file.path(
-      "Code",
-      "Prior.R"
-    ),
-    expected = c(
-      file.path(
-        "Output",
-        "Intermediate",
-        "Prior",
-        "mtB.csv"
-      ),
-      file.path(
-        "Output",
-        "Intermediate",
-        "Prior",
-        "muB.csv"
-      ),
-      file.path(
-        "Output",
-        "Intermediate",
-        "Prior",
-        "rtB.csv"
-      ),
-      file.path(
-        "Output",
-        "Intermediate",
-        "Prior",
-        "mtS.csv"
-      ),
-      file.path(
-        "Output",
-        "Intermediate",
-        "Prior",
-        "mtH.csv"
-      )
-    )
-  ),
-  list(
-    id = "figure9abc",
-    script = file.path(
-      "Code",
-      "Figure9abc.R"
-    ),
-    expected = character(
-      0
-    )
-  ),
-  list(
-    id = "figure9d",
-    script = file.path(
-      "Code",
-      "Figure9d.R"
-    ),
-    expected = c(
-      file.path(
-        "Output", "Intermediate", "Assimilation",
-        "assimilation_Beijing.csv"
-      ),
-      file.path(
-        "Output", "Intermediate", "Assimilation",
-        "assimilation_Shanghai.csv"
-      ),
-      file.path(
-        "Output", "Intermediate", "Assimilation",
-        "assimilation_HongKong.csv"
-      ),
-      file.path(
-        "Output",
-        "Intermediate",
-        "Assimilation",
-        "assimilation_metrics.csv"
-      )
-    )
-  ),
-  list(
-    id = "figure10",
-    script = file.path(
-      "Code",
-      "Figure10.R"
-    ),
-    expected = c(
-      file.path(
-        "Output",
-        "Figure10",
-        "Figure10_metrics.csv"
-      )
-    )
-  ),
-  list(
-    id = "figureS2",
-    script = file.path(
-      "Code",
-      "Supplementary",
-      "FigureS2.R"
-    ),
-    expected = character(
-      0
-    )
-  ),
-  list(
-    id = "figureS3",
-    script = file.path(
-      "Code",
-      "Supplementary",
-      "FigureS3.R"
-    ),
-    expected = c(
-      file.path(
-        "Output",
-        "Supplementary",
-        "FigureS3_plot_data.csv"
-      )
-    )
-  ),
-  list(
-    id = "grid_assimilation",
-    script = file.path(
-      "Code",
-      "Assimilation_grid.R"
-    ),
-    expected = c(
-      file.path(
-        "Output",
-        "Intermediate",
-        "Assimilation",
-        "assimilated_posterior_lme_grid_mean.csv"
-      )
-    )
-  ),
-  list(
-    id = "figureS1",
-    script = file.path(
-      "Code",
-      "Supplementary",
-      "FigureS1.R"
-    ),
-    expected = c(
-      file.path(
-        "Output",
-        "Intermediate",
-        "FigureS1",
-        "FigureS1_panel_files.csv"
-      )
-    )
-  ),
-  list(
-    id = "coverage_population",
-    script = file.path(
-      "Code",
-      "Analysis",
-      "coverage_population_GAM.R"
-    ),
-    expected = c(
-      file.path(
-        "Output",
-        "Tables",
-        "Table2_coverage_GAM.csv"
-      ),
-      file.path(
-        "Output",
-        "Tables",
-        "TableS2_M4_parametric_coefficients.csv"
-      )
-    )
-  ),
-  list(
-    id = "internal_validation",
-    script = file.path(
-      "Code",
-      "Analysis",
-      "interval_compatibility.R"
-    ),
-    expected = c(
-      file.path(
-        "Output",
-        "Validation",
-        "interval_compatibility_summary.csv"
-      )
-    )
-  )
-)
-
-# Select the documentary temperature input for covariance calibration.
-# When augmented observations are requested, construct them before the
-# calibration step. The default workflow continues to use the original data.
-temperature_input_mode <- Sys.getenv(
-  "REACHES_TEMPERATURE_INPUT", unset = "original"
-)
-if (!temperature_input_mode %in% c("original", "augmented")) {
-  stop("REACHES_TEMPERATURE_INPUT must be original or augmented.")
+is_link <- function(path) {
+  link <- Sys.readlink(path)
+  length(link) == 1L && !is.na(link) && nzchar(link)
 }
-if (temperature_input_mode == "augmented") {
-  calibration_position <- which(vapply(
-    workflow, function(step) identical(step$id, "calibration"), logical(1L)
+make_link <- function(target, path) {
+  if (!file.exists(target) && !dir.exists(target)) {
+    stop("Link source does not exist: ", target)
+  }
+  if (file.exists(path) || dir.exists(path) || is_link(path)) {
+    if (is_link(path) &&
+        identical(normalizePath(path, winslash = "/"),
+                  normalizePath(target, winslash = "/"))) {
+      return(invisible(NULL))
+    }
+    stop("Refusing to overwrite nonmatching workspace entry: ", path)
+  }
+  if (!file.symlink(target, path)) {
+    stop("Could not link workspace source ", target, " to ", path)
+  }
+  invisible(NULL)
+}
+
+# A local Data/Valid folder prevents any run from mutating the
+# Git-tracked validation files in the actual repository. All other
+# Data entries are input-only links to the exact same source files.
+prepare_workspace <- function(name) {
+  workspace <- file.path(reconstruction_root, name)
+  dir.create(workspace, recursive = TRUE, showWarnings = FALSE)
+  file.create(file.path(workspace, ".here"))
+  make_link(file.path(repository_root, "Code"),
+            file.path(workspace, "Code"))
+  make_link(file.path(repository_root, "renv"),
+            file.path(workspace, "renv"))
+  make_link(file.path(repository_root, "renv.lock"),
+            file.path(workspace, "renv.lock"))
+  profile <- file.path(repository_root, ".Rprofile")
+  if (file.exists(profile)) {
+    # Copy rather than link a writable startup file into the source tree.
+    profile_copy <- file.path(workspace, ".Rprofile")
+    if (!file.copy(profile, profile_copy, overwrite = TRUE)) {
+      stop("Unable to copy renv startup profile to ", workspace)
+    }
+  }
+  run_from <- file.path(repository_root, "Code", "Workflow",
+                        "run_single_version.R")
+  run_to <- file.path(workspace, "run_all.R")
+  if (!file.copy(run_from, run_to, overwrite = TRUE)) {
+    stop("Could not copy run_all.R into ", workspace)
+  }
+
+  data_dir <- file.path(workspace, "Data")
+  dir.create(data_dir, recursive = TRUE, showWarnings = FALSE)
+  original_data <- file.path(repository_root, "Data")
+  entries <- list.files(original_data, all.files = TRUE,
+                        no.. = TRUE, full.names = TRUE)
+  for (entry in entries) {
+    if (basename(entry) != "Valid") {
+      make_link(entry, file.path(data_dir, basename(entry)))
+    }
+  }
+  dir.create(file.path(data_dir, "Valid"), showWarnings = FALSE)
+
+  out_dir <- file.path(workspace, "Output")
+  dir.create(file.path(out_dir, "Intermediate"),
+             recursive = TRUE, showWarnings = FALSE)
+  if (name != "shared") {
+    shared_intermediate <- file.path(
+      reconstruction_root, "shared", "Output", "Intermediate"
+    )
+    for (item in c("LME", "Prior")) {
+      make_link(
+        file.path(shared_intermediate, item),
+        file.path(out_dir, "Intermediate", item)
+      )
+    }
+  }
+  workspace
+}
+
+common_outputs <- c(
+  file.path("LME", "lme_annual_1368_1911.rds"),
+  file.path("LME", "lme_city3_annual_1368_1911.csv"),
+  file.path("LME", "lme_ensemble_mean_1368_1911.csv"),
+  file.path("LME", "WorldClim_Corrected",
+            "lme_city3_annual_1368_1911.csv"),
+  file.path("LME", "WorldClim_Corrected",
+            "lme_land_grid_corrected_annual_1368_1911.rds"),
+  file.path("Prior", c(
+    "mtB.csv", "muB.csv", "rtB.csv",
+    "mtS.csv", "muS.csv", "rtS.csv",
+    "mtH.csv", "muH.csv", "rtH.csv"
   ))
-  if (length(calibration_position) != 1L) {
-    stop("The calibration step is missing or duplicated.")
-  }
-  workflow <- append(
-    workflow,
-    list(list(
-      id = "augment_temperature",
-      script = file.path(
-        "Code", "Analysis", "prepare_precipitation_augmented_reaches.R"
-      ),
-      expected = file.path(
-        "Output", "Intermediate", "REACHES",
-        "temperature_site_year_augmented.csv"
-      )
-    )),
-    after = 0L
-  )
-}
-# Shared LME archive, WorldClim corrections and prior are prepared once.
-# Version-specific runs read the completed shared products unchanged.
-if (skip_shared) {
-  shared <- c("prepare_lme", "correct_lme_city", "prior")
-  workflow <- Filter(
-    function(step) !step$id %in% shared, workflow
-  )
-  expected_shared <- c(
-    file.path(repository_root, "Output", "Intermediate", "LME",
-              "lme_annual_1368_1911.rds"),
-    file.path(repository_root, "Output", "Intermediate", "LME",
-              "WorldClim_Corrected",
-              "lme_city3_annual_1368_1911.csv"),
-    file.path(repository_root, "Output", "Intermediate", "Prior",
-              c("mtB.csv", "muB.csv", "rtB.csv", "mtS.csv",
-                "muS.csv", "rtS.csv", "mtH.csv", "muH.csv",
-                "rtH.csv"))
-  )
-  missing_shared <- expected_shared[!file.exists(expected_shared)]
-  if (length(missing_shared)) {
-    stop("The shared LME/prior outputs are incomplete:\n",
-         paste(missing_shared, collapse = "\n"),
-         "\nRun the common preparation once before --skip-shared.")
-  }
-}
-
-step_ids <- vapply(
-  workflow,
-  function(step) {
-    step$id
-  },
-  character(1)
+)
+common_root <- file.path(
+  reconstruction_root, "shared", "Output", "Intermediate"
+)
+common_manifest <- file.path(
+  reconstruction_root, "shared", "shared_inputs_manifest.rds"
 )
 
-if (
-  nzchar(
-    only_step
-  ) &&
-    !only_step %in%
-      step_ids
-) {
-  stop(
-    "Unknown workflow step '",
-    only_step,
-    "'. Available steps:\n  ",
-    paste(
-      step_ids,
-      collapse = "\n  "
-    )
+# The inputs and source code that determine the independent LME/prior
+# outputs are fingerprinted. Changing them requires an explicit
+# --rebuild-shared, preventing silent reuse of stale prior parameters.
+dependency_files <- c(
+  file.path(repository_root, "Code", "Prior.R"),
+  file.path(repository_root, "Code", "DataPreparation",
+            "prepare_lme_annual.R"),
+  file.path(repository_root, "Code", "DataPreparation",
+            "prepare_worldclim_bias_correction.R"),
+  file.path(repository_root, "Data", "WorldClim",
+            "worldclim_offsets_all_269.csv"),
+  file.path(repository_root, "Data", "LME data",
+            paste0("a", 1:13, ".csv.gz")),
+  file.path(repository_root, "renv.lock")
+)
+missing_dependencies <- dependency_files[!file.exists(dependency_files)]
+if ((actions["all"] || actions["variant"] ||
+     actions["prepare_shared"]) && length(missing_dependencies)) {
+  stop("Missing input(s) for shared LME/prior generation:\n",
+       paste(missing_dependencies, collapse = "\n"))
+}
+common_fingerprint <- function() {
+  list(
+    reproduction_mode = reproduction_mode,
+    inputs = unname(tools::md5sum(dependency_files)),
+    paths = dependency_files
   )
 }
 
-if (nzchar(
-  only_step
-)) {
-  workflow <- workflow[
-    step_ids ==
-      only_step
+run_in_workspace <- function(workspace, args) {
+  previous <- getwd()
+  on.exit(setwd(previous), add = TRUE)
+  setwd(workspace)
+  status <- system2(
+    rscript,
+    args = c("--vanilla", shQuote(file.path(workspace, "run_all.R")),
+             args),
+    stdout = "", stderr = "", wait = TRUE
+  )
+  if (!identical(as.integer(status), 0L)) {
+    stop("Workflow failed in ", workspace, " (status ", status, "). ",
+         "Read the step logs under Output/Logs in that workspace.")
+  }
+  invisible(NULL)
+}
+run_script_in_workspace <- function(workspace, script, args) {
+  previous <- getwd()
+  on.exit(setwd(previous), add = TRUE)
+  setwd(workspace)
+  status <- system2(
+    rscript,
+    args = c("--vanilla", shQuote(file.path(workspace, script)),
+             args),
+    stdout = "", stderr = "", wait = TRUE
+  )
+  if (!identical(as.integer(status), 0L)) {
+    stop("Script failed: ", script, " in ", workspace)
+  }
+  invisible(NULL)
+}
+
+prepare_shared <- function(rebuild = FALSE) {
+  present <- all(file.exists(file.path(common_root, common_outputs)))
+  previous <- if (file.exists(common_manifest)) {
+    readRDS(common_manifest)
+  } else {
+    NULL
+  }
+  current <- common_fingerprint()
+  matching <- present &&
+    is.list(previous) &&
+    identical(previous$fingerprint, current) &&
+    identical(
+      previous$output_md5,
+      unname(tools::md5sum(
+        file.path(common_root, common_outputs)
+      ))
+    )
+  if (matching && !rebuild) {
+    message("Reusing the verified independent LME and prior (once).")
+    return(invisible(NULL))
+  }
+  if (present && !rebuild) {
+    stop("Existing shared LME/prior outputs do not match the ",
+         "current input and code fingerprint. Use --rebuild-shared ",
+         "deliberately, then rerun BOTH documentary-input versions.")
+  }
+
+  workspace <- prepare_workspace("shared")
+  if (rebuild) {
+    for (part in c("LME", "Prior")) {
+      old <- file.path(common_root, part)
+      if (is_link(old)) {
+        stop("Shared output unexpectedly contains a symlink: ", old)
+      }
+      if (dir.exists(old)) unlink(old, recursive = TRUE)
+    }
+    if (file.exists(common_manifest)) file.remove(common_manifest)
+  }
+  Sys.setenv(
+    REPRODUCTION_MODE = reproduction_mode,
+    REACHES_VERSIONED_RUN = "shared",
+    REACHES_TEMPERATURE_INPUT = "original",
+    REACHES_EXTRA_VARIANCE_FIXED = "",
+    REACHES_EXTRA_VARIANCE_FILE = ""
+  )
+  for (step in c("prepare_lme", "correct_lme_city", "prior")) {
+    message("\nShared preparation: ", step)
+    run_in_workspace(workspace, paste0("--only=", step))
+  }
+  missing <- file.path(common_root, common_outputs)[
+    !file.exists(file.path(common_root, common_outputs))
   ]
+  if (length(missing)) {
+    stop("Shared LME/prior preparation was incomplete:\n",
+         paste(missing, collapse = "\n"))
+  }
+  saveRDS(
+    list(fingerprint = current,
+         created = Sys.time(),
+         output_md5 = unname(tools::md5sum(
+           file.path(common_root, common_outputs)
+         ))),
+    common_manifest
+  )
+  message("Shared prior has been generated ONCE.")
+  invisible(NULL)
 }
 
-# ------------------------------------------------------------
-# 5. Preflight checks
-# ------------------------------------------------------------
-
-# The reproducible LME workflow starts from the 13 prepared,
-# gzip-compressed member files. The original NetCDF files are
-# outside the distributed workflow.
-required_lme_member_files <- file.path(
-  repository_root,
-  "Data",
-  "LME data",
-  paste0(
-    "a",
-    1:13,
-    ".csv.gz"
-  )
-)
-
-missing_lme_member_files <- required_lme_member_files[
-  !file.exists(
-    required_lme_member_files
-  )
-]
-
-if (length(
-  missing_lme_member_files
-) > 0L) {
-  stop(
-    "The reproducible workflow begins with the prepared LME ",
-    "member files a1.csv.gz through a13.csv.gz. The following ",
-    "files are missing:\n  ",
-    paste(
-      missing_lme_member_files,
-      collapse = "\n  "
-    ),
-    "\nSee Data/Get_data/README.md for provenance and the ",
-    "optional NetCDF-to-CSV preparation step."
-  )
-}
-
-required_core_input_files <- c(
-  file.path(
-    repository_root,
-    "Data",
-    "temperature index value.v1.xlsx"
-  ),
-  file.path(
-    repository_root,
-    "Data",
-    "GHCNv4.xlsx"
-  )
-)
-
-if (temperature_input_mode == "augmented") {
-  required_core_input_files <- c(
-    required_core_input_files,
-    path.expand(Sys.getenv(
-      "REACHES_PRECIPITATION_FILE",
-      unset = file.path(
-        repository_root, "Data", "precipitation index value.xlsx"
-      )
-    ))
-  )
-}
-
-missing_core_input_files <- required_core_input_files[
-  !file.exists(
-    required_core_input_files
-  )
-]
-
-if (length(
-  missing_core_input_files
-) > 0L) {
-  stop(
-    "Required core input file(s) are missing:\n  ",
-    paste(
-      missing_core_input_files,
-      collapse = "\n  "
-    )
-  )
-}
-
-missing_scripts <- vapply(
-  workflow,
-  function(step) {
-    !file.exists(
-      file.path(
-        repository_root,
-        step$script
-      )
-    )
-  },
-  logical(1)
-)
-
-if (any(
-  missing_scripts
-)) {
-  stop(
-    "The following workflow scripts do not exist:\n  ",
-    paste(
-      vapply(
-        workflow[
-          missing_scripts
-        ],
-        function(step) {
-          step$script
-        },
-        character(1)
-      ),
-      collapse = "\n  "
-    ),
-    "\nUpdate the workflow paths in run_all.R."
-  )
-}
-
-rscript_executable <- Sys.which(
-  "Rscript"
-)
-
-if (!nzchar(
-  rscript_executable
-)) {
-  stop(
-    "Rscript was not found on PATH."
-  )
-}
-
-# Report suspicious local paths without preventing the run.
-code_files <- list.files(
-  file.path(
-    repository_root,
-    "Code"
-  ),
-  pattern = "\\.[Rr]$",
-  recursive = TRUE,
-  full.names = TRUE
-)
-
-active_code_files <- code_files[
-  !grepl(
-    "/(Archive|archive|Old|old)/",
-    gsub(
-      "\\\\",
-      "/",
-      code_files
-    )
-  )
-]
-
-suspicious_patterns <- c(
-  "~/Downloads",
-  "setwd\\(",
-  "/Users/",
-  "[A-Za-z]:\\\\"
-)
-
-suspicious_hits <- list()
-
-for (code_file in active_code_files) {
-
-  code_lines <- readLines(
-    code_file,
-    warn = FALSE
-  )
-
-  matched_lines <- which(
-    vapply(
-      code_lines,
-      function(code_line) {
-        any(
-          vapply(
-            suspicious_patterns,
-            function(pattern) {
-              grepl(
-                pattern,
-                code_line
-              )
-            },
-            logical(1)
-          )
-        )
-      },
-      logical(1)
-    )
-  )
-
-  if (length(
-    matched_lines
-  ) > 0L) {
-    suspicious_hits[[code_file]] <- matched_lines
+check_shared <- function() {
+  if (!file.exists(common_manifest) ||
+      !all(file.exists(file.path(common_root, common_outputs)))) {
+    stop("Shared LME and prior missing; use --prepare-shared or --all.")
+  }
+  previous <- readRDS(common_manifest)
+  if (!identical(previous$fingerprint, common_fingerprint()) ||
+      !identical(previous$output_md5,
+                 unname(tools::md5sum(
+                   file.path(common_root, common_outputs)
+                 )))) {
+    stop("Shared prior/LME inputs changed. Use --rebuild-shared ",
+         "and rerun both versions.")
   }
 }
 
-if (length(
-  suspicious_hits
-) > 0L) {
-  warning(
-    "Potential hard-coded local paths remain in active Code/ files:\n",
-    paste(
-      vapply(
-        names(
-          suspicious_hits
-        ),
-        function(code_file) {
-          paste0(
-            normalizePath(
-              code_file,
-              winslash = "/",
-              mustWork = FALSE
-            ),
-            ":",
-            paste(
-              suspicious_hits[[code_file]],
-              collapse = ","
-            )
-          )
-        },
-        character(1)
-      ),
-      collapse = "\n"
+run_variant <- function(name) {
+  check_shared()
+  temperature_mode <- if (name == "inferred-zero") "augmented" else "original"
+  workspace <- prepare_workspace(name)
+  for (stage in c("city", "grid")) {
+    existing <- file.path(
+      workspace, "Output", "Intermediate",
+      "AugmentationSensitivity", temperature_mode, stage,
+      "snapshot_manifest.csv"
     )
-  )
-}
-
-if (
-  file.exists(
-    file.path(
-      repository_root,
-      "renv.lock"
-    )
-  ) &&
-    !requireNamespace(
-      "renv",
-      quietly = TRUE
-    )
-) {
-  stop(
-    "renv.lock exists, but the renv package is not installed. ",
-    "Run install.packages('renv') first."
-  )
-}
-
-# ------------------------------------------------------------
-# 6. Execute each step in a separate clean R process
-# ------------------------------------------------------------
-
-run_manifest_file <- file.path(
-  log_directory,
-  "run_manifest.csv"
-)
-
-run_records <- vector(
-  "list",
-  length(
-    workflow
-  )
-)
-
-write_run_manifest <- function(
-    records) {
-
-  completed_records <- records[
-    !vapply(
-      records,
-      is.null,
-      logical(1)
-    )
-  ]
-
-  if (length(
-    completed_records
-  ) == 0L) {
-    return(
-      invisible(
-        NULL
-      )
-    )
+    if (file.exists(existing)) {
+      stop("A previous completed snapshot exists at: ", existing,
+           ". Archive or explicitly remove that previous version ",
+           "before starting another full run.")
+    }
   }
-
-  manifest <- do.call(
-    rbind,
-    completed_records
+  Sys.setenv(
+    REPRODUCTION_MODE = reproduction_mode,
+    REACHES_VERSIONED_RUN = name,
+    REACHES_TEMPERATURE_INPUT = temperature_mode,
+    REACHES_WRITE_VALIDATION_COPY = "0",
+    REACHES_MEASUREMENT_PROJECTION_METHOD =
+      "empirical_reference_joint_mc_v1",
+    REACHES_EXTRA_VARIANCE_FIXED = sprintf("%.17g", fixed_u),
+    REACHES_EXTRA_VARIANCE_FILE = ""
   )
+  message("\nStarting ", name, " full reconstruction ",
+          "(shared LME/prior reused; original measurement equation).")
+  run_in_workspace(workspace, "--skip-shared")
 
-  utils::write.csv(
-    manifest,
-    run_manifest_file,
-    row.names = FALSE,
-    na = ""
-  )
-
-  invisible(
-    manifest
-  )
-}
-
-for (step_index in seq_along(
-  workflow
-)) {
-
-  step <- workflow[[step_index]]
-
-  script_file <- normalizePath(
-    file.path(
-      repository_root,
-      step$script
-    ),
-    winslash = "/",
-    mustWork = TRUE
-  )
-
-  log_file <- file.path(
-    log_directory,
-    paste0(
-      sprintf(
-        "%02d",
-        step_index
-      ),
-      "_",
-      step$id,
-      ".log"
-    )
-  )
-
-  message(
-    "\n[",
-    step_index,
-    "/",
-    length(
-      workflow
-    ),
-    "] Running ",
-    step$id,
-    "\n    Script: ",
-    step$script,
-    "\n    Log:    ",
-    log_file
-  )
-
-  start_time <- Sys.time()
-
-  quote_for_r <- function(x) {
-  encodeString(
-    x,
-    quote = "\""
-  )
-}
-
-child_expression <- paste0(
-  "renv::load(project = ",
-  quote_for_r(repository_root),
-  "); ",
-  "source(",
-  quote_for_r(script_file),
-  ", chdir = FALSE)"
-)
-
-status <- system2(
-  command = rscript_executable,
-  args = c(
-    "--vanilla",
-    "-e",
-    shQuote(child_expression)
-  ),
-  stdout = log_file,
-  stderr = log_file,
-  wait = TRUE
-)
-
-  end_time <- Sys.time()
-
-  elapsed_seconds <- as.numeric(
-    difftime(
-      end_time,
-      start_time,
-      units = "secs"
-    )
-  )
-
-  expected_files <- file.path(
-    repository_root,
-    step$expected
-  )
-
-  missing_outputs <- expected_files[
-    !file.exists(
-      expected_files
-    )
-  ]
-
-  step_success <- identical(
-    status,
-    0L
-  ) &&
-    length(
-      missing_outputs
-    ) ==
-      0L
-
-  run_records[[step_index]] <- data.frame(
-    step_number = step_index,
-    step_id = step$id,
-    script = step$script,
-    start_time = format(
-      start_time,
-      "%Y-%m-%d %H:%M:%S %Z"
-    ),
-    end_time = format(
-      end_time,
-      "%Y-%m-%d %H:%M:%S %Z"
-    ),
-    elapsed_seconds =
-      elapsed_seconds,
-    exit_status = status,
-    success = step_success,
-    missing_outputs = paste(
-      sub(
-        paste0(
-          "^",
-          gsub(
-            "([][{}()+*^$|\\\\?.])",
-            "\\\\\\1",
-            repository_root
-          ),
-          "/?"
-        ),
-        "",
-        missing_outputs
-      ),
-      collapse = "; "
-    ),
-    log_file = file.path(
-      "Output",
-      "Logs",
-      basename(
-        log_file
-      )
-    ),
-    stringsAsFactors = FALSE
-  )
-
-  write_run_manifest(
-    run_records
-  )
-
-  if (!step_success) {
-
-    log_lines <- if (file.exists(
-      log_file
-    )) {
-      readLines(
-        log_file,
-        warn = FALSE
-      )
+  manifest_file <- file.path(workspace, "version_manifest.csv")
+  result <- data.frame(
+    variant = name,
+    documentary_input = temperature_mode,
+    role = if (name == "inferred-zero") {
+      "primary_inferred_zero"
     } else {
-      character(
-        0
-      )
-    }
+      "original_record_sensitivity"
+    },
+    shared_prior_dir = file.path(common_root, "Prior"),
+    shared_lme_dir = file.path(common_root, "LME"),
+    shared_manifest_md5 = unname(tools::md5sum(common_manifest)),
+    fixed_u = fixed_u,
+    u_source = variance_source,
+    projection_method = "empirical_reference_joint_mc_v1",
+    reproduction_mode = reproduction_mode,
+    completed_at = as.character(Sys.time())
+  )
+  write.csv(result, manifest_file, row.names = FALSE)
+  message("Reconstruction complete: ", workspace, "/Output")
 
-    log_tail <- tail(
-      log_lines,
-      50L
+  # Full-grid snapshot also contains all three city reconstructions.
+  for (stage in c("city", "grid")) {
+    saved <- file.path(
+      workspace, "Output", "Intermediate",
+      "AugmentationSensitivity", temperature_mode, stage,
+      "snapshot_manifest.csv"
     )
-
-    message(
-      "\nLast lines of the failed log:\n",
-      paste(
-        log_tail,
-        collapse = "\n"
-      )
-    )
-
-    if (status != 0L) {
-      stop(
-        "Workflow step '",
-        step$id,
-        "' failed with exit status ",
-        status,
-        ". See ",
-        log_file,
-        "."
-      )
+    if (file.exists(saved)) {
+      # Re-running should never silently overwrite an older snapshot.
+      stop("Existing ", name, " snapshot blocks replacement: ",
+           saved, ". Archive the old snapshot first.")
     }
-
-    stop(
-      "Workflow step '",
-      step$id,
-      "' completed but did not create:\n  ",
-      paste(
-        missing_outputs,
-        collapse = "\n  "
-      )
+    run_script_in_workspace(
+      workspace,
+      "Code/Analysis/snapshot_augmentation_reconstruction.R",
+      c(temperature_mode, stage)
     )
   }
-
-  message(
-    "Completed ",
-    step$id,
-    " in ",
-    round(
-      elapsed_seconds /
-        60,
-      2
-    ),
-    " minutes."
-  )
+  invisible(NULL)
 }
 
-final_manifest <- write_run_manifest(
-  run_records
-)
+compare_versions <- function() {
+  manifests <- lapply(c("inferred-zero", "original"), function(name) {
+    p <- file.path(reconstruction_root, name, "version_manifest.csv")
+    if (!file.exists(p)) stop("Missing completed version manifest: ", p)
+    m <- read.csv(p, stringsAsFactors = FALSE)
+    if (nrow(m) != 1L ||
+        !identical(as.character(m$variant[1L]), name)) {
+      stop("Invalid version metadata for ", name)
+    }
+    m
+  })
+  a <- manifests[[1L]]
+  b <- manifests[[2L]]
+  same <- c("shared_manifest_md5", "fixed_u", "projection_method",
+            "reproduction_mode")
+  if (!all(same %in% names(a)) || !all(same %in% names(b)) ||
+      !identical(as.list(a[1L, same]), as.list(b[1L, same])) ||
+      !identical(as.character(a$role[1L]), "primary_inferred_zero") ||
+      !identical(as.character(b$role[1L]),
+                 "original_record_sensitivity")) {
+    stop("Version manifests are not compatible; the two runs must ",
+         "use the same LME/prior, fixed u, projection and mode.")
+  }
+  Sys.setenv(REACHES_COMPARISON_VERSION_ROOT = reconstruction_root)
+  for (stage in c("city", "grid")) {
+    message("\nComparing ", stage, " reconstructions ...")
+    previous <- getwd()
+    status <- system2(
+      rscript,
+      args = c(
+        "--vanilla",
+        shQuote(file.path(
+          repository_root,
+          "Code", "Analysis", "compare_augmentation_reconstructions.R"
+        )),
+        stage
+      ),
+      stdout = "", stderr = "", wait = TRUE
+    )
+    if (!identical(as.integer(status), 0L)) {
+      stop("Comparison failed for ", stage,
+           "; inspect the versioned snapshot manifests.")
+    }
+  }
+  message("Main figures: ", file.path(
+    reconstruction_root, "inferred-zero", "Output"
+  ))
+  message("Original sensitivity figures: ", file.path(
+    reconstruction_root, "original", "Output"
+  ))
+  message("Comparisons: ", file.path(
+    reconstruction_root, "Comparison"
+  ))
+}
 
-message(
-  "\nReproducibility workflow completed successfully."
-)
-
-message(
-  "Run manifest: ",
-  run_manifest_file
-)
-
-message(
-  "Logs: ",
-  log_directory
-)
+if (actions["compare_only"]) {
+  compare_versions()
+} else {
+  prepare_shared(rebuild = "--rebuild-shared" %in% arguments)
+  if (actions["all"]) {
+    run_variant("inferred-zero")
+    run_variant("original")
+    compare_versions()
+  } else if (actions["variant"]) {
+    run_variant(requested_variant)
+  }
+}
