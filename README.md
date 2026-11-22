@@ -486,9 +486,11 @@ A fresh-clone clean-environment test is also not documented.
 Software citation metadata are provided in
 [`CITATION.cff`](CITATION.cff).
 
-The reproducibility archive is available on Zenodo:
+The existing reproducibility archive is available on Zenodo:
 
 [https://doi.org/10.5281/zenodo.21878086](https://doi.org/10.5281/zenodo.21878086)
+
+The Zenodo archive information and, if applicable, the version-specific DOI will be updated after the final two-version workflow is completed and the updated GitHub release is archived.
 
 ## License
 
