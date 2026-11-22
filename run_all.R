@@ -84,6 +84,7 @@ arguments <- commandArgs(
 )
 
 clean_run <- "--clean" %in% arguments
+skip_shared <- "--skip-shared" %in% arguments
 
 only_argument <- grep(
   "^--only=",
@@ -102,7 +103,7 @@ only_step <- if (length(only_argument) == 1L) {
 }
 
 unknown_arguments <- arguments[
-  !arguments %in% "--clean" &
+  !arguments %in% c("--clean", "--skip-shared") &
     !grepl(
       "^--only=",
       arguments
@@ -466,18 +467,15 @@ workflow <- list(
     ),
     expected = c(
       file.path(
-        "Data",
-        "Valid",
+        "Output", "Intermediate", "Assimilation",
         "assimilation_Beijing.csv"
       ),
       file.path(
-        "Data",
-        "Valid",
+        "Output", "Intermediate", "Assimilation",
         "assimilation_Shanghai.csv"
       ),
       file.path(
-        "Data",
-        "Valid",
+        "Output", "Intermediate", "Assimilation",
         "assimilation_HongKong.csv"
       ),
       file.path(
@@ -624,8 +622,33 @@ if (temperature_input_mode == "augmented") {
         "temperature_site_year_augmented.csv"
       )
     )),
-    after = calibration_position - 1L
+    after = 0L
   )
+}
+# Shared LME archive, WorldClim corrections and prior are prepared once.
+# Version-specific runs read the completed shared products unchanged.
+if (skip_shared) {
+  shared <- c("prepare_lme", "correct_lme_city", "prior")
+  workflow <- Filter(
+    function(step) !step$id %in% shared, workflow
+  )
+  expected_shared <- c(
+    file.path(repository_root, "Output", "Intermediate", "LME",
+              "lme_annual_1368_1911.rds"),
+    file.path(repository_root, "Output", "Intermediate", "LME",
+              "WorldClim_Corrected",
+              "lme_city3_annual_1368_1911.csv"),
+    file.path(repository_root, "Output", "Intermediate", "Prior",
+              c("mtB.csv", "muB.csv", "rtB.csv", "mtS.csv",
+                "muS.csv", "rtS.csv", "mtH.csv", "muH.csv",
+                "rtH.csv"))
+  )
+  missing_shared <- expected_shared[!file.exists(expected_shared)]
+  if (length(missing_shared)) {
+    stop("The shared LME/prior outputs are incomplete:\n",
+         paste(missing_shared, collapse = "\n"),
+         "\nRun the common preparation once before --skip-shared.")
+  }
 }
 
 step_ids <- vapply(
