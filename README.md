@@ -40,11 +40,11 @@ The workflow generates Figures 2–10 in the main manuscript, Figures S1–S5 in
 
 The `Output/` directory is generated locally by the workflow and is excluded from version control. It does not need to exist before the analysis is run.
 
-Detailed descriptions of the analysis scripts and their usage are provided in:
-
-```text
-Code/README.md
-```
+Detailed descriptions of the main reproduction scripts are in
+[Code/README.md](Code/README.md). Optional method diagnostics, quick
+checks, and exploratory programs are documented separately in
+[Code/SupportingAnalyses/README.md](Code/SupportingAnalyses/README.md).
+They are intentionally not part of the automatic manuscript pipeline.
 
 Descriptions, provenance, formats, and usage instructions for the input data are provided in:
 
