@@ -286,44 +286,115 @@ for (k in seq_len(nrow(active_folds))) {
   mean_z <- Ez_discrete(sigma_total, cuts, vals)
   var_z <- Varz_discrete(sigma_total, cuts, vals, mean_z)
   ezstar_h <- EZstar_h(sigma_total, cuts, vals)
-  message("Preparing shared ordinal covariance lookup: ", fold$fold)
-  lookup <- build_covariance_lookup(
-    sigma_Y2 = variance_process, sigma_E2 = variance_nugget,
-    sigma = sigma_total, number_of_points = rho_lookup_size
+  # Reuse earlier city kriging only by explicit opt-in and only after
+  # checking source identity, fold covariance, complete year/city keys,
+  # and the saved baseline calibration parameters. Changing the
+  # measurement projection does not affect the kriging predictions.
+  city_file <- file.path(
+    output_dir, as.character(fold$fold), "city_kriging.csv"
   )
-
-  predictions <- vector("list", length(all_years))
-  for (j in seq_along(all_years)) {
-    pred <- predict_grid_one_year(
-      current_year = all_years[j],
-      observation_data = all_spatial,
-      prediction_coordinates = target_coords,
-      sigma_Y2 = variance_process,
-      sigma_E2 = variance_nugget,
-      alpha_km = spatial_range,
-      total_variance = variance_process + variance_nugget,
-      mean_z = mean_z,
-      variance_z = var_z,
-      ezstar_h = ezstar_h,
-      covariance_lookup_function = lookup$function_object
+  old_selection_file <- file.path(output_dir, "selected_u.csv")
+  old_covariance_file <- file.path(output_dir, "fold_covariance.csv")
+  reuse_city <- identical(
+    Sys.getenv("REACHES_CV_REUSE_CITY_KRIGING", unset = "0"), "1"
+  ) && all(file.exists(c(
+    city_file, old_selection_file, old_covariance_file
+  )))
+  if (reuse_city) {
+    old_selection <- readr::read_csv(
+      old_selection_file, show_col_types = FALSE
     )
-    predictions[[j]] <- data.frame(
-      year = all_years[j],
-      city = names(city_config),
-      yhat = as.numeric(pred$mean),
-      mspe = as.numeric(pred$variance)
+    old_covariance <- readr::read_csv(
+      old_covariance_file, show_col_types = FALSE
+    ) %>%
+      filter(.data$fold == fold$fold)
+    existing_city <- readr::read_csv(
+      city_file, show_col_types = FALSE
     )
-    if (j %% 100L == 0L) {
-      message("  ", fold$fold, " city kriging: ", j, "/",
-              length(all_years), " years")
+    required_city <- c("year", "city", "yhat", "mspe", "nu")
+    reusable <- nrow(old_selection) == 1L &&
+      all(c("temperature_input_mode", "temperature_source_md5",
+            "calibration_engine") %in% names(old_selection)) &&
+      identical(as.character(old_selection$temperature_input_mode[1L]),
+                input_mode) &&
+      identical(as.character(old_selection$temperature_source_md5[1L]),
+                source_md5) &&
+      identical(as.character(old_selection$calibration_engine[1L]),
+                calibration_engine) &&
+      nrow(old_covariance) == 1L &&
+      all(c("process_variance", "nugget_variance", "range_km",
+            "n_train", "n_all") %in% names(old_covariance)) &&
+      isTRUE(all.equal(old_covariance$process_variance[1L],
+                       variance_process, tolerance = 1e-10)) &&
+      isTRUE(all.equal(old_covariance$nugget_variance[1L],
+                       variance_nugget, tolerance = 1e-10)) &&
+      isTRUE(all.equal(old_covariance$range_km[1L],
+                       spatial_range, tolerance = 1e-10)) &&
+      as.integer(old_covariance$n_train[1L]) == nrow(fit$temp2) &&
+      as.integer(old_covariance$n_all[1L]) ==
+        nrow(fit$all_site_years) &&
+      all(required_city %in% names(existing_city))
+    if (reusable) {
+      reusable <- nrow(existing_city) ==
+        length(all_years) * length(city_config) &&
+        !anyDuplicated(existing_city[c("year", "city")]) &&
+        setequal(as.integer(existing_city$year), all_years) &&
+        setequal(as.character(existing_city$city),
+                 names(city_config)) &&
+        all(is.finite(as.matrix(existing_city[
+          c("yhat", "mspe", "nu")
+        ]))) &&
+        all(existing_city$mspe >= 0) &&
+        all(existing_city$mspe <= variance_process + 1e-7) &&
+        all(existing_city$nu >= 0) &&
+        isTRUE(all.equal(
+          existing_city$nu^2, existing_city$mspe,
+          tolerance = 1e-6
+        ))
     }
+    if (!reusable) {
+      stop("Existing city kriging cache failed validation for ",
+           fold$fold, ". Rerun without REACHES_CV_REUSE_CITY_KRIGING=1.")
+    }
+    city_predictions <- existing_city
+    message("Reusing validated city kriging for ", fold$fold)
+  } else {
+    message("Preparing shared ordinal covariance lookup: ", fold$fold)
+    lookup <- build_covariance_lookup(
+      sigma_Y2 = variance_process, sigma_E2 = variance_nugget,
+      sigma = sigma_total, number_of_points = rho_lookup_size
+    )
+
+    predictions <- vector("list", length(all_years))
+    for (j in seq_along(all_years)) {
+      pred <- predict_grid_one_year(
+        current_year = all_years[j],
+        observation_data = all_spatial,
+        prediction_coordinates = target_coords,
+        sigma_Y2 = variance_process,
+        sigma_E2 = variance_nugget,
+        alpha_km = spatial_range,
+        total_variance = variance_process + variance_nugget,
+        mean_z = mean_z,
+        variance_z = var_z,
+        ezstar_h = ezstar_h,
+        covariance_lookup_function = lookup$function_object
+      )
+      predictions[[j]] <- data.frame(
+        year = all_years[j],
+        city = names(city_config),
+        yhat = as.numeric(pred$mean),
+        mspe = as.numeric(pred$variance)
+      )
+      if (j %% 100L == 0L) {
+        message("  ", fold$fold, " city kriging: ", j, "/",
+                length(all_years), " years")
+      }
+    }
+    city_predictions <- bind_rows(predictions) %>%
+      mutate(nu = sqrt(pmax(mspe, 0)))
+    readr::write_csv(city_predictions, city_file)
   }
-  city_predictions <- bind_rows(predictions) %>%
-    mutate(nu = sqrt(pmax(mspe, 0)))
-  readr::write_csv(
-    city_predictions,
-    file.path(output_dir, fold$fold, "city_kriging.csv")
-  )
 
   city_results <- vector("list", length(city_config))
   for (ci in seq_along(city_config)) {
