@@ -34,4 +34,48 @@ P0 <- (1 - beta * gain0) * P
 P1 <- (1 - beta * gain1) * P
 stopifnot(gain1 < gain0, P1 > P0, P0 >= 0, P1 >= 0)
 
+# Test the real measurement-projection function in both city and grid
+# pipelines. When kappa=0, kriging reverts to its zero-mean prior,
+# so the new projection must have alpha=g(0), beta=0, and no excess
+# Monte Carlo residual variance. Preserve the historical alternative.
+variance_tolerance <- 1e-10
+load_mc <- function(path) {
+  expressions <- parse(file = path)
+  candidates <- Filter(function(expr) {
+    is.call(expr) &&
+      identical(expr[[1L]], as.name("<-")) &&
+      is.symbol(expr[[2L]]) &&
+      as.character(expr[[2L]]) == "compute_measurement_parameters_mc"
+  }, as.list(expressions))
+  if (length(candidates) != 1L) {
+    stop("Unable to locate measurement projection in ", path)
+  }
+  eval(candidates[[1L]][[3L]], envir = .GlobalEnv)
+}
+paths <- c(
+  here::here("Code", "Figure9d.R"),
+  here::here("Code", "Assimilation_grid.R")
+)
+for (path in paths) {
+  mc <- load_mc(path)
+  args <- list(
+    sigmaY2 = 1, vhat = c(0, 1),
+    reference_yhat = c(-0.4, -0.2),
+    reference_nu = c(0.8, 0.8),
+    target_nu = c(1, 0),
+    g = identity, n_mc = 1000L, seed = 7L
+  )
+  fixed <- do.call(mc, c(args, list(center_mode = "zero")))
+  legacy <- do.call(mc, c(args, list(center_mode = "reference_mean")))
+  stopifnot(
+    abs(fixed$alpha[1L]) < 1e-10,
+    abs(fixed$beta[1L]) < 1e-10,
+    fixed$vdelta[1L] == 1e-10,
+    abs(legacy$alpha[1L] - mean(args$reference_yhat)) < 1e-10,
+    abs(fixed$beta[2L] - 1) < 1e-10,
+    abs(fixed$alpha[2L]) < 1e-10,
+    fixed$vdelta[2L] == 1e-10
+  )
+}
+
 message("Observation-discrepancy variance numerical checks passed.")
