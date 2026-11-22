@@ -4,12 +4,17 @@ This directory contains documentation and optional scripts for obtaining and pre
 
 The default reproducibility workflow does **not** begin from all original downloaded archives. Instead, it begins from the prepared input files distributed under `Data/`.
 
-The main workflow is executed from the repository root using:
+The main two-version workflow is executed from the repository root using:
 
 ```bash
 REPRODUCTION_MODE=full \
-Rscript --vanilla run_all.R
+Rscript --vanilla run_all.R --all
 ```
+
+This controller prepares the LME and prior once, estimates the required
+Original-input observation variance via blocked CV, and then produces
+separate inferred-zero and Original reconstructions. The upstream source
+acquisition scripts documented below are **not** called automatically.
 
 ## 1. REACHES Documentary Temperature Data
 
