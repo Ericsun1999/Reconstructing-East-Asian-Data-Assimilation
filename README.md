@@ -60,7 +60,7 @@ Data/data_dictionary.csv
 
 The `Figure/` directory contains reference copies of the manuscript and supplementary figures so that the reported figures can be viewed without first running the computational workflow.
 
-After executing `run_all.R`, newly generated figures, tables, intermediate files, diagnostics, and execution logs are saved under `Output/`.
+After executing `run_all.R --all`, figures, tables, intermediates and logs are kept separately under `Output/Reconstructions/inferred-zero/Output/` and `Output/Reconstructions/original/Output/`. The LME and prior are prepared once under `Output/Reconstructions/shared/`.
 
 The regenerated figures under `Output/` can be compared with the corresponding reference figures under `Figure/`.
 
@@ -108,7 +108,7 @@ From the repository root:
 
 ~~~bash
 git pull
-REPRODUCTION_MODE=full Rscript --vanilla Code/Analysis/run_reconstruction_versions.R --all
+REPRODUCTION_MODE=full Rscript --vanilla run_all.R --all
 ~~~
 
 This executes the shared 13-member LME annual preparation, WorldClim
@@ -151,10 +151,10 @@ accidental reuse after the corresponding inputs or code change.
 To perform stages separately:
 
 ~~~bash
-Rscript --vanilla Code/Analysis/run_reconstruction_versions.R --prepare-shared
-Rscript --vanilla Code/Analysis/run_reconstruction_versions.R --variant=inferred-zero
-Rscript --vanilla Code/Analysis/run_reconstruction_versions.R --variant=original
-Rscript --vanilla Code/Analysis/run_reconstruction_versions.R --compare-only
+Rscript --vanilla run_all.R --prepare-shared
+Rscript --vanilla run_all.R --variant=inferred-zero
+Rscript --vanilla run_all.R --variant=original
+Rscript --vanilla run_all.R --compare-only
 ~~~
 
 Set \`REPRODUCTION_MODE=full\` for manuscript results; smoke mode is only
@@ -188,7 +188,7 @@ Run the complete manuscript workflow with:
 
 ```bash
 REPRODUCTION_MODE=full \
-Rscript --vanilla run_all.R
+Rscript --vanilla run_all.R --all
 ```
 
 Full mode uses the complete penalty-parameter search grid used for the manuscript analysis.
@@ -211,7 +211,7 @@ Output/Logs/
 The current workflow execution record is written to:
 
 ```text
-Output/Logs/run_manifest.csv
+Output/Reconstructions/<version>/Output/Logs/run_manifest.csv
 ```
 
 This file reports:
@@ -231,7 +231,7 @@ A faster smoke-test mode is available for checking whether the complete software
 
 ```bash
 REPRODUCTION_MODE=smoke \
-Rscript --vanilla run_all.R
+Rscript --vanilla run_all.R --all
 ```
 
 Smoke mode uses a reduced penalty-parameter search grid in `Prior.R` to shorten execution time.
@@ -398,7 +398,7 @@ The use of common nominal coordinates ensures that the city-specific REACHES, LM
 The workflow writes its current execution record to:
 
 ```text
-Output/Logs/run_manifest.csv
+Output/Reconstructions/<version>/Output/Logs/run_manifest.csv
 ```
 
 Because the generated `Output/` directory is excluded from version control, a copy of the successfully completed full-workflow manifest is archived at:
@@ -430,7 +430,7 @@ The complete workflow was successfully executed locally from the repository root
 
 ```bash
 REPRODUCTION_MODE=full \
-Rscript --vanilla run_all.R
+Rscript --vanilla run_all.R --all
 ```
 
 Every workflow step completed with:
