@@ -5,7 +5,8 @@
 
 read_extra_observation_variance <- function(
     reaches_metadata_file,
-    variance_file = Sys.getenv("REACHES_EXTRA_VARIANCE_FILE", unset = "")) {
+    variance_file = Sys.getenv("REACHES_EXTRA_VARIANCE_FILE", unset = ""),
+    projection_method = "empirical_reference_joint_mc_v1") {
 
   variance_file <- path.expand(trimws(variance_file))
   if (!nzchar(variance_file)) {
@@ -27,7 +28,7 @@ read_extra_observation_variance <- function(
   fitted <- readr::read_csv(variance_file, show_col_types = FALSE)
   required <- c(
     "selected_u", "temperature_input_mode", "temperature_source_md5",
-    "number_of_folds", "variance_units"
+    "number_of_folds", "variance_units", "measurement_projection_method"
   )
   if (nrow(fitted) != 1L || !all(required %in% names(fitted))) {
     stop("Measurement variance file must contain a single valid fit: ",
@@ -49,6 +50,16 @@ read_extra_observation_variance <- function(
       length(folds) != 1L || is.na(folds) || folds != 5L ||
       !identical(as.character(fitted$variance_units[1L]), "celsius_squared")) {
     stop("Selected discrepancy variance is invalid or incomplete.")
+  }
+  fitted_method <- as.character(fitted$measurement_projection_method[1L])
+  if (length(fitted_method) != 1L || is.na(fitted_method) ||
+      !identical(fitted_method, projection_method)) {
+    stop(
+      "The variance file was fitted with a different measurement ",
+      "projection method (or predates versioned projection fitting). ",
+      "Use REACHES_MEASUREMENT_PROJECTION_METHOD=",
+      fitted_method, " and rerun blocked CV if needed."
+    )
   }
   if (!identical(as.character(fitted$temperature_input_mode[1L]),
                  as.character(kriging$temperature_input_mode[1L])) ||
