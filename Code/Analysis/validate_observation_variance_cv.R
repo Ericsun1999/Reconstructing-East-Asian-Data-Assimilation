@@ -189,17 +189,125 @@ readr::write_csv(
   file.path(directory, "cv_fold_variance_diagnostics.csv")
 )
 
+# Recover exact held-out kriging information without rerunning models.
+kriging_files <- file.path(
+  directory, fold_bounds$fold, "city_kriging.csv"
+)
+if (!all(file.exists(kriging_files))) {
+  stop("Per-fold city kriging diagnostics are unavailable: ",
+       paste(kriging_files[!file.exists(kriging_files)],
+             collapse = ", "))
+}
+kriging <- do.call(rbind, lapply(seq_along(kriging_files), function(i) {
+  x <- readr::read_csv(kriging_files[i], show_col_types = FALSE)
+  if (!all(c("year", "city", "yhat", "mspe") %in% names(x))) {
+    stop("Incomplete city kriging diagnostics for ",
+         fold_bounds$fold[i])
+  }
+  data.frame(
+    fold = fold_bounds$fold[i],
+    city = as.character(x$city),
+    year = as.integer(x$year),
+    kriging_index_mean = as.numeric(x$yhat),
+    kriging_mspe = as.numeric(x$mspe)
+  )
+}))
+key_string <- function(x) paste(x$fold, x$city, x$year, sep = "|")
+if (anyDuplicated(key_string(kriging))) {
+  stop("Duplicate fold/city/year keys in kriging diagnostics.")
+}
+kriging_idx <- match(key_string(components), key_string(kriging))
+if (anyNA(kriging_idx)) {
+  stop("Unable to match all held-out scores to kriging diagnostics.")
+}
+components$kriging_index_mean <- kriging$kriging_index_mean[kriging_idx]
+components$kriging_mspe <- kriging$kriging_mspe[kriging_idx]
+fold_idx <- match(components$fold, covariance$fold)
+sigmaY2 <- as.numeric(covariance$process_variance[fold_idx])
+if (anyNA(sigmaY2) || any(!is.finite(sigmaY2)) ||
+    any(sigmaY2 <= 0) ||
+    any(!is.finite(components$kriging_mspe))) {
+  stop("Invalid fold-specific process variances or kriging MSPE.")
+}
+components$information_fraction <- pmin(
+  pmax(1 - components$kriging_mspe / sigmaY2, 0), 1
+)
+components$proxy_minus_projection_intercept <-
+  components$Xstar - components$alpha
+
+# The highest baseline log-score points can now be inspected for
+# weak kriging information, near-zero beta, and tiny residual variance.
+display_cols <- c(
+  "fold", "city", "year", "Xstar", "kriging_index_mean",
+  "kriging_mspe", "information_fraction", "alpha", "beta",
+  "vdelta", "mu_prior", "V_prior", "predictive_mean",
+  "predictive_residual", "proxy_minus_projection_intercept",
+  "variance_without_u", "standardized_residual_without_u",
+  "log_score_without_u", "log_score_with_u"
+)
 extreme <- components[
   order(components$log_score_without_u, decreasing = TRUE),
-  c("fold", "city", "year", "Xstar", "predictive_mean",
-    "predictive_residual", "variance_without_u",
-    "standardized_residual_without_u", "log_score_without_u",
-    "log_score_with_u")
+  display_cols
 ]
 extreme <- utils::head(extreme, 30L)
 readr::write_csv(
   extreme, file.path(directory, "cv_largest_zero_variance_scores.csv")
 )
+
+low_information <- components[
+  components$information_fraction < 0.01,
+  display_cols,
+  drop = FALSE
+]
+readr::write_csv(
+  low_information,
+  file.path(directory, "cv_low_information_city_years.csv")
+)
+
+# Quantify how much one chronological block influences the selected u.
+fold_profile_file <- file.path(directory, "cv_score_by_fold.csv")
+if (file.exists(fold_profile_file)) {
+  fold_profile <- readr::read_csv(
+    fold_profile_file, show_col_types = FALSE
+  )
+  required_profile <- c(
+    "fold", "u", "n", "predictive_log_score"
+  )
+  if (!all(required_profile %in% names(fold_profile)) ||
+      anyDuplicated(fold_profile[c("fold", "u")])) {
+    stop("The per-fold CV profile is missing or inconsistent.")
+  }
+  leave_one_out <- do.call(rbind, lapply(
+    c("none", fold_bounds$fold),
+    function(excluded) {
+      z <- if (excluded == "none") fold_profile else
+        fold_profile[fold_profile$fold != excluded, , drop = FALSE]
+      weights <- tapply(z$n, z$fold, function(v) unique(v))
+      if (any(lengths(weights) != 1L)) {
+        stop("Inconsistent held-out counts in CV fold profile.")
+      }
+      total_n <- sum(unlist(weights, use.names = FALSE))
+      weighted <- aggregate(
+        z$predictive_log_score * z$n,
+        by = list(u = z$u),
+        FUN = sum
+      )
+      weighted$score <- weighted$x / total_n
+      best <- which.min(weighted$score)
+      data.frame(
+        excluded_fold = excluded,
+        included_city_years = total_n,
+        u_minimum_on_saved_grid = weighted$u[best],
+        cv_score_at_grid_minimum = weighted$score[best],
+        cv_score_at_zero = weighted$score[which.min(abs(weighted$u))]
+      )
+    }
+  ))
+  readr::write_csv(
+    leave_one_out,
+    file.path(directory, "cv_leave_one_fold_out.csv")
+  )
+}
 
 # The full curve remains in cv_score_curve.png. A second plot focuses
 # on the region of the optimum rather than being compressed by the
@@ -243,5 +351,6 @@ print(fold_diagnostics)
 message("Five-fold observation-variance diagnostics verified.")
 message(
   "Additional diagnostics saved: cv_fold_variance_diagnostics.csv, ",
-  "cv_largest_zero_variance_scores.csv, cv_score_curve_zoom.png"
+  "cv_largest_zero_variance_scores.csv, cv_low_information_city_years.csv, ",
+  "cv_leave_one_fold_out.csv, cv_score_curve_zoom.png"
 )
