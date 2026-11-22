@@ -388,7 +388,7 @@ They do not enter the main manuscript figure-generation pipeline.
 
 ### Preparing the documentary temperature input
 
-`Code/Analysis/prepare_precipitation_augmented_reaches.R` constructs an optional site-year temperature-index dataset from the annual temperature and precipitation worksheets. It preserves the recorded temperature category wherever one exists and assigns a working index of zero only to site-years with an annual precipitation record and no recorded temperature category. This is a documentary-availability assumption, not a direct temperature observation.
+`Code/DataPreparation/prepare_precipitation_augmented_reaches.R` constructs an optional site-year temperature-index dataset from the annual temperature and precipitation worksheets. It preserves the recorded temperature category wherever one exists and assigns a working index of zero only to site-years with an annual precipitation record and no recorded temperature category. This is a documentary-availability assumption, not a direct temperature observation.
 
 The procedure keeps source flags, original text/event identifiers, and precipitation event codes. Annual precipitation records are used as evidence of documentary availability regardless of their rain/snow/hail or dry-weather classification. The original spreadsheets remain unchanged.
 
@@ -410,7 +410,7 @@ Additional audit and yearly/block summaries are written to the same directory. T
 To prepare and use this optional input:
 
 ```bash
-Rscript --vanilla Code/Analysis/prepare_precipitation_augmented_reaches.R
+Rscript --vanilla Code/DataPreparation/prepare_precipitation_augmented_reaches.R
 REACHES_TEMPERATURE_INPUT=augmented Rscript --vanilla Code/prepare_calibration.R
 Rscript --vanilla Code/Get_tempe_all_data.R
 ```
