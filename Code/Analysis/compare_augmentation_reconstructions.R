@@ -270,17 +270,21 @@ if (stage == "grid") {
       by = c(keys, "year", "mode")
     )
   }))
-  keys2 <- c(keys, "year")
+  # Figure 6 cluster labels may change when the REACHES input changes.
+  # Align the same physical grid location, not its cluster assignment.
+  spatial_keys <- c("location_id", "lati", "long", "year")
   grid_original <- grid_model %>%
     filter(mode == "original") %>% select(-mode)
   grid_augmented <- grid_model %>%
     filter(mode == "augmented") %>% select(-mode)
-  if (nrow(grid_original) != nrow(grid_augmented)) {
-    stop("Original and Augmented have different spatial grid sizes.")
+  if (nrow(grid_original) != nrow(grid_augmented) ||
+      anyDuplicated(grid_original[spatial_keys]) ||
+      anyDuplicated(grid_augmented[spatial_keys])) {
+    stop("Original and Augmented have different or duplicate grids.")
   }
   grid_pairs <- inner_join(
     grid_original, grid_augmented,
-    by = keys2, suffix = c("_original", "_augmented")
+    by = spatial_keys, suffix = c("_original", "_augmented")
   )
   if (nrow(grid_pairs) != nrow(grid_original) ||
       anyNA(grid_pairs$mean_original) ||
@@ -305,8 +309,10 @@ if (stage == "grid") {
     grid_pairs, file.path(result_dir, "grid_year_differences.csv")
   )
   grid_summary <- grid_pairs %>%
-    group_by(location_id, lati, long, figure6_cluster) %>%
+    group_by(location_id, lati, long) %>%
     summarise(
+      cluster_original = first(figure6_cluster_original),
+      cluster_augmented = first(figure6_cluster_augmented),
       mean_signed_shift_celsius = mean(delta_mean),
       mean_absolute_shift_celsius = mean(abs(delta_mean)),
       mean_sd_change_celsius = mean(delta_sd),
