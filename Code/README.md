@@ -403,13 +403,22 @@ The pooled three-city/year criterion is a composite predictive log
 score; the scalar fitted \(u\) is shared across all spatial locations.
 No Kalman filtering/smoothing on held-out data is used to tune \(u\).
 
-From the repository root, run the numerical smoke test and then the
+From the repository root, run the numerical check, a single
+chronological fold for an integration smoke test, and only then the
 full five-fold fit:
 
 ~~~bash
 Rscript --vanilla Code/Analysis/test_observation_variance.R
+REACHES_CV_ONLY_FOLD=fold_1 Rscript --vanilla Code/Analysis/cv_observation_variance.R
 Rscript --vanilla Code/Analysis/cv_observation_variance.R
 ~~~
+
+The one-fold test stores its combined diagnostic tables under
+Output/Intermediate/ObservationVariance/original/smoke/fold_1/
+(or the corresponding augmented path) and does not change existing
+pooled five-fold tables or the selected variance. The full objective
+is scanned over a nonnegative log-spaced grid and all identified
+local minima are refined before choosing the minimum.
 
 The fold covariance fit uses the deterministic analytic calibration
 engine by default, while the standard full-data covariance calibration
