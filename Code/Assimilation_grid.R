@@ -687,6 +687,14 @@ if ("temperature_input_mode" %in% names(reaches_metadata) &&
   save_data_valid_copy <- FALSE
 }
 
+if ("kriging_scope" %in% names(reaches_metadata) &&
+    !is.na(reaches_metadata$kriging_scope[1L]) &&
+    identical(as.character(reaches_metadata$kriging_scope[1L]),
+              "city_only")) {
+  stop("The REACHES metadata was generated in city-only mode. ",
+       "Run Code/Get_tempe_all_data.R before spatial assimilation.")
+}
+
 sigmaY2 <- as.numeric(
   reaches_metadata$process_variance[1]
 )
