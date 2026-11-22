@@ -129,7 +129,9 @@ remove_checkpoint_on_success <- TRUE
 save_data_valid_copy <-
   !nzchar(Sys.getenv("REACHES_EXTRA_VARIANCE_FILE", unset = "")) &&
   identical(Sys.getenv("REACHES_TEMPERATURE_INPUT",
-                       unset = "original"), "original")
+                       unset = "original"), "original") &&
+  identical(measurement_projection_method,
+            "empirical_reference_joint_mc_v1")
 
 output_dir <- here::here(
   "Output",
