@@ -9,6 +9,26 @@ read_extra_observation_variance <- function(
     projection_method = "empirical_reference_joint_mc_v1") {
 
   variance_file <- path.expand(trimws(variance_file))
+  # An explicitly fixed common u is useful for documentary-input
+  # sensitivity comparisons. It is NOT an independently fitted u
+  # for the augmented dataset, and is labeled accordingly.
+  fixed <- trimws(Sys.getenv(
+    "REACHES_EXTRA_VARIANCE_FIXED", unset = ""
+  ))
+  if (nzchar(fixed)) {
+    if (nzchar(variance_file)) {
+      stop("Set either REACHES_EXTRA_VARIANCE_FIXED or ",
+           "REACHES_EXTRA_VARIANCE_FILE, not both.")
+    }
+    value <- suppressWarnings(as.numeric(fixed))
+    if (length(value) != 1L || !is.finite(value) || value < 0) {
+      stop("REACHES_EXTRA_VARIANCE_FIXED must be a nonnegative number.")
+    }
+    return(list(
+      u = value, file = NA_character_, file_md5 = NA_character_,
+      mode = "fixed_input_sensitivity"
+    ))
+  }
   if (!nzchar(variance_file)) {
     return(list(
       u = 0,
