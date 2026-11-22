@@ -659,6 +659,15 @@ if (
   )
 }
 
+# A generated augmented-input run must never overwrite the
+# versioned original reference products, even if the caller did not
+# explicitly set REACHES_TEMPERATURE_INPUT for this invocation.
+if ("temperature_input_mode" %in% names(reaches_metadata) &&
+    !is.na(reaches_metadata$temperature_input_mode[1L]) &&
+    reaches_metadata$temperature_input_mode[1L] != "original") {
+  save_data_valid_copy <- FALSE
+}
+
 sigmaY2 <- as.numeric(
   reaches_metadata$process_variance[1]
 )
