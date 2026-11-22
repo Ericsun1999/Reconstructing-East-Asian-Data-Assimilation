@@ -79,7 +79,7 @@ if (actions["all"] || actions["variant"] ||
   dir.create(reconstruction_root, recursive = TRUE, showWarnings = FALSE)
 }
 
-# Resolve the original-v1 L2 estimate once. Both documentary inputs
+# Resolve the selected Original-input variance estimate once. Both documentary inputs
 # deliberately use the SAME observation error setting.
 fixed_u <- NA_real_
 variance_source <- ""
