@@ -1796,6 +1796,7 @@ metadata <- data.frame(
   temperature_input_mode = calibration_results$temperature_input_mode,
   temperature_source_md5 = temperature_source_md5,
   calibration_file_md5 = calibration_file_md5,
+  kriging_scope = "full_grid",
   number_of_event_years =
     length(
       year2
