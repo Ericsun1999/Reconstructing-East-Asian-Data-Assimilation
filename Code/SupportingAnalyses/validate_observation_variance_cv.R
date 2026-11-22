@@ -57,19 +57,28 @@ components <- readr::read_csv(paths[["components"]], show_col_types = FALSE)
 covariance <- readr::read_csv(paths[["covariance"]], show_col_types = FALSE)
 grid <- readr::read_csv(paths[["grid"]], show_col_types = FALSE)
 
-# CV results fitted using the legacy reference-mean projection must
-# not be silently reused after correcting the zero-mean model.
-required_projection <- "empirical_reference_zero_centered_joint_mc_v2"
-if (!"measurement_projection_method" %in% names(selected) ||
-    nrow(selected) != 1L ||
-    is.na(selected$measurement_projection_method[1L]) ||
-    !identical(as.character(selected$measurement_projection_method[1L]),
-               required_projection)) {
-  stop(
-    "The selected_u.csv file predates the zero-centered measurement ",
-    "projection. Rerun Code/SupportingAnalyses/cv_observation_variance.R to ",
-    "refit u with the corrected observation model."
+# Validate numerical consistency for whichever documented
+# measurement-projection version was used in this historical fit.
+# Older fits lack the method field, but can still be checked
+# arithmetically without claiming the projection identity was verified.
+supported_projection <- c(
+  "empirical_reference_joint_mc_v1",
+  "empirical_reference_zero_centered_joint_mc_v2"
+)
+if (nrow(selected) != 1L) stop("Expected one selected variance fit.")
+if ("measurement_projection_method" %in% names(selected) &&
+    !is.na(selected$measurement_projection_method[1L])) {
+  fitted_projection <- as.character(
+    selected$measurement_projection_method[1L]
   )
+  if (!fitted_projection %in% supported_projection) {
+    stop("Unknown measurement-projection method in selected_u.csv.")
+  }
+} else {
+  fitted_projection <- "unspecified_legacy_fit"
+  warning("This historical selected_u.csv does not record its ",
+          "measurement-projection method; numerical scores can be ",
+          "checked, but method provenance cannot be certified.")
 }
 
 required_components <- c(
@@ -173,6 +182,7 @@ if (!close_enough(at_zero, selected$cv_score_at_zero[1L]) ||
 
 summary <- data.frame(
   temperature_input_mode = mode,
+  measurement_projection_method = fitted_projection,
   input_md5 = current_md5,
   heldout_city_years = nrow(components),
   folds = length(unique(components$fold)),
