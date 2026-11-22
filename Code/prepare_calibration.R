@@ -161,7 +161,7 @@ if (!file.exists(temperature_source_file)) {
   stop(
     "The REACHES input file was not found: ", temperature_source_file,
     if (temperature_input_mode == "augmented") {
-      "\nRun Code/Analysis/prepare_precipitation_augmented_reaches.R first."
+      "\nRun Code/DataPreparation/prepare_precipitation_augmented_reaches.R first."
     } else {
       ""
     }
