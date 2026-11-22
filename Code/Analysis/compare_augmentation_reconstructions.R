@@ -237,9 +237,15 @@ covariance <- bind_rows(lapply(names(snapshots), function(mode) {
     nugget_variance = as.numeric(z$psill1),
     process_variance = as.numeric(z$psill2),
     spatial_range_km = as.numeric(z$range),
-    total_variance = as.numeric(z$total_variance)
+    total_variance = as.numeric(z$total_variance),
+    calibration_engine = as.character(z$calibration_engine)
   )
 }))
+if (anyNA(covariance$calibration_engine) ||
+    length(unique(covariance$calibration_engine)) != 1L) {
+  stop("The two documentary-input versions used different ",
+       "covariance-calibration methods.")
+}
 readr::write_csv(covariance, file.path(result_dir, "covariance_comparison.csv"))
 
 if (stage == "grid") {
