@@ -22,16 +22,45 @@ library(maps)
 # ------------------------------------------------------------
 # 1. Read REACHES temperature-event data
 # ------------------------------------------------------------
-temperature <- read_excel(
-  here::here("Data", "temperature index value.v1.xlsx"),
-  col_types = c(
-    "skip", "skip", "numeric", "numeric",
-    "skip", "skip", "skip", "skip", "skip",
-    "numeric", "numeric", "skip", "skip"
-  )
+temperature_input_mode <- Sys.getenv(
+  "REACHES_TEMPERATURE_INPUT", unset = "original"
 )
-
-colnames(temperature) <- c("level", "year", "long", "lat")
+if (!temperature_input_mode %in% c("original", "augmented")) {
+  stop("REACHES_TEMPERATURE_INPUT must be original or augmented.")
+}
+if (temperature_input_mode == "augmented") {
+  input_file <- here::here(
+    "Output", "Intermediate", "REACHES",
+    "temperature_site_year_augmented.csv"
+  )
+  temperature <- readr::read_csv(input_file, show_col_types = FALSE)
+  if (!all(c("level", "year", "long", "lat", "is_inferred_zero") %in%
+           names(temperature))) {
+    stop("Incomplete inferred-zero source for Supplementary Figure S2.")
+  }
+  temperature <- temperature %>%
+    transmute(
+      level = as.numeric(level), year = as.integer(year),
+      long = as.numeric(long), lat = as.numeric(lat),
+      is_inferred_zero = as.logical(is_inferred_zero)
+    )
+} else {
+  temperature <- read_excel(
+    here::here("Data", "temperature index value.v1.xlsx"),
+    col_types = c(
+      "skip", "skip", "numeric", "numeric",
+      "skip", "skip", "skip", "skip", "skip",
+      "numeric", "numeric", "skip", "skip"
+    )
+  )
+  colnames(temperature) <- c("level", "year", "long", "lat")
+  temperature$is_inferred_zero <- FALSE
+}
+temperature <- temperature %>% filter(
+  between(year, 1368L, 1911L),
+  level %in% c(-2, -1, 0, 1),
+  is.finite(long), is.finite(lat)
+)
 
 # Keep the same structure as the original code
 temp2 <- temperature %>%
@@ -67,6 +96,11 @@ plot_originREACHES_map <- function(
     geom_point(
       aes(colour = level),
       size = 1
+    ) +
+    geom_point(
+      data = function(d) d[d$is_inferred_zero, , drop = FALSE],
+      shape = 21, fill = NA, colour = "grey40",
+      size = 1, stroke = 0.35, show.legend = FALSE
     ) +
     coord_map(
       xlim = c(98, 124.5),
