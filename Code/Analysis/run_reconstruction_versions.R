@@ -74,6 +74,19 @@ reproduction_mode <- Sys.getenv("REPRODUCTION_MODE", unset = "full")
 if (!reproduction_mode %in% c("full", "smoke")) {
   stop("REPRODUCTION_MODE must be full or smoke.")
 }
+if (nzchar(Sys.getenv("WORLDCLIM_OFFSETS_FILE", unset = ""))) {
+  stop("The versioned common run uses the repository's prepared ",
+       "WorldClim offsets. Unset WORLDCLIM_OFFSETS_FILE so the ",
+       "shared-input fingerprint matches the actual data.")
+}
+# Calendar holdout settings are for cross-validation, not a full
+# reconstruction. Never allow inherited terminal exports to silently
+# restrict the historical source years or reroute calibration output.
+Sys.unsetenv(c(
+  "REACHES_CV_HOLDOUT_START", "REACHES_CV_HOLDOUT_END",
+  "REACHES_CV_CALIBRATION_OUTPUT_DIR", "REACHES_CV_ONLY_FOLD",
+  "REACHES_CV_REUSE_CITY_KRIGING"
+))
 if (actions["all"] || actions["variant"] ||
     actions["prepare_shared"]) {
   dir.create(reconstruction_root, recursive = TRUE, showWarnings = FALSE)
@@ -447,6 +460,28 @@ run_variant <- function(name) {
 }
 
 compare_versions <- function() {
+  manifests <- lapply(c("inferred-zero", "original"), function(name) {
+    p <- file.path(reconstruction_root, name, "version_manifest.csv")
+    if (!file.exists(p)) stop("Missing completed version manifest: ", p)
+    m <- read.csv(p, stringsAsFactors = FALSE)
+    if (nrow(m) != 1L ||
+        !identical(as.character(m$variant[1L]), name)) {
+      stop("Invalid version metadata for ", name)
+    }
+    m
+  })
+  a <- manifests[[1L]]
+  b <- manifests[[2L]]
+  same <- c("shared_manifest_md5", "fixed_u", "projection_method",
+            "reproduction_mode")
+  if (!all(same %in% names(a)) || !all(same %in% names(b)) ||
+      !identical(as.list(a[1L, same]), as.list(b[1L, same])) ||
+      !identical(as.character(a$role[1L]), "primary_inferred_zero") ||
+      !identical(as.character(b$role[1L]),
+                 "original_record_sensitivity")) {
+    stop("Version manifests are not compatible; the two runs must ",
+         "use the same LME/prior, fixed u, projection and mode.")
+  }
   Sys.setenv(REACHES_COMPARISON_VERSION_ROOT = reconstruction_root)
   for (stage in c("city", "grid")) {
     message("\nComparing ", stage, " reconstructions ...")
