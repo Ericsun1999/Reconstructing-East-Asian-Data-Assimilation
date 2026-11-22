@@ -127,7 +127,10 @@ remove_checkpoint_on_success <- TRUE
 # Keep checked-in validation data untouched for alternative
 # observation-variance and augmented-input runs.
 save_data_valid_copy <-
+  !identical(Sys.getenv("REACHES_WRITE_VALIDATION_COPY",
+                        unset = "1"), "0") &&
   !nzchar(Sys.getenv("REACHES_EXTRA_VARIANCE_FILE", unset = "")) &&
+  !nzchar(Sys.getenv("REACHES_EXTRA_VARIANCE_FIXED", unset = "")) &&
   identical(Sys.getenv("REACHES_TEMPERATURE_INPUT",
                        unset = "original"), "original") &&
   identical(measurement_projection_method,
