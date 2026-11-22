@@ -41,10 +41,12 @@ The workflow generates Figures 2–10 in the main manuscript, Figures S1–S5 in
 The `Output/` directory is generated locally by the workflow and is excluded from version control. It does not need to exist before the analysis is run.
 
 Detailed descriptions of the main reproduction scripts are in
-[Code/README.md](Code/README.md). Optional method diagnostics, quick
-checks, and exploratory programs are documented separately in
+[Code/README.md](Code/README.md). Optional numerical validation, quick checks, and exploratory programs
+are documented separately in
 [Code/SupportingAnalyses/README.md](Code/SupportingAnalyses/README.md).
-They are intentionally not part of the automatic manuscript pipeline.
+The **required** Original-input five-block measurement-variance CV
+estimator is located in [Code/cv_observation_variance.R](Code/cv_observation_variance.R)
+and is automatically run by the main reproducibility controller.
 
 Descriptions, provenance, formats, and usage instructions for the input data are provided in:
 
@@ -141,8 +143,13 @@ folder is separate from tracked reference data, and the output
 workspaces are not overwritten by switching source variants.
 The two versions use the original measurement projection, the
 same Monte Carlo settings and a **common fixed extra observation
-variance** from the Original blocked-CV fit (unless a different
-nonnegative value is explicitly supplied with `--u=VALUE`).
+variance** from the Original blocked-CV fit. In full mode, `run_all.R`
+automatically estimates this value (or reuses a fingerprint-verified
+fit) after preparing the shared LME/prior. No separate CV step is
+required. The fit is saved in
+`Output/Reconstructions/original/Output/Intermediate/ObservationVariance/original/selected_u.csv`.
+A nonnegative `--u=VALUE` may be supplied for deliberately justified
+sensitivity runs, bypassing the CV fit.
 This isolates the effect of the inferred-zero input; the Original
 fit is not misrepresented as an independently fitted Augmented u.
 The one-time LME/prior source files are fingerprinted to prevent
@@ -158,9 +165,11 @@ Rscript --vanilla run_all.R --compare-only
 ~~~
 
 Set `REPRODUCTION_MODE=full` for manuscript results; smoke mode is only
-a pipeline test. Use `--rebuild-shared` deliberately if the independent
-LME/prior inputs or code change, and then rerun *both* documentary
-versions. Existing snapshots are protected against silent replacement.
+a pipeline test (using `u=0` by default rather than full CV) and must not
+be used for manuscript figures. Use `--rebuild-shared` deliberately if
+the independent LME/prior inputs or code change, and then rerun *both*
+documentary versions. Existing snapshots are protected against silent
+replacement.
 
 The coverage/population and interval-compatibility diagnostics still
 describe recorded REACHES temperature events; inferred-zero site-years
