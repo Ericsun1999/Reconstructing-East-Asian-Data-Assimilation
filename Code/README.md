@@ -10,7 +10,7 @@ repository root:
 
 ```bash
 REPRODUCTION_MODE=full \
-Rscript --vanilla Code/Analysis/run_reconstruction_versions.R --all
+Rscript --vanilla run_all.R --all
 ```
 
 The independent LME and dynamic prior are estimated once and reused,
@@ -34,37 +34,31 @@ Data/Get_data/README.md
 
 ```text
 Code/
-├── Analysis/
+├── Analysis/                      Manuscript tables, validation and comparisons
 │   ├── coverage_population_GAM.R
-│   ├── diagnose_precipitation_augmentation.R
 │   ├── interval_compatibility.R
-│   ├── precip_temperature_joint_distribution.R
-│   └── prepare_precipitation_augmented_reaches.R
-├── DataPreparation/
+│   ├── snapshot_augmentation_reconstruction.R
+│   └── compare_augmentation_reconstructions.R
+├── DataPreparation/               All source-data preparation
 │   ├── prepare_lme_annual.R
-│   └── prepare_worldclim_bias_correction.R
-├── Supplementary/
-│   ├── FigureS1.R
-│   ├── FigureS2.R
-│   └── FigureS3.R
-├── Assimilation_grid.R
-├── Figure10.R
-├── Figure2.R
-├── Figure3.R
-├── Figure4.R
-├── Figure5.R
-├── Figure6.R
-├── Figure7-8.R
-├── Figure7e.R
-├── Figure9abc.R
-├── Figure9d.R
+│   ├── prepare_worldclim_bias_correction.R
+│   └── prepare_precipitation_augmented_reaches.R
+├── SupportingAnalyses/            Optional diagnostics and exploration
+│   ├── README.md                  Explanations and optional commands
+│   └── (six supporting .R scripts)
+├── Workflow/
+│   └── run_single_version.R       Internal worker called by run_all.R
+├── Supplementary/                 Supplementary figures S1–S3 scripts
+├── Figure2.R ... Figure10.R        Main figure scripts
+├── Figure9d.R                     Measurement variance helper definitions
 ├── Get_tempe_all_data.R
 ├── Prior.R
-├── README.md
 └── prepare_calibration.R
 ```
 
-All scripts should be executed from the repository root. The scripts use project-relative paths through `here::here()` and should not require manually changing the working directory.
+All commands below are run from the repository root. The six
+SupportingAnalyses scripts are not part of the automatic full
+reproduction; see [their documentation](SupportingAnalyses/README.md).
 
 ## Versioned manuscript reconstruction (primary and sensitivity)
 
@@ -80,7 +74,7 @@ From the repository root:
 
 ~~~bash
 git pull
-REPRODUCTION_MODE=full Rscript --vanilla Code/Analysis/run_reconstruction_versions.R --all
+REPRODUCTION_MODE=full Rscript --vanilla run_all.R --all
 ~~~
 
 This executes the shared 13-member LME annual preparation, WorldClim
@@ -123,10 +117,10 @@ accidental reuse after the corresponding inputs or code change.
 To perform stages separately:
 
 ~~~bash
-Rscript --vanilla Code/Analysis/run_reconstruction_versions.R --prepare-shared
-Rscript --vanilla Code/Analysis/run_reconstruction_versions.R --variant=inferred-zero
-Rscript --vanilla Code/Analysis/run_reconstruction_versions.R --variant=original
-Rscript --vanilla Code/Analysis/run_reconstruction_versions.R --compare-only
+Rscript --vanilla run_all.R --prepare-shared
+Rscript --vanilla run_all.R --variant=inferred-zero
+Rscript --vanilla run_all.R --variant=original
+Rscript --vanilla run_all.R --compare-only
 ~~~
 
 Set \`REPRODUCTION_MODE=full\` for manuscript results; smoke mode is only
@@ -160,18 +154,18 @@ run_all.R
 
 It executes each script in a separate R session, stops when a step fails, verifies key outputs, and records the execution status and runtime of each step.
 
-A full manuscript reproduction is run with:
+A full two-version manuscript reproduction is run with:
 
 ```bash
 REPRODUCTION_MODE=full \
-Rscript --vanilla run_all.R
+Rscript --vanilla run_all.R --all
 ```
 
 A faster smoke test is available with:
 
 ```bash
 REPRODUCTION_MODE=smoke \
-Rscript --vanilla run_all.R
+Rscript --vanilla run_all.R --all
 ```
 
 Smoke mode uses a reduced penalty-search grid in `Prior.R` and is intended only to test whether the software workflow executes successfully.
@@ -199,13 +193,13 @@ Rscript --vanilla run_all.R --only=figure9d
 The execution record is written to:
 
 ```text
-Output/Logs/run_manifest.csv
+Output/Reconstructions/<version>/Output/Logs/run_manifest.csv
 ```
 
 Individual script logs are written under:
 
 ```text
-Output/Logs/
+Output/Reconstructions/<version>/Output/Logs/
 ```
 
 ## Data-Preparation and Core Analysis Scripts
@@ -385,40 +379,12 @@ The default reproducibility workflow does not require the original large NetCDF 
 
 
 
-### Precipitation/temperature co-occurrence analysis
+### Supporting documentary-data diagnostics (optional)
 
-`Code/Analysis/precip_temperature_joint_distribution.R` uses the annual precipitation and temperature worksheets to estimate the conditional distribution of recorded temperature-index categories for provisional rain, snow, and hail event-code groups. Records are paired by site and year; they need not come from the same historical text or season. The classification may overlap across precipitation categories, and the script does not impute any temperature value.
-
-Inputs:
-
-```text
-Data/precipitation index value.xlsx
-Data/temperature index value.v1.xlsx
-```
-
-Run:
-
-```bash
-Rscript --vanilla Code/Analysis/precip_temperature_joint_distribution.R
-```
-
-The script creates conditional-frequency tables, sample-size summaries, candidate site-years and an event-code audit under `Output/Intermediate/Precipitation/`.
-
-### Augmentation diagnostics
-
-`Code/Analysis/diagnose_precipitation_augmentation.R` checks an existing `temperature_site_year_augmented.csv` against the two original annual REACHES workbooks. It verifies that all observed temperature indices are unchanged and that every inferred zero has annual precipitation documentation. It reports the before/after distributions of the ordinal temperature index (−2, −1, 0, 1) and documentary site-year counts across historical periods, geographic two-degree cells, precipitation event-code categories, and the newly informative years.
-
-The event-code groupings are preliminary and non-exclusive. No-rain and drought events remain valid documentary evidence for the inferred-zero rule; grouping them separately is only for audit and sensitivity analysis. The snow-absence/prayer group includes some prayer narratives and must not be interpreted as exclusively explicit no-snow observations.
-
-Run the preparation and diagnostics without launching the rest of the workflow:
-
-```bash
-Rscript --vanilla Code/Analysis/prepare_precipitation_augmented_reaches.R
-Rscript --vanilla Code/Analysis/diagnose_precipitation_augmentation.R
-```
-
-CSV summaries and PNG figures are written to `Output/Intermediate/Precipitation/AugmentationDiagnostics/`. The primary geographic figure is `augmentation_spatial_site_year.png`: it shows exact site-year coordinates on the Figure 2(c) map, using the original RdBu palette for recorded temperature indices and grey outlined markers for inferred zeros, in before/after panels. Two-degree cell counts remain available as CSV files; the figure is also saved under the previous `augmentation_spatial_2deg.png` filename for compatibility. The annual comparison `augmentation_counts_by_year.png` follows Figure 2(a)'s red bars and black LOESS smoother, with recorded-only and augmented site-year counts in separate panels. The grey count panels in `augmentation_temperature_level_counts.png` follow Figure 2(b)'s histogram style, while `augmentation_temperature_level_shares.png` shows proportions in the same style. The event-category chart also uses Figure 2's grey-panel theme. No assimilation or full-workflow run is required.
-
+The exploratory precipitation-event analysis and the independent
+inferred-zero provenance check are kept in
+[SupportingAnalyses/README.md](SupportingAnalyses/README.md).
+They do not enter the main manuscript figure-generation pipeline.
 
 ### Preparing the documentary temperature input
 
@@ -457,321 +423,37 @@ REACHES_TEMPERATURE_INPUT=augmented REPRODUCTION_MODE=full Rscript --vanilla run
 
 Both input versions write downstream results to the same `Output/` paths, so save separate output copies if comparing them.
 
-### Blocked calibration of additional measurement variance
+### Additional measurement variance
 
-Code/Analysis/cv_observation_variance.R fits one nonnegative
-additional measurement-error variance (in Celsius squared) from five
-disjoint calendar holdouts: 1368–1500, 1501–1600, 1601–1700,
-1701–1800, and 1801–1911.
+Figure 9(d) defines the nonnegative additional measurement variance
+loader as part of its measurement-equation implementation; the spatial
+assimilation script imports only that named function.
 
-For each fold, prepare_calibration.R refits the spatial covariance on
-**training years only**, saving results in a fold-specific directory.
-The original interval-censored kriging functions are applied at the
-three city locations with those training-only covariance parameters.
-Quantile-mapping reference distributions and the joint Monte Carlo
-measurement projection also use **training-year kriging outputs only**.
-The independent LME ensemble and annual state-space prior are reused
-unchanged. Held-out calendar years provide validation proxies only.
+The two manuscript reconstruction versions hold the same Original
+blocked-CV estimate fixed, to isolate the effect of inferred-zero
+documentary inputs. The five-fold CV fitting and numerical validation
+scripts are preserved as **optional supporting analyses**, documented
+at [SupportingAnalyses/README.md](SupportingAnalyses/README.md).
 
-The held-out Gaussian predictive mean and variance are
-
-$$
-m_t=\alpha_t+\beta_t\mu_t,\qquad
-S_t(0)=\beta_t^2V_t+v_{\delta,t},
-$$
-
-with the unconditional prior variance computed as
-$V_1=r_1^2$ and $V_t=M_{t-1}^2V_{t-1}+r_t^2$.
-For a common nonnegative $u$, the criterion is
-
-$$
-\mathrm{CV}(u)=\frac{1}{2n}\sum_{\mathrm{held\ out}}
-\left[\log\{2\pi[S_t(0)+u]\}+
-\frac{(X_t^\ast-m_t)^2}{S_t(0)+u}\right].
-$$
-
-The pooled three-city/year criterion is a composite predictive log
-score; the scalar fitted $u$ is shared across all spatial locations.
-No Kalman filtering/smoothing on held-out data is used to tune $u$.
-
-The measurement projection has two explicit versions. The historical
-empirical-reference projection (empirical_reference_joint_mc_v1)
-centers simulated weak-information kriging estimates at the empirical
-mean of the documentary reference predictions. The corrected
-zero-centered projection
-(empirical_reference_zero_centered_joint_mc_v2)
-centers them at zero, matching the zero-mean process implemented in
-predict_grid_one_year(). All newly estimated observation variances
-use the zero-centered version. The original version remains the
-default in city and grid assimilation to preserve legacy manuscript
-reproducibility. Variance files record their projection version and
-cannot be used with a different version.
-
-From the repository root, run the numerical check, a single
-chronological fold for an integration smoke test, and only then the
-full five-fold fit:
-
-~~~bash
-Rscript --vanilla Code/Analysis/test_observation_variance.R
-REACHES_CV_ONLY_FOLD=fold_1 REACHES_CV_REUSE_CITY_KRIGING=1 Rscript --vanilla Code/Analysis/cv_observation_variance.R
-REACHES_CV_REUSE_CITY_KRIGING=1 Rscript --vanilla Code/Analysis/cv_observation_variance.R
-Rscript --vanilla Code/Analysis/validate_observation_variance_cv.R
-~~~
-
-The final validation script independently recomputes the
-held-out predictive means, variances, residuals, scores, and
-source-input MD5, and checks disjoint five-fold city/year coverage.
-It writes cv_validation_summary.csv only when all checks pass.
-It also produces cv_fold_variance_diagnostics.csv (per-fold
-baseline-variance quantiles and score contributions),
-cv_largest_zero_variance_scores.csv (30 largest baseline-score
-city/years, including kriging information fraction, measurement
-beta, and residual variance), cv_low_information_city_years.csv
-(those with less than 1% implied kriging information),
-cv_leave_one_fold_out.csv (influence of excluding each temporal
-block), and cv_score_curve_zoom.png (the profile near the
-selected nonnegative variance), without rerunning covariance
-calibration or changing the selected_u.csv result.
-
-The optional REACHES_CV_REUSE_CITY_KRIGING=1 flag reuses existing
-per-fold city kriging files only if the prior complete CV fit's
-source MD5, input mode, covariance parameters, year/city keys, and
-predicted variances pass compatibility checks. It does not reuse
-old measurement-equation fits or old selected variances. If this
-is a first run or the cache fails validation, remove the flag to
-recompute kriging. Existing covariance fits are reused separately
-when their input MD5 and calibration-script MD5 match.
-
-The version-specific CV validator requires a variance fitted
-under the corrected projection. The earlier fit obtained under the
-original projection is still a valid result for that *original*
-measurement model; it should not be relabeled as a corrected-projection
-fit. To use the original estimate for the documentary-input sensitivity
-comparison, hold its numerical value fixed in both reconstructions via
-REACHES_EXTRA_VARIANCE_FIXED, as documented below. This does not refit
-u, alter the original measurement equation, or represent the old
-fit as an independently calibrated augmented-data variance.
-
-The one-fold test stores its combined diagnostic tables under
-Output/Intermediate/ObservationVariance/original/smoke/fold_1/
-(or the corresponding augmented path) and does not change existing
-pooled five-fold tables or the selected variance. The full objective
-is scanned over a nonnegative log-spaced grid and all identified
-local minima are refined before choosing the minimum.
-
-The fold covariance fit uses the deterministic analytic calibration
-engine by default, while the standard full-data covariance calibration
-continues to default to Monte Carlo. The fold engine can be changed
-through REACHES_CV_CALIBRATION_ENGINE=monte_carlo. The measurement
-Monte Carlo draw count is controlled by REACHES_CV_MC_SIZE (default
-100000). REACHES_CV_ONLY_FOLD=fold_1 runs a single pipeline check
-without writing a selected five-fold variance.
-
-Generated results are kept separate from the normal model products:
-
-~~~text
-Output/Intermediate/ObservationVariance/original/
-  selected_u.csv
-  heldout_score_components.csv
-  fold_covariance.csv
-  cv_score_curve.csv
-  cv_score_by_fold.csv
-  cv_score_by_city.csv
-  cv_score_curve.png
-  fold_1/ ... fold_5/ (training-only covariance fits and logs)
-~~~
-
-Before applying the result, regenerate Code/Get_tempe_all_data.R
-outputs if their REACHES kriging metadata predates source-identity
-tracking. With an up-to-date generated REACHES fit, explicitly
-supply the selected variance:
-
-~~~bash
-REACHES_MEASUREMENT_PROJECTION_METHOD=empirical_reference_zero_centered_joint_mc_v2 \
-REACHES_EXTRA_VARIANCE_FILE="$PWD/Output/Intermediate/ObservationVariance/original/selected_u.csv" \
-  Rscript --vanilla Code/Figure9d.R
-
-REACHES_MEASUREMENT_PROJECTION_METHOD=empirical_reference_zero_centered_joint_mc_v2 \
-REACHES_EXTRA_VARIANCE_FILE="$PWD/Output/Intermediate/ObservationVariance/original/selected_u.csv" \
-  Rscript --vanilla Code/Assimilation_grid.R
-~~~
-
-For the augmented input, set REACHES_TEMPERATURE_INPUT=augmented
-while fitting the five folds and use the corresponding variance at
-Output/Intermediate/ObservationVariance/augmented/selected_u.csv
-along with freshly generated augmented kriging products.
-
-The variance loader verifies input mode and source-workbook MD5
-against the generated kriging metadata. It refuses to apply a
-variance fitted for a different dataset. Both assimilation scripts
-retain the original u=0 behavior unless
-REACHES_EXTRA_VARIANCE_FILE is explicitly provided. When enabled,
-the fitted u is added **once** to the Monte Carlo measurement-error
-variance and is propagated by the Kalman filter and RTS smoother.
-The projection-method environment variable must match the version
-stored in the selected variance file, otherwise assimilation stops.
-When using the corrected projection, preserve baseline city
-reconstruction outputs before rerunning Figure9d.R, since it writes
-to the standard figure and intermediate output locations.
-The spatial-assimilation checkpoint also fingerprints all three input
-REACHES kriging files, preventing reuse after input changes. To protect
-the repository's reference products, runs with extra variance or
-augmented documentary input do not overwrite the copies in Data/Valid;
-the new results remain under Output/Intermediate/Assimilation/.
+The full reproduction does not rerun blocked CV.
 
 ### Comparing reconstructions with and without inferred zeros
 
-The optional documentary augmentation analysis is designed as a
-**sensitivity comparison**, not a replacement of the original model.
-For the primary comparison, keep the original measurement projection,
-the same LME/prior inputs, the same joint-Monte-Carlo draw count, and
-the same additional variance $u$ in both runs. This isolates the
-change in the documentary observation dataset. Do **not** rerun
-blocked CV merely to complete this comparison.
+The root [run_all.R](../run_all.R) now controls both versions:
+`inferred-zero` is the primary reconstruction and `original` is
+the temperature-record-only sensitivity analysis. It generates and
+preserves separate figures, supplementary panels, tables and
+intermediate results, while LME/WorldClim preparation and Prior.R
+run only once.
 
-Two analysis-only utilities protect against silently overwriting
-results while switching the source workbook:
+```bash
+REPRODUCTION_MODE=full Rscript --vanilla run_all.R --all
+```
 
-- Analysis/snapshot_augmentation_reconstruction.R captures an
-  input-identity-verified Original or Augmented run before changing
-  source datasets. It checks the calibration RDS, kriging metadata,
-  actual documentary-input MD5, posterior outputs, and assimilation
-  model settings. A snapshot is never silently replaced.
-- Analysis/compare_augmentation_reconstructions.R compares two
-  verified snapshots. It refuses to compare runs with different
-  measurement projection versions, fixed $u$, or measurement
-  Monte Carlo draw counts; it also verifies identical LME city priors
-  and ensemble means across the 544 annual years.
-
-Use the *existing original-projection* estimate of u as an identical
-fixed input in both cases. Alternatively, set u=0 in **both** runs
-for a no-extra-variance comparison. The fixed-u setting labels the
-sensitivity run clearly; it does not claim that u was calibrated
-independently for Augmented observations.
-
-The **three-city check** below is the recommended first step. It
-does not run Prior.R, blocked CV, full-grid kriging, or grid
-assimilation. The new Analysis/kriging_city_only.R imports the exact
-same kriging functions as Get_tempe_all_data.R without executing its
-heavy full-grid calculations. It writes three-city generated outputs
-and tags the metadata as city_only, so the spatial-grid assimilation
-will refuse any stale grid products until full kriging is explicitly
-rerun.
-
-The script requires previously prepared shared LME inputs:
-Output/Intermediate/LME/WorldClim_Corrected/
-lme_city3_annual_1368_1911.csv and the nine mt/mu/rt files under
-Output/Intermediate/Prior/. If they are missing, prepare those
-independently before starting the comparison.
-
-From the repository root, after updating GitHub:
-
-~~~bash
-git pull
-
-# Keep the original measurement projection and one common u.
-export REACHES_MEASUREMENT_PROJECTION_METHOD=empirical_reference_joint_mc_v1
-export REACHES_WRITE_VALIDATION_COPY=0
-export REACHES_EXTRA_VARIANCE_FIXED=$(Rscript --vanilla -e 'cat(sprintf("%.17g", read.csv("Output/Intermediate/ObservationVariance/original/selected_u.csv")$selected_u[1]))')
-unset REACHES_EXTRA_VARIANCE_FILE
-
-# Ensure the already prepared independent LME/prior files are present.
-Rscript --vanilla -e 'p <- c("Output/Intermediate/LME/WorldClim_Corrected/lme_city3_annual_1368_1911.csv", file.path("Output/Intermediate/Prior", c("mtB.csv","muB.csv","rtB.csv","mtS.csv","muS.csv","rtS.csv","mtH.csv","muH.csv","rtH.csv"))); stopifnot(all(file.exists(p)))'
-
-# ORIGINAL: fit the spatial covariance, krige three cities, assimilate.
-REACHES_TEMPERATURE_INPUT=original Rscript --vanilla Code/prepare_calibration.R
-Rscript --vanilla Code/Analysis/kriging_city_only.R
-Rscript --vanilla Code/Figure9d.R
-Rscript --vanilla Code/Analysis/snapshot_augmentation_reconstruction.R original city
-
-# AUGMENTED: prepare site-year zeroes and repeat the same model.
-Rscript --vanilla Code/Analysis/prepare_precipitation_augmented_reaches.R
-REACHES_TEMPERATURE_INPUT=augmented Rscript --vanilla Code/prepare_calibration.R
-Rscript --vanilla Code/Analysis/kriging_city_only.R
-Rscript --vanilla Code/Figure9d.R
-Rscript --vanilla Code/Analysis/snapshot_augmentation_reconstruction.R augmented city
-
-# Compare posterior means, SDs, and covariance estimates.
-Rscript --vanilla Code/Analysis/compare_augmentation_reconstructions.R city
-~~~
-
-If a snapshot already exists, the snapshot script stops rather than
-overwriting it. Preserve, archive, or intentionally remove a previous
-snapshot before repeating a run. In particular, capture Original
-**before** running Augmented, since both use the same intermediate
-REACHES and assimilation paths.
-
-This analysis holds the old-projection fitted u fixed for both inputs.
-It does not rerun L2 or interpret u as an independently refitted
-Augmented-data parameter. For a comparison without additional
-variance, set REACHES_EXTRA_VARIANCE_FIXED=0 **for both runs**, not
-just one.
-
-### Optional complete spatial-grid comparison
-
-Do not run the following until after inspecting the three-city
-comparison. The city-only kriging files are insufficient for grid
-assimilation. To obtain both comparable grid snapshots, run the full
-Original pipeline, capture the grid, then run the full Augmented
-pipeline, capture that grid, and finally compare:
-
-~~~bash
-REACHES_TEMPERATURE_INPUT=original Rscript --vanilla Code/prepare_calibration.R
-Rscript --vanilla Code/Get_tempe_all_data.R
-Rscript --vanilla Code/Figure9d.R
-Rscript --vanilla Code/Assimilation_grid.R
-Rscript --vanilla Code/Analysis/snapshot_augmentation_reconstruction.R original grid
-
-REACHES_TEMPERATURE_INPUT=augmented Rscript --vanilla Code/prepare_calibration.R
-Rscript --vanilla Code/Get_tempe_all_data.R
-Rscript --vanilla Code/Figure9d.R
-Rscript --vanilla Code/Assimilation_grid.R
-Rscript --vanilla Code/Analysis/snapshot_augmentation_reconstruction.R augmented grid
-
-Rscript --vanilla Code/Analysis/compare_augmentation_reconstructions.R grid
-~~~
-
-Keep the same projection method, u, MC size, and common LME/prior files
-as in the three-city comparison. The spatial workflow can be expensive
-and is intentionally optional during initial L4 checks.
-
-The two-stage setup allows a city-only first comparison,
-followed by a separately executed full spatial comparison when needed.
-Because scripts write to shared Output/ locations, **capture Original
-before switching to Augmented**.
-The environment variable REACHES_WRITE_VALIDATION_COPY=0 prevents
-spatial sensitivity runs from updating the versioned Data/Valid
-reference products.
-
-Comparisons are stored under:
-
-~~~text
-Output/Intermediate/AugmentationSensitivity/
-  original/city/
-  augmented/city/
-  original/grid/               (optional)
-  augmented/grid/              (optional)
-  Comparison/city/
-    city_summary.csv
-    city_by_block.csv
-    city_year_differences.csv
-    covariance_comparison.csv
-    city_posterior_mean_shifts.png
-    city_posterior_sd_ratios.png
-  Comparison/grid/             (optional)
-    grid_location_summary.csv
-    grid_year_differences.csv
-    grid_by_block.csv
-    grid_mean_difference_map.png
-~~~
-
-The plotted posterior-mean difference is compared against the
-Original posterior SD as a magnitude reference; it is **not**
-a significance test or a confidence interval for the difference,
-since the Original and Augmented posteriors are correlated.
-The original-versus-augmented comparison should be accompanied
-by the separate site-year provenance and duplicate-key
-diagnostics from diagnose_precipitation_augmentation.R.
+The controller automatically calls the four necessary
+`Code/Analysis/` scripts and compares the two versions.
+For optional city-only quick checks, see
+[SupportingAnalyses/README.md](SupportingAnalyses/README.md).
 
 ### `prepare_calibration.R`
 
