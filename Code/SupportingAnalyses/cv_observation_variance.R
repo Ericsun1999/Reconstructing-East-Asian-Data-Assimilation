@@ -25,7 +25,27 @@ library(sp)
 library(np)
 library(ggplot2)
 
-source(here::here("Code", "Analysis", "extra_observation_variance.R"))
+# Import only the reusable Figure 9(d) mathematical definitions.
+# Do not source Figure9d.R: that would execute the full figure pipeline.
+required_figure9_helpers <- c("annual_unconditional_variance", "predictive_log_score")
+figure9_expressions <- parse(file = here::here("Code", "Figure9d.R"))
+figure9_helpers <- Filter(function(expr) {
+  is.call(expr) && identical(expr[[1L]], as.name("<-")) &&
+    is.symbol(expr[[2L]]) &&
+    as.character(expr[[2L]]) %in% required_figure9_helpers &&
+    is.call(expr[[3L]]) &&
+    identical(expr[[3L]][[1L]], as.name("function"))
+}, as.list(figure9_expressions))
+found_figure9_helpers <- vapply(
+  figure9_helpers, function(expr) as.character(expr[[2L]]), character(1L)
+)
+if (!setequal(found_figure9_helpers, required_figure9_helpers) ||
+    anyDuplicated(found_figure9_helpers)) {
+  stop("Missing or repeated mathematical definitions in Figure9d.R.")
+}
+for (expr in figure9_helpers) eval(expr, envir = .GlobalEnv)
+rm(figure9_expressions, figure9_helpers, found_figure9_helpers,
+   required_figure9_helpers)
 
 years <- 1368:1911
 analysis_years <- years
