@@ -33,7 +33,9 @@ if (any(grepl("^--only=", legacy_arguments)) ||
 #   Rscript --vanilla run_all.R --compare-only
 #   Rscript --vanilla run_all.R --all --u=0
 #
-# By default u comes from the original blocked-CV selected_u.csv.
+# In full mode, u is estimated from Original-only blocked CV, automatically
+# after the shared LME/prior preparation. Smoke mode uses u=0 by default
+# and must not be used for manuscript results.
 # This controller does not change the statistical methods.
 
 arguments <- commandArgs(trailingOnly = TRUE)
@@ -104,55 +106,16 @@ if (actions["all"] || actions["variant"] ||
   dir.create(reconstruction_root, recursive = TRUE, showWarnings = FALSE)
 }
 
-# Resolve the selected Original-input variance estimate once. Both documentary inputs
-# deliberately use the SAME observation error setting.
+# Resolve the common observation variance only AFTER the shared LME/prior
+# exist. A full run fits Original-input blocked CV automatically when needed.
 fixed_u <- NA_real_
 variance_source <- ""
-if (actions["all"] || actions["variant"]) {
-  u_option <- if (length(u_arg)) {
-    sub("^--u=", "", u_arg[1L])
-  } else {
-    "from-cv"
-  }
-  if (identical(u_option, "from-cv")) {
-    cv_file <- file.path(
-      repository_root, "Output", "Intermediate",
-      "ObservationVariance", "original", "selected_u.csv"
-    )
-    if (!file.exists(cv_file)) {
-      stop("Missing original blocked-CV variance: ", cv_file,
-           "\nUse --u=<nonnegative-number> only if you have ",
-           "independently verified the intended original-model u.")
-    }
-    chosen <- read.csv(cv_file, check.names = FALSE)
-    if (nrow(chosen) != 1L || !"selected_u" %in% names(chosen)) {
-      stop("The original CV estimate is incomplete.")
-    }
-    if ("temperature_input_mode" %in% names(chosen) &&
-        !identical(as.character(chosen$temperature_input_mode[1L]),
-                   "original")) {
-      stop("The selected variance is not from Original observations.")
-    }
-    if ("measurement_projection_method" %in% names(chosen) &&
-        !is.na(chosen$measurement_projection_method[1L]) &&
-        !identical(
-          as.character(chosen$measurement_projection_method[1L]),
-          "empirical_reference_joint_mc_v1"
-        )) {
-      stop("The saved u was fitted under another measurement ",
-           "projection; do not use it with the original model.")
-    }
-    fixed_u <- as.numeric(chosen$selected_u[1L])
-    variance_source <- normalizePath(cv_file, winslash = "/")
-  } else {
-    fixed_u <- suppressWarnings(as.numeric(u_option))
-    variance_source <- paste0("explicit:", u_option)
-  }
-  if (length(fixed_u) != 1L ||
-      !is.finite(fixed_u) || fixed_u < 0) {
-    stop("The common additional observation variance must be ",
-         "a finite nonnegative number.")
-  }
+u_option <- if (length(u_arg)) {
+  sub("^--u=", "", u_arg[1L])
+} else if (identical(reproduction_mode, "smoke")) {
+  "0"
+} else {
+  "from-cv"
 }
 
 is_link <- function(path) {
@@ -400,6 +363,101 @@ check_shared <- function() {
   }
 }
 
+
+# CV is a necessary upstream estimator under the default full manuscript
+# model, not an optional validation script. Fit it for recorded temperatures
+# only, using the *same* LME/prior as the two versioned reconstructions.
+# Fingerprints prevent silent reuse when the documentary source, CV
+# implementation, or shared LME/prior inputs change.
+resolve_variance <- function() {
+  if (!identical(u_option, "from-cv")) {
+    value <- suppressWarnings(as.numeric(u_option))
+    if (length(value) != 1L || !is.finite(value) || value < 0) {
+      stop("--u must be from-cv or a finite nonnegative number.")
+    }
+    fixed_u <<- value
+    variance_source <<- if (identical(reproduction_mode, "smoke") &&
+                             length(u_arg) == 0L) {
+      "smoke_only_zero_not_for_manuscript"
+    } else {
+      paste0("explicit:", u_option)
+    }
+    return(invisible(NULL))
+  }
+
+  check_shared()
+  original_workspace <- prepare_workspace("original")
+  cv_file <- file.path(original_workspace, "Output", "Intermediate",
+                       "ObservationVariance", "original", "selected_u.csv")
+  temperature_source <- file.path(
+    repository_root, "Data", "temperature index value.v1.xlsx"
+  )
+  cv_script <- file.path(repository_root, "Code", "cv_observation_variance.R")
+  expected_source_md5 <- unname(tools::md5sum(temperature_source))
+  expected_cv_md5 <- unname(tools::md5sum(cv_script))
+  expected_shared_md5 <- unname(tools::md5sum(common_manifest))
+  expected_mc_size <- suppressWarnings(as.integer(Sys.getenv(
+    "REACHES_CV_MC_SIZE", unset = "100000"
+  )))
+  expected_engine <- Sys.getenv("REACHES_CV_CALIBRATION_ENGINE",
+                                unset = "analytic")
+
+  read_selection <- function() {
+    if (!file.exists(cv_file)) return(NULL)
+    tryCatch(read.csv(cv_file, stringsAsFactors = FALSE,
+                      check.names = FALSE), error = function(e) NULL)
+  }
+  selection_matches <- function(x) {
+    required <- c("selected_u", "temperature_input_mode",
+                  "temperature_source_md5", "number_of_folds",
+                  "variance_units", "measurement_projection_method",
+                  "lme_prior_source", "mc_size", "calibration_engine",
+                  "cv_script_md5", "shared_manifest_md5")
+    if (is.null(x) || nrow(x) != 1L ||
+        !all(required %in% names(x))) return(FALSE)
+    u <- suppressWarnings(as.numeric(x$selected_u[1L]))
+    length(u) == 1L && is.finite(u) && u >= 0 &&
+      identical(as.character(x$temperature_input_mode[1L]), "original") &&
+      identical(as.character(x$temperature_source_md5[1L]),
+                expected_source_md5) &&
+      identical(as.integer(x$number_of_folds[1L]), 5L) &&
+      identical(as.character(x$variance_units[1L]), "celsius_squared") &&
+      identical(as.character(x$measurement_projection_method[1L]),
+                "empirical_reference_joint_mc_v1") &&
+      identical(as.character(x$lme_prior_source[1L]), "generated") &&
+      identical(as.integer(x$mc_size[1L]), expected_mc_size) &&
+      identical(as.character(x$calibration_engine[1L]), expected_engine) &&
+      identical(as.character(x$cv_script_md5[1L]), expected_cv_md5) &&
+      identical(as.character(x$shared_manifest_md5[1L]), expected_shared_md5)
+  }
+
+  chosen <- read_selection()
+  if (!selection_matches(chosen)) {
+    message("\nEstimating Original-input measurement variance via ",
+            "five-block CV (before either reconstruction).")
+    Sys.setenv(
+      REACHES_TEMPERATURE_INPUT = "original",
+      REACHES_CV_PROJECTION_METHOD = "empirical_reference_joint_mc_v1",
+      REACHES_CV_SHARED_MANIFEST_MD5 = expected_shared_md5
+    )
+    run_script_in_workspace(
+      original_workspace, "Code/cv_observation_variance.R", character()
+    )
+    chosen <- read_selection()
+    if (!selection_matches(chosen)) {
+      stop("Original blocked-CV output is missing or inconsistent: ",
+           cv_file)
+    }
+  } else {
+    message("Reusing verified five-block Original observation-variance CV.")
+  }
+
+  fixed_u <<- as.numeric(chosen$selected_u[1L])
+  variance_source <<- normalizePath(cv_file, winslash = "/")
+  message("Common Original-input observation variance: u = ",
+          signif(fixed_u, 7), " Celsius^2.")
+}
+
 run_variant <- function(name) {
   check_shared()
   temperature_mode <- if (name == "inferred-zero") "augmented" else "original"
@@ -531,6 +589,7 @@ if (actions["compare_only"]) {
   compare_versions()
 } else {
   prepare_shared(rebuild = "--rebuild-shared" %in% arguments)
+  if (actions["all"] || actions["variant"]) resolve_variance()
   if (actions["all"]) {
     run_variant("inferred-zero")
     run_variant("original")
