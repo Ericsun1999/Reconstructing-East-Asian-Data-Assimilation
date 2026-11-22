@@ -167,7 +167,11 @@ prepare_workspace <- function(name) {
             file.path(workspace, "renv.lock"))
   profile <- file.path(repository_root, ".Rprofile")
   if (file.exists(profile)) {
-    make_link(profile, file.path(workspace, ".Rprofile"))
+    # Copy rather than link a writable startup file into the source tree.
+    profile_copy <- file.path(workspace, ".Rprofile")
+    if (!file.copy(profile, profile_copy, overwrite = TRUE)) {
+      stop("Unable to copy renv startup profile to ", workspace)
+    }
   }
   run_from <- file.path(repository_root, "run_all.R")
   run_to <- file.path(workspace, "run_all.R")
@@ -207,8 +211,11 @@ prepare_workspace <- function(name) {
 common_outputs <- c(
   file.path("LME", "lme_annual_1368_1911.rds"),
   file.path("LME", "lme_city3_annual_1368_1911.csv"),
+  file.path("LME", "lme_ensemble_mean_1368_1911.csv"),
   file.path("LME", "WorldClim_Corrected",
             "lme_city3_annual_1368_1911.csv"),
+  file.path("LME", "WorldClim_Corrected",
+            "lme_land_grid_corrected_annual_1368_1911.rds"),
   file.path("Prior", c(
     "mtB.csv", "muB.csv", "rtB.csv",
     "mtS.csv", "muS.csv", "rtS.csv",
