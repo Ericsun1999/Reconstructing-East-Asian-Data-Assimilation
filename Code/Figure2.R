@@ -31,25 +31,54 @@ if (!requireNamespace(
 # 1. Load REACHES data
 # ------------------------------------------------------------
 
-temperature <- read_excel(
-  here::here(
-    "Data",
-    "temperature index value.v1.xlsx"
-  ),
-  col_types = c(
-    "skip", "skip", "numeric", "numeric",
-    "skip", "skip", "skip", "skip",
-    "skip", "numeric", "numeric",
-    "skip", "skip"
+temperature_input_mode <- Sys.getenv(
+  "REACHES_TEMPERATURE_INPUT", unset = "original"
+)
+if (!temperature_input_mode %in% c("original", "augmented")) {
+  stop("REACHES_TEMPERATURE_INPUT must be original or augmented.")
+}
+if (temperature_input_mode == "augmented") {
+  prepared_file <- here::here(
+    "Output", "Intermediate", "REACHES",
+    "temperature_site_year_augmented.csv"
   )
-)
-
-colnames(temperature) <- c(
-  "level",
-  "year",
-  "long",
-  "lat"
-)
+  if (!file.exists(prepared_file)) {
+    stop("Prepare the inferred-zero site-years before Figure2.R.")
+  }
+  temperature <- readr::read_csv(
+    prepared_file, show_col_types = FALSE
+  )
+  if (!all(c("level", "year", "long", "lat",
+             "is_inferred_zero") %in% names(temperature))) {
+    stop("The inferred-zero dataset is incomplete.")
+  }
+  temperature <- temperature %>%
+    transmute(
+      level = as.numeric(level), year = as.integer(year),
+      long = as.numeric(long), lat = as.numeric(lat),
+      is_inferred_zero = as.logical(is_inferred_zero)
+    )
+} else {
+  temperature <- read_excel(
+    here::here("Data", "temperature index value.v1.xlsx"),
+    col_types = c(
+      "skip", "skip", "numeric", "numeric",
+      "skip", "skip", "skip", "skip",
+      "skip", "numeric", "numeric",
+      "skip", "skip"
+    )
+  )
+  colnames(temperature) <- c("level", "year", "long", "lat")
+  temperature$is_inferred_zero <- FALSE
+}
+# Main reconstruction and descriptive displays use 1368–1911.
+temperature <- temperature %>%
+  filter(between(year, 1368L, 1911L),
+         level %in% c(-2, -1, 0, 1),
+         is.finite(long), is.finite(lat))
+if (anyNA(temperature$is_inferred_zero)) {
+  stop("Missing inferred-zero provenance in Figure 2 data.")
+}
 
 # ------------------------------------------------------------
 # 2. Figure 2(b): empirical frequencies of temperature levels
@@ -122,6 +151,11 @@ plot_originREACHES_map <- function(
     geom_point(
       aes(colour = level),
       cex = 1
+    ) +
+    geom_point(
+      data = function(d) d[d$is_inferred_zero, , drop = FALSE],
+      shape = 21, fill = NA, colour = "grey40",
+      size = 1, stroke = 0.35, show.legend = FALSE
     ) +
     coord_map(
       xlim = c(98, 124.5),
