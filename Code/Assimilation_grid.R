@@ -2936,9 +2936,19 @@ spatial_metadata <- data.frame(
   prior_max_iter = prior_max_iter,
   prior_tol = prior_tol,
   measurement_mc_size = measurement_mc_size,
+  measurement_projection_method = measurement_projection_method,
   mapping_grid_size = mapping_grid_size,
   lme_cdf_grid_size = lme_cdf_grid_size,
   elapsed_minutes = elapsed_minutes,
+  reaches_mean_md5 = unname(tools::md5sum(
+    input_files$reaches_mean
+  )),
+  reaches_variance_md5 = unname(tools::md5sum(
+    input_files$reaches_variance
+  )),
+  reaches_metadata_md5 = unname(tools::md5sum(
+    input_files$reaches_metadata
+  )),
   extra_observation_variance = extra_variance$u,
   extra_variance_source = extra_variance$mode,
   extra_variance_file = extra_variance$file,
