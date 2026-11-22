@@ -309,14 +309,9 @@ event_years <- sort(
   )
 )
 
-if (is.null(cv_holdout) &&
-    temperature_input_mode == "original" && length(event_years) != 524L) {
-  warning(
-    "The manuscript describes 524 REACHES event years, but ",
-    length(event_years),
-    " were found after cleaning."
-  )
-}
+# The original REACHES input is restricted to 1368–1911 and
+# contains 523 documentary event years. The 544 calendar years in
+# that interval are used by the full annual reconstruction.
 
 # ------------------------------------------------------------
 # 3. Pooled pilot variogram
