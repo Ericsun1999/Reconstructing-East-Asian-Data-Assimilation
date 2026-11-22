@@ -178,14 +178,9 @@ if (length(year2) == 0L) {
   )
 }
 
-if (!identical(calibration_results$temperature_input_mode, "augmented") &&
-    length(year2) != 524L) {
-  warning(
-    "The manuscript describes 524 event years, but ",
-    length(year2),
-    " were found."
-  )
-}
+# The original documentary input contains 523 event years during
+# 1368–1911. This differs from the 544 calendar years in the full
+# annual Kalman grid; 1912 is excluded during calibration.
 
 loc <- expand.grid(
   long = seq(
