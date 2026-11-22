@@ -20,7 +20,13 @@ files <- c(
   covariance = "fold_covariance.csv",
   grid = "cv_score_curve.csv"
 )
-paths <- file.path(directory, files)
+# file.path() does not reliably retain vector names. Keep the
+# filename keys for the explicit paths[["selected"]] lookups below.
+paths <- stats::setNames(
+  file.path(directory, unname(files)),
+  names(files)
+)
+stopifnot(identical(names(paths), names(files)))
 if (any(!file.exists(paths))) {
   stop("Missing completed five-fold CV outputs: ",
        paste(paths[!file.exists(paths)], collapse = ", "))
