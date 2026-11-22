@@ -131,7 +131,8 @@ if (actions["all"] || actions["variant"]) {
 }
 
 is_link <- function(path) {
-  nzchar(Sys.readlink(path))
+  link <- Sys.readlink(path)
+  length(link) == 1L && !is.na(link) && nzchar(link)
 }
 make_link <- function(target, path) {
   if (!file.exists(target) && !dir.exists(target)) {
@@ -292,7 +293,13 @@ prepare_shared <- function(rebuild = FALSE) {
   current <- common_fingerprint()
   matching <- present &&
     is.list(previous) &&
-    identical(previous$fingerprint, current)
+    identical(previous$fingerprint, current) &&
+    identical(
+      previous$output_md5,
+      unname(tools::md5sum(
+        file.path(common_root, common_outputs)
+      ))
+    )
   if (matching && !rebuild) {
     message("Reusing the verified independent LME and prior (once).")
     return(invisible(NULL))
@@ -364,6 +371,18 @@ run_variant <- function(name) {
   check_shared()
   temperature_mode <- if (name == "inferred-zero") "augmented" else "original"
   workspace <- prepare_workspace(name)
+  for (stage in c("city", "grid")) {
+    existing <- file.path(
+      workspace, "Output", "Intermediate",
+      "AugmentationSensitivity", temperature_mode, stage,
+      "snapshot_manifest.csv"
+    )
+    if (file.exists(existing)) {
+      stop("A previous completed snapshot exists at: ", existing,
+           ". Archive or explicitly remove that previous version ",
+           "before starting another full run.")
+    }
+  }
   Sys.setenv(
     REPRODUCTION_MODE = reproduction_mode,
     REACHES_VERSIONED_RUN = name,
