@@ -407,21 +407,34 @@ Output/Intermediate/REACHES/temperature_site_year_augmented.csv
 
 Additional audit and yearly/block summaries are written to the same directory. The source workbooks use longitude and latitude rounded to eight decimal places for site-year matching to avoid spurious floating-point duplicates; observed temperature categories remain unchanged. Recreate the augmented CSV after changing the preparation script.
 
-To prepare and use this optional input:
+For the **canonical manuscript reproduction**, run the versioned controller
+from the repository root:
+
+```bash
+REPRODUCTION_MODE=full Rscript --vanilla run_all.R --all
+```
+
+This automatically prepares the precipitation-augmented site-year input,
+uses it for the `inferred-zero` primary reconstruction, and uses the
+recorded-temperature input for the `original` sensitivity reconstruction.
+The resulting figures, tables, and intermediate products are isolated under
+`Output/Reconstructions/inferred-zero/` and
+`Output/Reconstructions/original/`, respectively; they do **not** overwrite
+each other.
+
+For **manual, legacy single-version steps only**, you may instead prepare
+the augmented input and explicitly select it for calibration:
 
 ```bash
 Rscript --vanilla Code/DataPreparation/prepare_precipitation_augmented_reaches.R
 REACHES_TEMPERATURE_INPUT=augmented Rscript --vanilla Code/prepare_calibration.R
-Rscript --vanilla Code/Get_tempe_all_data.R
+REACHES_TEMPERATURE_INPUT=augmented Rscript --vanilla Code/Get_tempe_all_data.R
 ```
 
-The precipitation input path can be changed with `REACHES_PRECIPITATION_FILE`. By default, `prepare_calibration.R` continues to use the original temperature spreadsheet; set `REACHES_TEMPERATURE_INPUT=augmented` explicitly to select the augmented input. The complete master workflow automatically creates the augmented site-year dataset before covariance calibration when this mode is selected:
-
-```bash
-REACHES_TEMPERATURE_INPUT=augmented REPRODUCTION_MODE=full Rscript --vanilla run_all.R
-```
-
-Both input versions write downstream results to the same `Output/` paths, so save separate output copies if comparing them.
+These standalone commands write to root-level `Output/` paths, so do not
+use them to compare the two final versions. The precipitation workbook path
+can be overridden with `REACHES_PRECIPITATION_FILE`. The versioned controller
+selects `REACHES_TEMPERATURE_INPUT` for each run automatically.
 
 ### Additional measurement variance
 
