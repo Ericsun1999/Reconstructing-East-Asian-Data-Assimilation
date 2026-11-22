@@ -384,20 +384,20 @@ unchanged. Held-out calendar years provide validation proxies only.
 
 The held-out Gaussian predictive mean and variance are
 
-$
+$$
 m_t=\alpha_t+\beta_t\mu_t,\qquad
 S_t(0)=\beta_t^2V_t+v_{\delta,t},
-$
+$$
 
 with the unconditional prior variance computed as
 $V_1=r_1^2$ and $V_t=M_{t-1}^2V_{t-1}+r_t^2$.
 For a common nonnegative $u$, the criterion is
 
-$
+$$
 \mathrm{CV}(u)=\frac{1}{2n}\sum_{\mathrm{held\ out}}
 \left[\log\{2\pi[S_t(0)+u]\}+
 \frac{(X_t^\ast-m_t)^2}{S_t(0)+u}\right].
-$
+$$
 
 The pooled three-city/year criterion is a composite predictive log
 score; the scalar fitted $u$ is shared across all spatial locations.
