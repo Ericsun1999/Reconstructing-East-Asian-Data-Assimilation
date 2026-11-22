@@ -20,7 +20,7 @@ if (length(args) != 1L || !args[1L] %in% c("city", "grid")) {
 }
 stage <- args[1L]
 version_root <- trimws(Sys.getenv(
-  "REACHES_L4_VERSION_ROOT", unset = ""
+  "REACHES_COMPARISON_VERSION_ROOT", unset = ""
 ))
 if (nzchar(version_root)) {
   version_root <- normalizePath(
