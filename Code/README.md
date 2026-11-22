@@ -558,45 +558,96 @@ for a no-extra-variance comparison. The fixed-u setting labels the
 sensitivity run clearly; it does not claim that u was calibrated
 independently for Augmented observations.
 
-After git pull, from the repository root:
+The **three-city check** below is the recommended first step. It
+does not run Prior.R, blocked CV, full-grid kriging, or grid
+assimilation. The new Analysis/kriging_city_only.R imports the exact
+same kriging functions as Get_tempe_all_data.R without executing its
+heavy full-grid calculations. It writes three-city generated outputs
+and tags the metadata as city_only, so the spatial-grid assimilation
+will refuse any stale grid products until full kriging is explicitly
+rerun.
+
+The script requires previously prepared shared LME inputs:
+Output/Intermediate/LME/WorldClim_Corrected/
+lme_city3_annual_1368_1911.csv and the nine mt/mu/rt files under
+Output/Intermediate/Prior/. If they are missing, prepare those
+independently before starting the comparison.
+
+From the repository root, after updating GitHub:
 
 ~~~bash
+git pull
+
+# Keep the original measurement projection and one common u.
 export REACHES_MEASUREMENT_PROJECTION_METHOD=empirical_reference_joint_mc_v1
 export REACHES_WRITE_VALIDATION_COPY=0
 export REACHES_EXTRA_VARIANCE_FIXED=$(Rscript --vanilla -e 'cat(sprintf("%.17g", read.csv("Output/Intermediate/ObservationVariance/original/selected_u.csv")$selected_u[1]))')
 unset REACHES_EXTRA_VARIANCE_FILE
 
-# Original analysis; use the SAME script and parameters for Augmented.
+# Ensure the already prepared independent LME/prior files are present.
+Rscript --vanilla -e 'p <- c("Output/Intermediate/LME/WorldClim_Corrected/lme_city3_annual_1368_1911.csv", file.path("Output/Intermediate/Prior", c("mtB.csv","muB.csv","rtB.csv","mtS.csv","muS.csv","rtS.csv","mtH.csv","muH.csv","rtH.csv"))); stopifnot(all(file.exists(p)))'
+
+# ORIGINAL: fit the spatial covariance, krige three cities, assimilate.
+REACHES_TEMPERATURE_INPUT=original Rscript --vanilla Code/prepare_calibration.R
+Rscript --vanilla Code/Analysis/kriging_city_only.R
+Rscript --vanilla Code/Figure9d.R
+Rscript --vanilla Code/Analysis/snapshot_augmentation_reconstruction.R original city
+
+# AUGMENTED: prepare site-year zeroes and repeat the same model.
+Rscript --vanilla Code/Analysis/prepare_precipitation_augmented_reaches.R
+REACHES_TEMPERATURE_INPUT=augmented Rscript --vanilla Code/prepare_calibration.R
+Rscript --vanilla Code/Analysis/kriging_city_only.R
+Rscript --vanilla Code/Figure9d.R
+Rscript --vanilla Code/Analysis/snapshot_augmentation_reconstruction.R augmented city
+
+# Compare posterior means, SDs, and covariance estimates.
+Rscript --vanilla Code/Analysis/compare_augmentation_reconstructions.R city
+~~~
+
+If a snapshot already exists, the snapshot script stops rather than
+overwriting it. Preserve, archive, or intentionally remove a previous
+snapshot before repeating a run. In particular, capture Original
+**before** running Augmented, since both use the same intermediate
+REACHES and assimilation paths.
+
+This analysis holds the old-projection fitted u fixed for both inputs.
+It does not rerun L2 or interpret u as an independently refitted
+Augmented-data parameter. For a comparison without additional
+variance, set REACHES_EXTRA_VARIANCE_FIXED=0 **for both runs**, not
+just one.
+
+### Optional complete spatial-grid comparison
+
+Do not run the following until after inspecting the three-city
+comparison. The city-only kriging files are insufficient for grid
+assimilation. To obtain both comparable grid snapshots, run the full
+Original pipeline, capture the grid, then run the full Augmented
+pipeline, capture that grid, and finally compare:
+
+~~~bash
 REACHES_TEMPERATURE_INPUT=original Rscript --vanilla Code/prepare_calibration.R
 Rscript --vanilla Code/Get_tempe_all_data.R
 Rscript --vanilla Code/Figure9d.R
-
-# Capture city results BEFORE changing the documentary input.
-Rscript --vanilla Code/Analysis/snapshot_augmentation_reconstruction.R original city
-
-# Optional: for a complete spatial-grid sensitivity analysis, run:
 Rscript --vanilla Code/Assimilation_grid.R
 Rscript --vanilla Code/Analysis/snapshot_augmentation_reconstruction.R original grid
 
-# Switch documentary inputs (original spreadsheet is never modified).
-Rscript --vanilla Code/Analysis/prepare_precipitation_augmented_reaches.R
 REACHES_TEMPERATURE_INPUT=augmented Rscript --vanilla Code/prepare_calibration.R
 Rscript --vanilla Code/Get_tempe_all_data.R
 Rscript --vanilla Code/Figure9d.R
-
-Rscript --vanilla Code/Analysis/snapshot_augmentation_reconstruction.R augmented city
-Rscript --vanilla Code/Analysis/compare_augmentation_reconstructions.R city
-
-# Run these only if the Original spatial-grid snapshot also exists:
 Rscript --vanilla Code/Assimilation_grid.R
 Rscript --vanilla Code/Analysis/snapshot_augmentation_reconstruction.R augmented grid
+
 Rscript --vanilla Code/Analysis/compare_augmentation_reconstructions.R grid
 ~~~
 
-The two-stage setup allows an inexpensive three-city comparison
-first, followed by the complete spatial comparison if both grid
-snapshots are available. Because the usual scripts write to shared
-Output/ locations, **capture Original before switching to Augmented**.
+Keep the same projection method, u, MC size, and common LME/prior files
+as in the three-city comparison. The spatial workflow can be expensive
+and is intentionally optional during initial L4 checks.
+
+The two-stage setup allows a city-only first comparison,
+followed by a separately executed full spatial comparison when needed.
+Because scripts write to shared Output/ locations, **capture Original
+before switching to Augmented**.
 The environment variable REACHES_WRITE_VALIDATION_COPY=0 prevents
 spatial sensitivity runs from updating the versioned Data/Valid
 reference products.
