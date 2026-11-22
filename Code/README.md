@@ -1038,58 +1038,74 @@ The validation procedure:
 
 ## Recommended Execution Order
 
-The recommended order is encoded in `run_all.R`.
-
-
-The WorldClim-based LME bias correction is performed by `DataPreparation/prepare_worldclim_bias_correction.R` using the prepared offset table stored in `Data/WorldClim/worldclim_offsets_all_269.csv`. The original CESM-LME NetCDF and WorldClim GeoTIFF files are not required by the default workflow. Their optional upstream preparation is documented in `Data/Get_data/GetWorldClim.R`.
-
-
-
-The main dependency sequence is:
+The public entry point is the repository-root `run_all.R --all`.
+The controller calls the internal `Code/Workflow/run_single_version.R`
+worker to execute each version in its own workspace; it does **not**
+estimate the independent LME or penalized prior twice.
 
 ```text
-prepare_lme_annual.R
-        ↓
-prepare_calibration.R
-        ↓
-Get_tempe_all_data.R
-        ↓
-Figure and validation scripts
-        ↓
-Prior.R
-        ↓
-Figure9abc.R
-        ↓
-Figure9d.R
-        ↓
-Figure10.R and FigureS3.R
+run_all.R --all
+    |
+    +-- Shared preparation (once)
+    |     prepare_lme_annual.R
+    |       -> prepare_worldclim_bias_correction.R
+    |       -> Prior.R
+    |
+    +-- Code/cv_observation_variance.R
+    |     Five-block CV on Original temperature records;
+    |     obtain one common observation variance u
+    |
+    +-- Inferred-zero reconstruction
+    |     prepare_precipitation_augmented_reaches.R
+    |       -> prepare_calibration.R
+    |       -> Get_tempe_all_data.R
+    |       -> manuscript figures, assimilation, tables and validation
+    |
+    +-- Original reconstruction
+    |     prepare_calibration.R
+    |       -> Get_tempe_all_data.R
+    |       -> manuscript figures, assimilation, tables and validation
+    |
+    +-- Snapshot and compare both completed reconstructions
 ```
 
-The spatial supplementary workflow follows:
+Within each version, `Code/Workflow/run_single_version.R` manages
+the detailed step ordering, logs, expected-output checks and
+`run_manifest.csv`. The shared prior and LME intermediates are
+reused by both versions. The shared Original-input CV estimate is
+also applied to both versions.
+
+The supplementary spatial analysis depends on the main spatial
+reconstruction:
 
 ```text
 Figure6.R
-        ↓
-Assimilation_grid.R
-        ↓
-Supplementary/FigureS1.R
+    -> Assimilation_grid.R
+    -> Supplementary/FigureS1.R
 ```
 
-The complete execution order, logs, and output checks are managed automatically by:
-
-```text
-run_all.R
-```
+The WorldClim-based correction uses the prepared offsets stored in
+`Data/WorldClim/worldclim_offsets_all_269.csv`. The original
+CESM-LME NetCDF and WorldClim GeoTIFF archives are not required
+for this workflow. Their optional upstream preparation is documented
+in `Data/Get_data/GetWorldClim.R`.
 
 ## Generated Files
 
-Generated files are written under:
+The current two-version workflow writes generated files under:
 
 ```text
-Output/
+Output/Reconstructions/shared/Output/
+Output/Reconstructions/inferred-zero/Output/
+Output/Reconstructions/original/Output/
+Output/Reconstructions/Comparison/
 ```
 
-The `Output/` directory is excluded from version control and is created automatically when the workflow is run.
+The `Output/` directory is excluded from version control and is
+created automatically when the workflow is run. Documentation for
+individual scripts uses workspace-relative `Output/...` paths;
+legacy individual-stage execution may instead write to the
+repository-root `Output/` directories.
 
 Reference copies of the final manuscript and supplementary figures are provided separately under:
 
