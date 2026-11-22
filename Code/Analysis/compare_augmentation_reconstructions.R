@@ -19,14 +19,34 @@ if (length(args) != 1L || !args[1L] %in% c("city", "grid")) {
   stop("Usage: compare_augmentation_reconstructions.R <city|grid>")
 }
 stage <- args[1L]
-root <- here::here(
-  "Output", "Intermediate", "AugmentationSensitivity"
-)
-snapshots <- setNames(
-  file.path(root, c("original", "augmented"), stage),
-  c("original", "augmented")
-)
-result_dir <- file.path(root, "Comparison", stage)
+version_root <- trimws(Sys.getenv(
+  "REACHES_L4_VERSION_ROOT", unset = ""
+))
+if (nzchar(version_root)) {
+  version_root <- normalizePath(
+    path.expand(version_root), winslash = "/", mustWork = TRUE
+  )
+  snapshots <- c(
+    original = file.path(
+      version_root, "original", "Output", "Intermediate",
+      "AugmentationSensitivity", "original", stage
+    ),
+    augmented = file.path(
+      version_root, "inferred-zero", "Output", "Intermediate",
+      "AugmentationSensitivity", "augmented", stage
+    )
+  )
+  result_dir <- file.path(version_root, "Comparison", stage)
+} else {
+  root <- here::here(
+    "Output", "Intermediate", "AugmentationSensitivity"
+  )
+  snapshots <- setNames(
+    file.path(root, c("original", "augmented"), stage),
+    c("original", "augmented")
+  )
+  result_dir <- file.path(root, "Comparison", stage)
+}
 dir.create(result_dir, recursive = TRUE, showWarnings = FALSE)
 
 get_file <- function(mode, filename) {
