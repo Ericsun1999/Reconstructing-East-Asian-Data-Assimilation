@@ -93,6 +93,17 @@ calibration_engine <- Sys.getenv(
 if (!calibration_engine %in% c("analytic", "monte_carlo")) {
   stop("Invalid REACHES_CV_CALIBRATION_ENGINE.")
 }
+projection_method <- Sys.getenv(
+  "REACHES_CV_PROJECTION_METHOD",
+  unset = "empirical_reference_joint_mc_v1"
+)
+if (!projection_method %in% c(
+  "empirical_reference_joint_mc_v1",
+  "empirical_reference_zero_centered_joint_mc_v2"
+)) stop("Invalid REACHES_CV_PROJECTION_METHOD.")
+projection_center <- if (
+  projection_method == "empirical_reference_joint_mc_v1"
+) "reference_mean" else "zero"
 rho_lookup_size <- 4001L
 mapping_grid_size <- 2001L
 lme_cdf_grid_size <- 5001L
@@ -450,7 +461,7 @@ for (k in seq_len(nrow(active_folds))) {
       reference_nu = training$nu,
       target_nu = held_out$nu,
       g = mapping$g,
-      center_mode = "zero",
+      center_mode = projection_center,
       n_mc = n_mc,
       seed = 1L + ci
     )
@@ -606,8 +617,7 @@ if (is_partial_run) {
     source_file = normalizePath(source_path),
     calibration_engine = calibration_engine,
     mc_size = n_mc,
-    measurement_projection_method =
-      "empirical_reference_zero_centered_joint_mc_v2",
+    measurement_projection_method = projection_method,
     score_type = "pooled_city_year_predictive_log_score",
     lme_prior_source = names(valid_inputs)[1L]
   )
