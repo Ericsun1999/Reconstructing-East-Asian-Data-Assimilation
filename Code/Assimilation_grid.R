@@ -98,7 +98,20 @@ if (length(measurement_mc_size) != 1L ||
   stop("L3_MC_SIZE must be an integer >= 1000.")
 }
 measurement_mc_seed <- 1L
-measurement_projection_method <- "empirical_reference_joint_mc_v1"
+measurement_projection_method <- Sys.getenv(
+  "REACHES_MEASUREMENT_PROJECTION_METHOD",
+  unset = "empirical_reference_joint_mc_v1"
+)
+if (!measurement_projection_method %in% c(
+  "empirical_reference_joint_mc_v1",
+  "empirical_reference_zero_centered_joint_mc_v2"
+)) {
+  stop("Unknown REACHES_MEASUREMENT_PROJECTION_METHOD.")
+}
+measurement_center_mode <- if (
+  identical(measurement_projection_method,
+            "empirical_reference_zero_centered_joint_mc_v2")
+) "zero" else "reference_mean"
 mapping_grid_size <- 2001L
 lme_cdf_grid_size <- 5001L
 latent_tail_probability <- 1e-14
@@ -1695,7 +1708,8 @@ compute_measurement_parameters_mc <- function(
     seed,
     reference_yhat,
     reference_nu,
-    target_nu = reference_nu) {
+    target_nu = reference_nu,
+    center_mode = "reference_mean") {
 
   # L3: empirical-reference joint Monte Carlo projection.
   # For L2 blocked CV, the reference values can be restricted
@@ -1729,6 +1743,9 @@ compute_measurement_parameters_mc <- function(
   # The caller supplies vhat = sigmaY2 - nu_t^2,
   # with any necessary numerical clipping documented upstream.
   kappa <- pmin(pmax(vhat / sigmaY2, 0), 1)
+  if (!center_mode %in% c("reference_mean", "zero")) {
+    stop("center_mode must be 'reference_mean' or 'zero'.")
+  }
   reference_mean <- mean(reference_yhat)
   n_reference <- length(reference_yhat)
 
@@ -1757,12 +1774,19 @@ compute_measurement_parameters_mc <- function(
   maximum_absolute_latent_draw <- max(abs(latent_y))
 
   for (t in seq_len(n_targets)) {
-    # Yhat_t = mean(Yhat_reference) +
-    #          kappa_t * (Y - mean(Yhat_reference)) +
-    #          sqrt(kappa_t) * nu_t * Z2.
-    latent_yhat <- reference_mean +
-      kappa[t] * (latent_y - reference_mean) +
-      sqrt(kappa[t]) * target_nu[t] * z2
+    # The spatial kriging model has zero prior mean. In the
+    # zero-centered version, Yhat_t -> 0 as kriging information -> 0;
+    # this matches predict_grid_one_year(), unlike the historical
+    # empirical-reference centering. The legacy version is retained
+    # for exact reproduction of previously generated results.
+    if (center_mode == "zero") {
+      latent_yhat <- kappa[t] * latent_y +
+        sqrt(kappa[t]) * target_nu[t] * z2
+    } else {
+      latent_yhat <- reference_mean +
+        kappa[t] * (latent_y - reference_mean) +
+        sqrt(kappa[t]) * target_nu[t] * z2
+    }
 
     maximum_absolute_latent_draw <- max(
       maximum_absolute_latent_draw, max(abs(latent_yhat))
@@ -2577,6 +2601,7 @@ process_location <- function(location_index) {
       reference_nu = nu,
       target_nu = nu,
       g = quantile_mapping$g,
+      center_mode = measurement_center_mode,
       n_mc = measurement_mc_size,
       seed = measurement_mc_seed +
         100003L * location_id
