@@ -225,6 +225,12 @@ The current workflow execution record is written to:
 Output/Reconstructions/<version>/Output/Logs/run_manifest.csv
 ```
 
+During a fresh shared-prior fit, `Prior.R` reports its CV parameter
+combinations live in the terminal while preserving a copy in
+`Output/Reconstructions/shared/Output/Logs/*_prior.log`. If the
+previously generated shared prior is verified and reused, this costly
+step is skipped.
+
 This file reports:
 
 - workflow step;
