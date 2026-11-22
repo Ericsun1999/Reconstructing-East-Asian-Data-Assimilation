@@ -32,10 +32,24 @@ ghcn_file <- here::here(
   "GHCNv4.xlsx"
 )
 
-validation_dir <- here::here(
-  "Data",
-  "Valid"
+# Prefer the reconstruction produced in the current run; a checked-in
+# Data/Valid snapshot may belong to another documentary-input version.
+generated_validation_dir <- here::here(
+  "Output", "Intermediate", "Assimilation"
 )
+generated_city_files <- file.path(
+  generated_validation_dir,
+  paste0("assimilation_", c("Beijing", "Shanghai", "HongKong"), ".csv")
+)
+if (nzchar(Sys.getenv("REACHES_VERSIONED_RUN", unset = "")) &&
+    !all(file.exists(generated_city_files))) {
+  stop("Versioned validation requires all three generated city outputs.")
+}
+validation_dir <- if (all(file.exists(generated_city_files))) {
+  generated_validation_dir
+} else {
+  here::here("Data", "Valid")
+}
 
 output_dir <- here::here(
   "Output",
