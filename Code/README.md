@@ -213,6 +213,13 @@ Individual script logs are written under:
 Output/Reconstructions/<version>/Output/Logs/
 ```
 
+During the one-time shared preparation, `Prior.R` prints its CV
+combination progress **live in the terminal** and simultaneously saves it
+to `Output/Reconstructions/shared/Output/Logs/*_prior.log`. The other
+steps continue writing their detailed output to separate log files.
+If a verified shared prior is reused, the Prior step is skipped and no
+new CV progress is printed.
+
 ## Data-Preparation and Core Analysis Scripts
 
 ### `DataPreparation/prepare_lme_annual.R`
