@@ -67,7 +67,7 @@ if (!"measurement_projection_method" %in% names(selected) ||
                required_projection)) {
   stop(
     "The selected_u.csv file predates the zero-centered measurement ",
-    "projection. Rerun Code/Analysis/cv_observation_variance.R to ",
+    "projection. Rerun Code/SupportingAnalyses/cv_observation_variance.R to ",
     "refit u with the corrected observation model."
   )
 }
