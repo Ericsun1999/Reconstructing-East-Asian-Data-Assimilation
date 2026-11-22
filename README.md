@@ -96,8 +96,8 @@ sessionInfo()
 
 ## Versioned manuscript reconstruction (primary and sensitivity)
 
-For the current documentary sensitivity analysis, use the versioned
-controller rather than two sequential unversioned runs. The **primary**
+Use the repository-root dual-version `run_all.R` controller for
+manuscript reproduction, rather than two sequential unversioned runs. The **primary**
 reconstruction includes the documented site-years with inferred zero
 temperature indices; **Original** uses only the recorded temperature
 indices and serves as the sensitivity reference. Inferred zeros are
@@ -112,7 +112,7 @@ REPRODUCTION_MODE=full Rscript --vanilla run_all.R --all
 ~~~
 
 This executes the shared 13-member LME annual preparation, WorldClim
-bias correction and \`Prior.R\` **once**. Both documentary-input
+bias correction and `Prior.R` **once**. Both documentary-input
 workspaces then reuse the exact same prepared LME and prior files
 while separately recalibrating REACHES, recomputing complete spatial
 kriging, and regenerating Figures 2–10, Supplementary Figures S1–S5,
@@ -142,7 +142,7 @@ workspaces are not overwritten by switching source variants.
 The two versions use the original measurement projection, the
 same Monte Carlo settings and a **common fixed extra observation
 variance** from the Original blocked-CV fit (unless a different
-nonnegative value is explicitly supplied with \`--u=VALUE\`).
+nonnegative value is explicitly supplied with `--u=VALUE`).
 This isolates the effect of the inferred-zero input; the Original
 fit is not misrepresented as an independently fitted Augmented u.
 The one-time LME/prior source files are fingerprinted to prevent
@@ -157,8 +157,8 @@ Rscript --vanilla run_all.R --variant=original
 Rscript --vanilla run_all.R --compare-only
 ~~~
 
-Set \`REPRODUCTION_MODE=full\` for manuscript results; smoke mode is only
-a pipeline test. Use \`--rebuild-shared\` deliberately if the independent
+Set `REPRODUCTION_MODE=full` for manuscript results; smoke mode is only
+a pipeline test. Use `--rebuild-shared` deliberately if the independent
 LME/prior inputs or code change, and then rerun *both* documentary
 versions. Existing snapshots are protected against silent replacement.
 
@@ -168,7 +168,7 @@ should not be misinterpreted as directly observed temperature events.
 The supplementary spatial comparison aligns geographic locations
 even when Figure 6 cluster memberships change between versions.
 
-The unversioned \`run_all.R\` command remains available for legacy
+The unversioned `run_all.R` command remains available for legacy
 reproducibility, but it writes to shared Output/ locations and does
 **not** preserve two separate documentary versions. Use the controller
 above when producing both series of manuscript figures.
@@ -202,10 +202,10 @@ The workflow:
 5. records the execution time and status of each step; and
 6. stores individual log files for all workflow stages.
 
-Execution logs are saved under:
+Execution logs for the completed two-version run are saved under:
 
 ```text
-Output/Logs/
+Output/Reconstructions/<version>/Output/Logs/
 ```
 
 The current workflow execution record is written to:
