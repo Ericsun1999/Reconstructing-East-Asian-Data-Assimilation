@@ -145,13 +145,23 @@ From the repository root, run the descriptive analysis with:
 Rscript --vanilla Code/SupportingAnalyses/precip_temperature_joint_distribution.R
 ```
 
-To enable the augmented temperature input for the full reproduction workflow:
+To reproduce **both documentary input versions**, run from the repository root:
 
 ```bash
-REACHES_TEMPERATURE_INPUT=augmented REPRODUCTION_MODE=full Rscript --vanilla run_all.R
+REPRODUCTION_MODE=full Rscript --vanilla run_all.R --all
 ```
 
-The default workflow uses the original temperature workbook. When `REACHES_TEMPERATURE_INPUT=augmented`, the master workflow generates the site-year dataset before covariance calibration and kriging. To compare both analyses, retain separate copies of the generated outputs because both modes use the same `Output/` paths. The precipitation workbook is used by default from `Data/`; the optional `REACHES_PRECIPITATION_FILE` environment variable can override its path.
+The main version is inferred-zero and the Original temperature-only
+version is the sensitivity comparison. The controller generates the
+site-year input before calibration and keeps each version's figures,
+posterior outputs and logs separately under
+`Output/Reconstructions/`. The LME and penalized prior are shared,
+prepared once. Single-step legacy execution is still supported via
+`run_all.R --only=<step>` and may write to the root-level `Output/`.
+
+The precipitation workbook is read from `Data/` by default; its
+optional `REACHES_PRECIPITATION_FILE` override can be used when
+running the preparation script independently.
 
 ### REACHES-related prepared data
 
