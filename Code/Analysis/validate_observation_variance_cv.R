@@ -150,5 +150,98 @@ summary <- data.frame(
 readr::write_csv(
   summary, file.path(directory, "cv_validation_summary.csv")
 )
+# Inspect why a few held-out years may dominate the baseline
+# predictive log score when the modeled measurement variance is tiny.
+components$variance_without_u <- expected_base
+components$standardized_residual_without_u <-
+  expected_residual / sqrt(expected_base)
+components$log_score_without_u <-
+  0.5 * (log(2 * pi * expected_base) +
+         expected_residual^2 / expected_base)
+components$log_score_with_u <-
+  0.5 * (log(2 * pi * (expected_base + u)) +
+         expected_residual^2 / (expected_base + u))
+
+fold_diagnostics <- do.call(rbind, lapply(fold_bounds$fold, function(fold) {
+  z <- components[components$fold == fold, , drop = FALSE]
+  data.frame(
+    fold = fold,
+    heldout_city_years = nrow(z),
+    minimum_baseline_variance = min(z$variance_without_u),
+    p01_baseline_variance = unname(
+      stats::quantile(z$variance_without_u, 0.01)
+    ),
+    median_baseline_variance = stats::median(z$variance_without_u),
+    n_baseline_variance_below_1e_4 = sum(
+      z$variance_without_u < 1e-4
+    ),
+    maximum_absolute_standardized_residual_at_zero = max(
+      abs(z$standardized_residual_without_u)
+    ),
+    log_score_at_zero = mean(z$log_score_without_u),
+    log_score_at_selected = mean(z$log_score_with_u),
+    improvement = mean(z$log_score_without_u -
+                         z$log_score_with_u)
+  )
+}))
+readr::write_csv(
+  fold_diagnostics,
+  file.path(directory, "cv_fold_variance_diagnostics.csv")
+)
+
+extreme <- components[
+  order(components$log_score_without_u, decreasing = TRUE),
+  c("fold", "city", "year", "Xstar", "predictive_mean",
+    "predictive_residual", "variance_without_u",
+    "standardized_residual_without_u", "log_score_without_u",
+    "log_score_with_u")
+]
+extreme <- utils::head(extreme, 30L)
+readr::write_csv(
+  extreme, file.path(directory, "cv_largest_zero_variance_scores.csv")
+)
+
+# The full curve remains in cv_score_curve.png. A second plot focuses
+# on the region of the optimum rather than being compressed by the
+# large scores at u = 0. Producing it does not rerun the CV fit.
+positive_u <- as.numeric(grid$u[grid$u > 0])
+zoom_lower <- max(min(positive_u), u / 8, 1e-6)
+zoom_upper <- min(max(grid$u), max(u * 5, 0.1))
+if (is.finite(zoom_lower) && is.finite(zoom_upper) &&
+    zoom_lower < zoom_upper) {
+  zoom_data <- grid[
+    grid$u >= zoom_lower & grid$u <= zoom_upper, ,
+    drop = FALSE
+  ]
+  if (nrow(zoom_data) > 2L) {
+    p <- ggplot2::ggplot(
+      zoom_data,
+      ggplot2::aes(x = u, y = predictive_log_score)
+    ) +
+      ggplot2::geom_line(linewidth = 0.8, colour = "black") +
+      ggplot2::geom_vline(
+        xintercept = u, linetype = "dashed", colour = "red"
+      ) +
+      ggplot2::labs(
+        title = "Held-out predictive log score near the optimum",
+        subtitle = paste0("Selected u = ", signif(u, 5),
+                          " Celsius squared"),
+        x = expression("Additional observation variance " * u *
+                         " (" * degree * "C)"^2),
+        y = "Mean predictive negative log score"
+      ) +
+      ggplot2::theme_gray(base_size = 12)
+    ggplot2::ggsave(
+      file.path(directory, "cv_score_curve_zoom.png"),
+      p, width = 7, height = 4.5, dpi = 300, bg = "white"
+    )
+  }
+}
+
 print(summary)
+print(fold_diagnostics)
 message("Five-fold observation-variance diagnostics verified.")
+message(
+  "Additional diagnostics saved: cv_fold_variance_diagnostics.csv, ",
+  "cv_largest_zero_variance_scores.csv, cv_score_curve_zoom.png"
+)
