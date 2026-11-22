@@ -403,14 +403,27 @@ The pooled three-city/year criterion is a composite predictive log
 score; the scalar fitted \(u\) is shared across all spatial locations.
 No Kalman filtering/smoothing on held-out data is used to tune \(u\).
 
+The measurement projection has two explicit versions. The historical
+empirical-reference projection (empirical_reference_joint_mc_v1)
+centers simulated weak-information kriging estimates at the empirical
+mean of the documentary reference predictions. The corrected
+zero-centered projection
+(empirical_reference_zero_centered_joint_mc_v2)
+centers them at zero, matching the zero-mean process implemented in
+predict_grid_one_year(). All newly estimated observation variances
+use the zero-centered version. The original version remains the
+default in city and grid assimilation to preserve legacy manuscript
+reproducibility. Variance files record their projection version and
+cannot be used with a different version.
+
 From the repository root, run the numerical check, a single
 chronological fold for an integration smoke test, and only then the
 full five-fold fit:
 
 ~~~bash
 Rscript --vanilla Code/Analysis/test_observation_variance.R
-REACHES_CV_ONLY_FOLD=fold_1 Rscript --vanilla Code/Analysis/cv_observation_variance.R
-Rscript --vanilla Code/Analysis/cv_observation_variance.R
+REACHES_CV_ONLY_FOLD=fold_1 REACHES_CV_REUSE_CITY_KRIGING=1 Rscript --vanilla Code/Analysis/cv_observation_variance.R
+REACHES_CV_REUSE_CITY_KRIGING=1 Rscript --vanilla Code/Analysis/cv_observation_variance.R
 Rscript --vanilla Code/Analysis/validate_observation_variance_cv.R
 ~~~
 
@@ -428,6 +441,19 @@ cv_leave_one_fold_out.csv (influence of excluding each temporal
 block), and cv_score_curve_zoom.png (the profile near the
 selected nonnegative variance), without rerunning covariance
 calibration or changing the selected_u.csv result.
+
+The optional REACHES_CV_REUSE_CITY_KRIGING=1 flag reuses existing
+per-fold city kriging files only if the prior complete CV fit's
+source MD5, input mode, covariance parameters, year/city keys, and
+predicted variances pass compatibility checks. It does not reuse
+old measurement-equation fits or old selected variances. If this
+is a first run or the cache fails validation, remove the flag to
+recompute kriging. Existing covariance fits are reused separately
+when their input MD5 and calibration-script MD5 match.
+
+Any selected_u.csv written before the zero-centered projection
+correction is obsolete; rerun the full five-fold fit. The independent
+validation script refuses to validate an obsolete selected file.
 
 The one-fold test stores its combined diagnostic tables under
 Output/Intermediate/ObservationVariance/original/smoke/fold_1/
@@ -464,9 +490,11 @@ tracking. With an up-to-date generated REACHES fit, explicitly
 supply the selected variance:
 
 ~~~bash
+REACHES_MEASUREMENT_PROJECTION_METHOD=empirical_reference_zero_centered_joint_mc_v2 \
 REACHES_EXTRA_VARIANCE_FILE="$PWD/Output/Intermediate/ObservationVariance/original/selected_u.csv" \
   Rscript --vanilla Code/Figure9d.R
 
+REACHES_MEASUREMENT_PROJECTION_METHOD=empirical_reference_zero_centered_joint_mc_v2 \
 REACHES_EXTRA_VARIANCE_FILE="$PWD/Output/Intermediate/ObservationVariance/original/selected_u.csv" \
   Rscript --vanilla Code/Assimilation_grid.R
 ~~~
@@ -483,6 +511,11 @@ retain the original u=0 behavior unless
 REACHES_EXTRA_VARIANCE_FILE is explicitly provided. When enabled,
 the fitted u is added **once** to the Monte Carlo measurement-error
 variance and is propagated by the Kalman filter and RTS smoother.
+The projection-method environment variable must match the version
+stored in the selected variance file, otherwise assimilation stops.
+When using the corrected projection, preserve baseline city
+reconstruction outputs before rerunning Figure9d.R, since it writes
+to the standard figure and intermediate output locations.
 The spatial-assimilation checkpoint also fingerprints all three input
 REACHES kriging files, preventing reuse after input changes. To protect
 the repository's reference products, runs with extra variance or
