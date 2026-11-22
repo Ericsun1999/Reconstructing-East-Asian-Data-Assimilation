@@ -26,8 +26,8 @@ The workflow generates Figures 2–10 in the main manuscript, Figures S1–S5 in
 ├── Data/                       Input data and documented prepared datasets
 ├── Figure/                     Reference copies of Figures 2–10 and Figures S1–S5
 ├── renv/                       Project environment infrastructure
-├── reproducibility_records/    Archived records from completed workflow runs
-│   └── run_manifest.csv        Successful full-workflow execution record
+├── reproducibility_records/    Historical run records
+│   └── run_manifest.csv        July 2026 legacy single-version run
 ├── .gitignore                  Files and directories excluded from version control
 ├── .Rprofile                   Activates renv for interactive R sessions
 ├── CITATION.cff                Software citation metadata
