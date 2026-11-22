@@ -37,6 +37,21 @@ components <- readr::read_csv(paths[["components"]], show_col_types = FALSE)
 covariance <- readr::read_csv(paths[["covariance"]], show_col_types = FALSE)
 grid <- readr::read_csv(paths[["grid"]], show_col_types = FALSE)
 
+# CV results fitted using the legacy reference-mean projection must
+# not be silently reused after correcting the zero-mean model.
+required_projection <- "empirical_reference_zero_centered_joint_mc_v2"
+if (!"measurement_projection_method" %in% names(selected) ||
+    nrow(selected) != 1L ||
+    is.na(selected$measurement_projection_method[1L]) ||
+    !identical(as.character(selected$measurement_projection_method[1L]),
+               required_projection)) {
+  stop(
+    "The selected_u.csv file predates the zero-centered measurement ",
+    "projection. Rerun Code/Analysis/cv_observation_variance.R to ",
+    "refit u with the corrected observation model."
+  )
+}
+
 required_components <- c(
   "fold", "city", "year", "Xstar", "mu_prior", "V_prior",
   "alpha", "beta", "vdelta", "predictive_mean",
