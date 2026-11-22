@@ -382,7 +382,26 @@ input_files <- select_input_set(
   precomputed_inputs = precomputed_inputs
 )
 
-source(here::here("Code", "Analysis", "extra_observation_variance.R"))
+# Import only the measurement-variance loader from Figure9d.R.
+# Sourcing Figure9d.R itself would rerun the full city reconstruction.
+figure9_definitions <- parse(
+  file = here::here("Code", "Figure9d.R")
+)
+variance_loaders <- Filter(function(expr) {
+  is.call(expr) &&
+    identical(expr[[1L]], as.name("<-")) &&
+    is.symbol(expr[[2L]]) &&
+    as.character(expr[[2L]]) == "read_extra_observation_variance" &&
+    is.call(expr[[3L]]) &&
+    identical(expr[[3L]][[1L]], as.name("function"))
+}, as.list(figure9_definitions))
+if (length(variance_loaders) != 1L) {
+  stop("Cannot find the unique variance loader in Figure9d.R.")
+}
+read_extra_observation_variance <- eval(
+  variance_loaders[[1L]][[3L]], envir = .GlobalEnv
+)
+rm(figure9_definitions, variance_loaders)
 if (nzchar(Sys.getenv("REACHES_EXTRA_VARIANCE_FILE", unset = "")) &&
     identical(input_files$reaches_metadata,
               precomputed_inputs$reaches_metadata)) {
