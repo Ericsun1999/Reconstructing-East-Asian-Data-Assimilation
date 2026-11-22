@@ -421,7 +421,11 @@ It writes cv_validation_summary.csv only when all checks pass.
 It also produces cv_fold_variance_diagnostics.csv (per-fold
 baseline-variance quantiles and score contributions),
 cv_largest_zero_variance_scores.csv (30 largest baseline-score
-city/years), and cv_score_curve_zoom.png (the profile near the
+city/years, including kriging information fraction, measurement
+beta, and residual variance), cv_low_information_city_years.csv
+(those with less than 1% implied kriging information),
+cv_leave_one_fold_out.csv (influence of excluding each temporal
+block), and cv_score_curve_zoom.png (the profile near the
 selected nonnegative variance), without rerunning covariance
 calibration or changing the selected_u.csv result.
 
