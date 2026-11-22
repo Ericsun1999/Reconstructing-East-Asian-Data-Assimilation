@@ -283,11 +283,16 @@ Rscript --vanilla run_all.R --only=prior
 Rscript --vanilla run_all.R --only=figure9d
 ```
 
-Available workflow identifiers are defined in the `workflow` object in:
+Available legacy individual-stage identifiers are defined in the
+`workflow` object in:
 
 ```text
-run_all.R
+Code/Workflow/run_single_version.R
 ```
+
+These `--only=<step>` invocations are legacy single-stage runs and write
+to root-level `Output/`; they do not regenerate separate primary and
+sensitivity reconstructions.
 
 ## LME Input Boundary
 
@@ -338,13 +343,17 @@ The data documentation describes:
 
 ## Generated Outputs
 
-The workflow creates outputs under:
+The default versioned workflow stores outputs under:
 
 ```text
-Output/
+Output/Reconstructions/shared/Output/
+Output/Reconstructions/inferred-zero/Output/
+Output/Reconstructions/original/Output/
+Output/Reconstructions/Comparison/
 ```
 
-Major output directories include:
+Each documentary-input version contains these output directories
+(relative to its own `Output/` folder):
 
 ```text
 Output/Figure2/
@@ -418,7 +427,9 @@ The workflow writes its current execution record to:
 Output/Reconstructions/<version>/Output/Logs/run_manifest.csv
 ```
 
-Because the generated `Output/` directory is excluded from version control, a copy of the successfully completed full-workflow manifest is archived at:
+Because generated `Output/` files are excluded from version control,
+a **historical single-version** execution manifest (July 30–31, 2026)
+is archived at:
 
 ```text
 reproducibility_records/run_manifest.csv
@@ -433,54 +444,49 @@ Data/data_dictionary.csv
 renv.lock
 ```
 
-The individual execution logs generated during a workflow run are stored under:
+The current versioned workflow writes individual execution logs under:
 
 ```text
-Output/Logs/
+Output/Reconstructions/shared/Output/Logs/
+Output/Reconstructions/inferred-zero/Output/Logs/
+Output/Reconstructions/original/Output/Logs/
 ```
+
+The archived July 2026 manifest instead references the legacy
+root-level `Output/Logs/` paths.
 
 Generated figures and numerical results should be checked against the corresponding items in the final manuscript before creating a versioned release.
 
 ## Reproducibility Status
 
-The complete workflow was successfully executed locally from the repository root using:
+The archived `reproducibility_records/run_manifest.csv` documents a
+**successful historical single-version workflow run on July 30–31,
+2026**, with zero exit statuses and no missing expected outputs in
+that run. It predates the current two-version `run_all.R --all`
+controller and the automatically executed Original-input
+observation-variance CV; **it does not certify the current full
+two-version pipeline**.
+
+The current public entry point is:
 
 ```bash
-REPRODUCTION_MODE=full \
-Rscript --vanilla run_all.R --all
+REPRODUCTION_MODE=full Rscript --vanilla run_all.R --all
 ```
 
-Every workflow step completed with:
+This versioned workflow has not yet been confirmed by a new complete
+execution record in this repository. On completion, verify both
+version-specific run manifests, the shared LME/prior and CV outputs,
+and the comparison results before updating the reproducibility status
+or creating the final release.
 
-```text
-exit_status = 0
-success = TRUE
-missing_outputs = empty
-```
-
-The archived execution record is available at:
-
-```text
-reproducibility_records/run_manifest.csv
-```
-
-The smoke-mode workflow was also completed successfully.
-
-A separate fresh-clone clean-environment test was not performed.
+A fresh-clone clean-environment test is also not documented.
 
 ## Citation
 
-Software citation metadata are provided in:
+Software citation metadata are provided in
+[`CITATION.cff`](CITATION.cff).
 
-```text
-CITATION.cff
-```
-
-A version-specific Zenodo DOI will be added after the final GitHub release is archived.
-
-Software citation metadata are provided in [`CITATION.cff`](CITATION.cff).
-
-The version-specific reproducibility archive is available on Zenodo:
+The reproducibility archive is available on Zenodo:
 
 [https://doi.org/10.5281/zenodo.21878086](https://doi.org/10.5281/zenodo.21878086)
 
