@@ -408,9 +408,7 @@ The provided scripts generate:
 - documentary-coverage and population-model tables; and
 - intermediate products required to reproduce the final analyses.
 
-The revised functional clustering analysis uses four clusters selected by the stated model-selection procedure.
-
-Figure S1 reuses the same cluster assignments generated for Figure 6.
+Figure 6 selects the number of functional clusters **K** by BIC separately for each documentary-input version. K may differ between the inferred-zero primary reconstruction and the Original sensitivity reconstruction. Figure S1 reuses the corresponding Figure 6 assignments and automatically creates **3K** functional-boxplot panels (REACHES, LME, and posterior), rather than assuming four clusters. The original manuscript reference may use a different K from the inferred-zero sensitivity results; report the selected K for each version.
 
 ## City-Specific Spatial Locations
 
