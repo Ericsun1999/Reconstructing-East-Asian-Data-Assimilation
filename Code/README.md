@@ -181,12 +181,14 @@ Rscript --vanilla run_all.R --all
 
 Smoke mode uses a reduced penalty-search grid in `Prior.R` and is intended only to test whether the software workflow executes successfully.
 
-**Do not switch an existing full-mode run to smoke mode in place.**
-The shared LME/prior fingerprint includes the reproduction mode, so a
-smoke run refuses to reuse full-mode shared outputs. Forcing
-`--rebuild-shared` would remove and recompute the existing shared prior.
-If only one late workflow step failed, rerun that step's script in the
-existing version workspace instead of restarting the entire workflow.
+Shared LME/prior results can be reused across modes if the source
+files, code, and output hashes match; the controller no longer requires
+a matching `REPRODUCTION_MODE`. Reuse **does not rerun the Prior search**
+under the newly selected mode. For an independent smoke Prior test, use
+a separate workspace. Avoid switching modes in a workspace containing
+manuscript results because rerunning `--all` can overwrite earlier
+version-specific outputs. If only one late workflow step failed, rerun
+that step's script in the existing version workspace.
 For example, to test Figure S1 after an inferred-zero run:
 
 ```bash
