@@ -1285,6 +1285,27 @@ save_reaches_clusters_separately(
   output_dir = figure6_output_dir
 )
 
+# Avoid leaving panels for clusters that no longer exist when the
+# BIC-selected K changes between runs in the same workspace.
+existing_cluster_panels <- list.files(
+  figure6_output_dir,
+  pattern = "^Figure6_cluster_[0-9]+[.]jpg$",
+  full.names = TRUE
+)
+expected_cluster_panels <- file.path(
+  figure6_output_dir,
+  paste0("Figure6_cluster_", seq_len(number_of_clusters), ".jpg")
+)
+stale_cluster_panels <- setdiff(
+  normalizePath(existing_cluster_panels,
+                winslash = "/", mustWork = FALSE),
+  normalizePath(expected_cluster_panels,
+                winslash = "/", mustWork = FALSE)
+)
+if (length(stale_cluster_panels)) {
+  unlink(stale_cluster_panels)
+}
+
 cluster_assignment_output <- reaches_grid %>%
   dplyr::select(
     any_of(
