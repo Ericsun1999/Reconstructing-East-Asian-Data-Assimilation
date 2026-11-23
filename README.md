@@ -255,14 +255,11 @@ Smoke mode uses a reduced penalty-parameter search grid in `Prior.R` to shorten 
 
 Smoke mode is intended only for software and workflow testing.
 
-**Important for an existing full run:** the shared LME/prior fingerprint
-includes `REPRODUCTION_MODE`. A smoke run will **not** automatically reuse
-a previously completed full-mode prior; if the full-mode shared outputs
-already exist, the controller stops rather than silently mixing the
-settings. Do **not** add `--rebuild-shared` merely to test one failed
-figure: it would remove and recompute the existing shared LME/prior.
-For an isolated post-failure check, directly rerun the affected script
-inside its existing version workspace instead.
+The shared LME/prior may be reused across full and smoke modes when
+its input files, code, and output hashes match. Switching modes does **not**
+recompute an existing Prior or rerun its penalty search. To test the
+smoke-specific Prior search independently, use a separate workspace.
+Do not use smoke-mode reconstructions as manuscript results.
 
 **Smoke-mode results should not be used as the reproduced manuscript results. All manuscript results must be generated using `REPRODUCTION_MODE=full`.**
 
