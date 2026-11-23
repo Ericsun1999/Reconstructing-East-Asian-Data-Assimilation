@@ -919,26 +919,32 @@ cl_R_geo <- unname(
   ]
 )
 
-cl_R_geo <- dplyr::recode(
-  as.character(cl_R_geo),
-  "1" = "4",
-  "2" = "2",
-  "3" = "3",
-  "4" = "1"
-)
+# Preserve the historical 1 <-> 4 display convention only for a
+# four-component solution. With fewer than four BIC-selected clusters,
+# an unconditional swap creates gaps (e.g., 1:3 -> 2:4), which causes
+# Figure S1 to reject otherwise valid Figure 6 assignments.
+# For other K, use the consecutive temperature-ordered labels 1:K.
+if (number_of_clusters == 4L) {
+  cl_R_geo <- dplyr::recode(
+    as.integer(cl_R_geo),
+    `1` = 4L,
+    `4` = 1L,
+    .default = as.integer(cl_R_geo)
+  )
+}
 
 cl_R_geo <- as.integer(cl_R_geo)
 
 if (
   anyNA(cl_R_geo) ||
-    length(
-      unique(
-        cl_R_geo
-      )
-    ) != number_of_clusters
+    !identical(
+      sort(unique(cl_R_geo)),
+      seq_len(number_of_clusters)
+    )
 ) {
   stop(
-    "Deterministic cluster relabeling failed."
+    "Deterministic cluster relabeling failed: ",
+    "the final labels must be exactly 1:K."
   )
 }
 
@@ -1365,8 +1371,11 @@ cluster_selection_output <- data.frame(
     number_of_clusters,
   selected_model_name =
     mc_R$modelName,
-  relabeling_rule =
-    "ascending overall fitted REACHES temperature index"
+  relabeling_rule = if (number_of_clusters == 4L) {
+    "ascending overall fitted REACHES index; historical swap of labels 1 and 4"
+  } else {
+    "ascending overall fitted REACHES index; consecutive labels 1:K"
+  }
 )
 
 readr::write_csv(
