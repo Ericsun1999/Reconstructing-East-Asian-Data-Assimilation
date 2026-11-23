@@ -257,8 +257,13 @@ if (stage == "grid") {
       paste0("assimilated_posterior_lme_grid_", kind, ".csv")
     )
     if (!all(c(keys, yearly_columns) %in% names(d)) ||
-        anyDuplicated(d$location_id)) {
-      stop("The spatial grid has invalid location/year structure.")
+        nrow(d) == 0L ||
+        anyNA(d[c("location_id", "lati", "long")]) ||
+        anyDuplicated(d$location_id) ||
+        anyDuplicated(d[c("lati", "long")]) ||
+        any(!is.finite(d$lati)) || any(!is.finite(d$long))) {
+      stop("The ", mode, " ", kind,
+           " spatial grid has invalid or duplicate locations.")
     }
     d %>%
       pivot_longer(
@@ -271,28 +276,97 @@ if (stage == "grid") {
   grid_model <- bind_rows(lapply(names(snapshots), function(mode) {
     means <- load_grid(mode, "mean")
     vars <- load_grid(mode, "variance")
-    inner_join(
-      means, vars,
-      by = c(keys, "year", "mode")
-    )
+    pair_keys <- c(keys, "year", "mode")
+    if (nrow(means) != nrow(vars) ||
+        anyDuplicated(means[pair_keys]) ||
+        anyDuplicated(vars[pair_keys])) {
+      stop("Duplicate or unequal mean/variance grid rows for ", mode)
+    }
+    paired <- inner_join(means, vars, by = pair_keys)
+    if (nrow(paired) != nrow(means)) {
+      stop("Mean and variance grids do not align within ", mode)
+    }
+    paired
   }))
-  # Figure 6 cluster labels may change when the REACHES input changes.
-  # Align the same physical grid location, not its cluster assignment.
+
+  # Figure 6 selects the spatial footprint separately for each version.
+  # Inferred zeros can add locations: compare only physical grid cells
+  # present in BOTH reconstructions, not all cells in their union.
+  # Cluster labels may also differ and are deliberately not join keys.
   spatial_keys <- c("location_id", "lati", "long", "year")
+  location_keys <- c("location_id", "lati", "long")
   grid_original <- grid_model %>%
     filter(mode == "original") %>% select(-mode)
   grid_augmented <- grid_model %>%
     filter(mode == "augmented") %>% select(-mode)
-  if (nrow(grid_original) != nrow(grid_augmented) ||
-      anyDuplicated(grid_original[spatial_keys]) ||
+  if (anyDuplicated(grid_original[spatial_keys]) ||
       anyDuplicated(grid_augmented[spatial_keys])) {
-    stop("Original and Augmented have different or duplicate grids.")
+    stop("Original or Augmented contains duplicate spatial/year keys.")
   }
+
+  original_locations <- grid_original %>%
+    distinct(across(all_of(location_keys)))
+  augmented_locations <- grid_augmented %>%
+    distinct(across(all_of(location_keys)))
+
+  # The two versions share the LME archive. An identical location_id
+  # must refer to the identical geographic cell.
+  shared_ids <- inner_join(
+    original_locations %>%
+      rename(lati_original = lati, long_original = long),
+    augmented_locations %>%
+      rename(lati_augmented = lati, long_augmented = long),
+    by = "location_id"
+  )
+  if (any(shared_ids$lati_original != shared_ids$lati_augmented) ||
+      any(shared_ids$long_original != shared_ids$long_augmented)) {
+    stop("The same location_id has inconsistent coordinates across versions.")
+  }
+
+  location_coverage <- full_join(
+    original_locations %>% mutate(in_original = TRUE),
+    augmented_locations %>% mutate(in_augmented = TRUE),
+    by = location_keys
+  ) %>%
+    mutate(
+      in_original = coalesce(in_original, FALSE),
+      in_augmented = coalesce(in_augmented, FALSE),
+      in_both = in_original & in_augmented
+    ) %>%
+    arrange(location_id)
+  readr::write_csv(
+    location_coverage,
+    file.path(result_dir, "grid_location_coverage.csv")
+  )
+  n_common <- sum(location_coverage$in_both)
+  n_original <- nrow(original_locations)
+  n_augmented <- nrow(augmented_locations)
+  coverage_summary <- tibble::tibble(
+    category = c("original", "augmented", "common",
+                 "original_only", "augmented_only"),
+    n_locations = c(
+      n_original, n_augmented, n_common,
+      n_original - n_common, n_augmented - n_common
+    )
+  )
+  readr::write_csv(
+    coverage_summary,
+    file.path(result_dir, "grid_location_coverage_summary.csv")
+  )
+  message(
+    "Spatial comparison: ", n_common, " common locations; ",
+    n_original, " Original, ", n_augmented, " Augmented. ",
+    "Only common locations enter the grid sensitivity metrics."
+  )
+  if (n_common == 0L) {
+    stop("Original and Augmented have no common spatial grid locations.")
+  }
+
   grid_pairs <- inner_join(
     grid_original, grid_augmented,
     by = spatial_keys, suffix = c("_original", "_augmented")
   )
-  if (nrow(grid_pairs) != nrow(grid_original) ||
+  if (nrow(grid_pairs) != n_common * length(yearly_columns) ||
       anyNA(grid_pairs$mean_original) ||
       anyNA(grid_pairs$mean_augmented) ||
       anyNA(grid_pairs$variance_original) ||
@@ -367,7 +441,7 @@ if (stage == "grid") {
       ) +
       labs(
         title = "Mean reconstruction difference, 1368–1911",
-        subtitle = "Augmented minus Original",
+        subtitle = "Common locations: Augmented minus Original",
         x = "long", y = "lat"
       ) +
       theme_gray(base_size = 12)

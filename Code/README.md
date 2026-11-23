@@ -1120,6 +1120,13 @@ Figure6.R
     -> Supplementary/FigureS1.R
 ```
 
+The grid sensitivity comparison aligns only the geographic cells shared by
+Original and inferred-zero. Different Figure 6 observation footprints and
+cluster counts are permitted; duplicate locations and inconsistent coordinates
+are not. The comparison records the shared and unmatched locations in
+`Comparison/grid/grid_location_coverage.csv` and
+`Comparison/grid/grid_location_coverage_summary.csv`.
+
 The WorldClim-based correction uses the prepared offsets stored in
 `Data/WorldClim/worldclim_offsets_all_269.csv`. The original
 CESM-LME NetCDF and WorldClim GeoTIFF archives are not required
