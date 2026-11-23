@@ -83,8 +83,9 @@ if (!input_mode %in% allowed_input_modes) {
   )
 }
 
-# Figure 6 currently selects four clusters. The plotting code is
-# dynamic, but this expected value catches stale Figure 6 output.
+# The reference manuscript Figure 6 uses four clusters. A sensitivity
+# reconstruction may select a different BIC-optimal K. Warn about the
+# difference; retain the actual Figure 6 labels and memberships.
 expected_number_of_clusters <- 4L
 
 # Keep FALSE when Figure6_cluster_assignments.csv already stores
