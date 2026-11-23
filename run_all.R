@@ -239,12 +239,20 @@ if ((actions["all"] || actions["variant"] ||
   stop("Missing input(s) for shared LME/prior generation:\n",
        paste(missing_dependencies, collapse = "\n"))
 }
+# The shared LME/Prior can be reused by either execution mode.
+# Keep source-code/input and output fingerprints independent of
+# REPRODUCTION_MODE. Existing manifests containing a legacy mode
+# field remain valid if the actual dependencies and outputs match.
 common_fingerprint <- function() {
   list(
-    reproduction_mode = reproduction_mode,
     inputs = unname(tools::md5sum(dependency_files)),
     paths = dependency_files
   )
+}
+shared_fingerprint_matches <- function(saved, current) {
+  is.list(saved) &&
+    identical(saved$inputs, current$inputs) &&
+    identical(saved$paths, current$paths)
 }
 
 run_in_workspace <- function(workspace, args) {
@@ -289,7 +297,7 @@ prepare_shared <- function(rebuild = FALSE) {
   current <- common_fingerprint()
   matching <- present &&
     is.list(previous) &&
-    identical(previous$fingerprint, current) &&
+    shared_fingerprint_matches(previous$fingerprint, current) &&
     identical(
       previous$output_md5,
       unname(tools::md5sum(
@@ -353,7 +361,8 @@ check_shared <- function() {
     stop("Shared LME and prior missing; use --prepare-shared or --all.")
   }
   previous <- readRDS(common_manifest)
-  if (!identical(previous$fingerprint, common_fingerprint()) ||
+  if (!shared_fingerprint_matches(previous$fingerprint,
+                                  common_fingerprint()) ||
       !identical(previous$output_md5,
                  unname(tools::md5sum(
                    file.path(common_root, common_outputs)
