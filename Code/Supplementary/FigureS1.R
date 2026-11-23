@@ -7,7 +7,7 @@ here::i_am("Code/Supplementary/FigureS1.R")
 # in Figure 6.
 #
 # Rows:
-#   Figure 6 clusters (currently four)
+#   All K clusters selected by Figure 6, where K may vary by version.
 #
 # Columns:
 #   1. Kriged REACHES index trajectories
@@ -40,15 +40,10 @@ here::i_am("Code/Supplementary/FigureS1.R")
 #
 # Outputs:
 #   Output/Supplementary/FigureS1_panels/
-#     FigureS1_reaches_cluster_1.png
-#     ...
-#     FigureS1_reaches_cluster_4.png
-#     FigureS1_lme_cluster_1.png
-#     ...
-#     FigureS1_lme_cluster_4.png
-#     FigureS1_posterior_cluster_1.png
-#     ...
-#     FigureS1_posterior_cluster_4.png
+#     FigureS1_reaches_cluster_1.png ... FigureS1_reaches_cluster_K.png
+#     FigureS1_lme_cluster_1.png ... FigureS1_lme_cluster_K.png
+#     FigureS1_posterior_cluster_1.png ... FigureS1_posterior_cluster_K.png
+#   Exactly 3*K panels are generated; K comes from Figure 6.
 #
 #   Output/Intermediate/FigureS1/
 #     FigureS1_cluster_assignments.csv
@@ -83,17 +78,9 @@ if (!input_mode %in% allowed_input_modes) {
   )
 }
 
-# The reference manuscript Figure 6 uses four clusters. A sensitivity
-# reconstruction may select a different BIC-optimal K. Warn about the
-# difference; retain the actual Figure 6 labels and memberships.
-expected_number_of_clusters <- 4L
-
-# Keep FALSE when Figure6_cluster_assignments.csv already stores
-# the final labels displayed in Figure 6.
-#
-# Set TRUE only if Figure 6 displayed clusters 1 and 4 in swapped
-# order without applying the same swap to its assignment CSV.
-swap_cluster_1_and_4 <- FALSE
+# Figure S1 inherits the complete cluster ID set from Figure 6.
+# Never independently swap or select cluster labels here; doing so
+# would desynchronize the supplementary panels and spatial assimilation.
 
 generated_files <- c(
   clusters = here::here(
@@ -617,18 +604,6 @@ cluster_assignments <- cluster_assignments %>%
     )
   )
 
-if (swap_cluster_1_and_4) {
-  cluster_assignments <- cluster_assignments %>%
-    mutate(
-      cluster = dplyr::recode(
-        cluster,
-        `1` = 4L,
-        `4` = 1L,
-        .default = cluster
-      )
-    )
-}
-
 if (
   anyNA(
     cluster_assignments[
@@ -685,18 +660,13 @@ if (!identical(
   )
 }
 
-if (
-  number_of_clusters !=
-    expected_number_of_clusters
-) {
-  warning(
-    "Expected ",
-    expected_number_of_clusters,
-    " Figure 6 clusters, but found ",
-    number_of_clusters,
-    ". The layout will use the available cluster count."
-  )
-}
+message(
+  "Figure S1 will use ", number_of_clusters,
+  " Figure 6 clusters (IDs: ",
+  paste(cluster_levels, collapse = ", "), "). ",
+  "Expected separate panel count: ",
+  3L * number_of_clusters, "."
+)
 
 reaches_grid <- standardize_grid_data(
   unname(
@@ -1010,7 +980,7 @@ posterior_evaluated <- make_evaluated_functions(
 )
 
 # ------------------------------------------------------------
-# 8. Draw 12 separate Figure S1 panels
+# 8. Draw 3*K separate Figure S1 panels (K from Figure 6)
 # ------------------------------------------------------------
 
 year_ticks <- seq(
@@ -1247,6 +1217,32 @@ panel_file_table <- dplyr::bind_rows(
   panel_file_records
 )
 
+expected_panel_count <- length(panel_settings) * number_of_clusters
+if (nrow(panel_file_table) != expected_panel_count ||
+    anyDuplicated(panel_file_table[, c("data_product", "cluster")])) {
+  stop("Figure S1 panel count or IDs do not match the ",
+       "Figure 6 clusters: expected ", expected_panel_count, " panels.")
+}
+
+# If a previous run in the same workspace used a different K,
+# remove only surplus Figure S1 panel images after all new panels
+# have been generated successfully. This avoids leaving a stale
+# cluster_4 image in the K=3 output directory.
+existing_panels <- list.files(
+  panel_output_dir,
+  pattern = "^FigureS1_(reaches|lme|posterior)_cluster_[0-9]+[.]png$",
+  full.names = TRUE
+)
+current_panels <- normalizePath(panel_file_table$output_file,
+                                winslash = "/", mustWork = TRUE)
+stale_panels <- setdiff(
+  normalizePath(existing_panels, winslash = "/", mustWork = FALSE),
+  current_panels
+)
+if (length(stale_panels)) {
+  unlink(stale_panels)
+}
+
 readr::write_csv(
   panel_file_table,
   file.path(
@@ -1296,8 +1292,7 @@ diagnostics <- data.frame(
     "lme_raw_minimum",
     "lme_raw_maximum",
     "posterior_raw_minimum",
-    "posterior_raw_maximum",
-    "swap_cluster_1_and_4"
+    "posterior_raw_maximum"
   ),
   value = c(
     as.character(
@@ -1345,9 +1340,6 @@ diagnostics <- data.frame(
       max(
         Y_posterior
       )
-    ),
-    as.character(
-      swap_cluster_1_and_4
     )
   )
 )
