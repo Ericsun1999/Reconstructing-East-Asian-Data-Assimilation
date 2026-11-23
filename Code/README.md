@@ -181,6 +181,23 @@ Rscript --vanilla run_all.R --all
 
 Smoke mode uses a reduced penalty-search grid in `Prior.R` and is intended only to test whether the software workflow executes successfully.
 
+**Do not switch an existing full-mode run to smoke mode in place.**
+The shared LME/prior fingerprint includes the reproduction mode, so a
+smoke run refuses to reuse full-mode shared outputs. Forcing
+`--rebuild-shared` would remove and recompute the existing shared prior.
+If only one late workflow step failed, rerun that step's script in the
+existing version workspace instead of restarting the entire workflow.
+For example, to test Figure S1 after an inferred-zero run:
+
+```bash
+cd Output/Reconstructions/inferred-zero
+Rscript --vanilla -e 'renv::load(project=getwd()); source("Code/Supplementary/FigureS1.R", chdir=FALSE)'
+```
+
+This direct diagnostic run leaves the existing workflow
+`run_manifest.csv` untouched; it does not complete the remaining
+workflow stages or change the earlier failure record.
+
 **Smoke-mode results should not be used as manuscript results.**
 
 Individual workflow steps can be executed using the `--only` argument. For example:
