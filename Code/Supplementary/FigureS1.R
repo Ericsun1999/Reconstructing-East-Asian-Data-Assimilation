@@ -660,15 +660,27 @@ number_of_clusters <- length(
   cluster_levels
 )
 
+if (any(cluster_levels < 1L)) {
+  stop("Figure 6 cluster labels must be positive integers.")
+}
+
 if (!identical(
   cluster_levels,
   seq_len(
     number_of_clusters
   )
 )) {
-  stop(
-    "Figure 6 cluster labels must be consecutive integers ",
-    "starting at 1."
+  # Older Figure 6 output could apply the historical swap of labels
+  # 1 and 4 even when BIC chose K < 4. The resulting numeric labels
+  # are nonconsecutive, but the cluster membership is still valid.
+  # Keep the exact IDs used by Figure 6 rather than silently
+  # renumbering its groups in a supplementary figure.
+  warning(
+    "Figure 6 contains nonconsecutive cluster IDs: ",
+    paste(cluster_levels, collapse = ", "),
+    ". Preserving these IDs for Figure S1; ",
+    "regenerate Figure 6 with the corrected relabeling ",
+    "for a new full reconstruction."
   )
 }
 
