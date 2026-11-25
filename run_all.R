@@ -402,8 +402,11 @@ resolve_variance <- function() {
     repository_root, "Data", "temperature index value.v1.xlsx"
   )
   cv_script <- file.path(repository_root, "Code", "cv_observation_variance.R")
+  calibration_script <- file.path(repository_root, "Code",
+                                  "prepare_calibration.R")
   expected_source_md5 <- unname(tools::md5sum(temperature_source))
   expected_cv_md5 <- unname(tools::md5sum(cv_script))
+  expected_calibration_md5 <- unname(tools::md5sum(calibration_script))
   expected_shared_md5 <- unname(tools::md5sum(common_manifest))
   expected_mc_size <- suppressWarnings(as.integer(Sys.getenv(
     "REACHES_CV_MC_SIZE", unset = "100000"
@@ -421,7 +424,8 @@ resolve_variance <- function() {
                   "temperature_source_md5", "number_of_folds",
                   "variance_units", "measurement_projection_method",
                   "lme_prior_source", "mc_size", "calibration_engine",
-                  "cv_script_md5", "shared_manifest_md5")
+                  "calibration_script_md5", "cv_script_md5",
+                  "shared_manifest_md5")
     if (is.null(x) || nrow(x) != 1L ||
         !all(required %in% names(x))) return(FALSE)
     u <- suppressWarnings(as.numeric(x$selected_u[1L]))
@@ -436,6 +440,8 @@ resolve_variance <- function() {
       identical(as.character(x$lme_prior_source[1L]), "generated") &&
       identical(as.integer(x$mc_size[1L]), expected_mc_size) &&
       identical(as.character(x$calibration_engine[1L]), expected_engine) &&
+      identical(as.character(x$calibration_script_md5[1L]),
+                expected_calibration_md5) &&
       identical(as.character(x$cv_script_md5[1L]), expected_cv_md5) &&
       identical(as.character(x$shared_manifest_md5[1L]), expected_shared_md5)
   }

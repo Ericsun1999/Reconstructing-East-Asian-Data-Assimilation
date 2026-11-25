@@ -45,18 +45,12 @@ assign_block <- function(year) {
   )
 }
 
-mode_first <- function(values) {
-  frequencies <- table(values)
-  modes <- as.numeric(names(frequencies)[frequencies == max(frequencies)])
-  values[which(values %in% modes)[1L]]
-}
-
 augmented <- readr::read_csv(
   augmented_file, show_col_types = FALSE
 )
 required <- c(
   "year", "long", "lat", "level", "source_type",
-  "is_inferred_zero", "number_of_precipitation_records"
+  "is_inferred_zero", "number_of_precipitation_records", "source_order"
 )
 if (!all(required %in% names(augmented))) {
   stop("Missing augmented data columns: ",
@@ -68,22 +62,24 @@ augmented <- augmented %>%
     long = round(as.numeric(long), 8),
     lat = round(as.numeric(lat), 8),
     level = as.integer(level),
+    source_order = as.integer(source_order),
     is_inferred_zero = as.logical(is_inferred_zero),
     block = assign_block(year)
   )
 key <- c("year", "long", "lat")
-if (anyDuplicated(augmented[key])) {
-  duplicate_keys <- augmented %>%
-    count(across(all_of(key))) %>%
-    filter(n > 1L)
-  write_result(duplicate_keys, "augmentation_duplicate_coordinates.csv")
-  stop(
-    "Duplicate augmented site-years after rounding coordinates to eight ",
-    "decimal places. Rerun ",
-    "Code/DataPreparation/prepare_precipitation_augmented_reaches.R ",
-    "to rebuild the normalized dataset. See ",
-    file.path(output_dir, "augmentation_duplicate_coordinates.csv")
+# Multiple recorded rows per site-year are legitimate; only inferred
+# zero keys must be unique and disjoint from recorded site-years.
+inferred_keys <- augmented %>%
+  filter(is_inferred_zero) %>% select(all_of(key))
+recorded_keys <- augmented %>%
+  filter(!is_inferred_zero) %>% select(all_of(key))
+if (anyDuplicated(inferred_keys) ||
+    nrow(semi_join(inferred_keys, recorded_keys, by = key)) > 0L) {
+  write_result(
+    inferred_keys %>% count(across(all_of(key))) %>% filter(n > 1L),
+    "augmentation_duplicate_coordinates.csv"
   )
+  stop("Duplicate inferred zeros or inferred zeros on recorded site-years.")
 }
 if (any(is.na(augmented$is_inferred_zero))) {
   stop("Missing inferred-zero flags.")
@@ -100,12 +96,13 @@ if (any(
     augmented$source_type != "observed_temperature"
 )) stop("Invalid observed-temperature source flag.")
 
-# Independently reconstruct the original site-year temperature category
-# (modal value, with source-row order breaking ties).
+# Independently check every original record by source row identity,
+# including repeated site-years and recorded index-zero observations.
 temperature_source <- readxl::read_excel(
   temperature_file, sheet = "全年溫度分級", col_types = "text"
 ) %>%
   transmute(
+    source_order = row_number(),
     year = suppressWarnings(as.integer(.data[["資料判斷後，所屬年份"]])),
     long = round(suppressWarnings(as.numeric(.data[["空間-經度"]])), 8),
     lat = round(suppressWarnings(as.numeric(.data[["空間-緯度"]])), 8),
@@ -115,19 +112,20 @@ temperature_source <- readxl::read_excel(
     between(year, 1368L, 1911L),
     level %in% c(-2L, -1L, 0L, 1L),
     is.finite(long), is.finite(lat)
-  ) %>%
-  group_by(year, long, lat) %>%
-  summarise(level = mode_first(level), .groups = "drop")
+  )
 recorded <- augmented %>%
   filter(!is_inferred_zero) %>%
-  select(all_of(key), level)
+  select(source_order, all_of(key), level)
+record_keys <- c("source_order", key, "level")
 recorded_missing_from_source <- anti_join(
-  recorded, temperature_source, by = c(key, "level")
+  recorded, temperature_source, by = record_keys
 )
 source_missing_from_recorded <- anti_join(
-  temperature_source, recorded, by = c(key, "level")
+  temperature_source, recorded, by = record_keys
 )
-if (nrow(recorded) != nrow(temperature_source) ||
+if (anyNA(recorded$source_order) ||
+    anyDuplicated(recorded$source_order) ||
+    nrow(recorded) != nrow(temperature_source) ||
     nrow(recorded_missing_from_source) > 0L ||
     nrow(source_missing_from_recorded) > 0L) {
   write_result(
@@ -139,9 +137,9 @@ if (nrow(recorded) != nrow(temperature_source) ||
     "augmentation_source_not_in_recorded.csv"
   )
   stop(
-    "The recorded temperature site-years differ from the source workbook: ",
+    "The recorded temperature observations differ from the workbook: ",
     nrow(recorded), " recorded, ",
-    nrow(temperature_source), " original, ",
+    nrow(temperature_source), " source, ",
     nrow(recorded_missing_from_source), " unmatched recorded, ",
     nrow(source_missing_from_recorded), " unmatched source. ",
     "Inspect the augmentation_recorded_not_in_source.csv and ",

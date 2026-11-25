@@ -345,13 +345,18 @@ for (k in seq_len(nrow(active_folds))) {
     required_city <- c("year", "city", "yhat", "mspe", "nu")
     reusable <- nrow(old_selection) == 1L &&
       all(c("temperature_input_mode", "temperature_source_md5",
-            "calibration_engine") %in% names(old_selection)) &&
+            "calibration_engine", "calibration_script_md5") %in%
+            names(old_selection)) &&
       identical(as.character(old_selection$temperature_input_mode[1L]),
                 input_mode) &&
       identical(as.character(old_selection$temperature_source_md5[1L]),
                 source_md5) &&
       identical(as.character(old_selection$calibration_engine[1L]),
                 calibration_engine) &&
+      identical(as.character(old_selection$calibration_script_md5[1L]),
+                unname(tools::md5sum(
+                  here::here("Code", "prepare_calibration.R")
+                ))) &&
       nrow(old_covariance) == 1L &&
       all(c("process_variance", "nugget_variance", "range_km",
             "n_train", "n_all") %in% names(old_covariance)) &&
@@ -616,6 +621,9 @@ if (is_partial_run) {
     cv_score_selected = loss(u_opt),
     source_file = normalizePath(source_path),
     calibration_engine = calibration_engine,
+    calibration_script_md5 = unname(tools::md5sum(
+      here::here("Code", "prepare_calibration.R")
+    )),
     mc_size = n_mc,
     measurement_projection_method = projection_method,
     score_type = "pooled_city_year_predictive_log_score",

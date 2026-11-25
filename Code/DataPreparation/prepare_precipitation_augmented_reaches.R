@@ -21,13 +21,6 @@ first_nonempty_unique <- function(x) {
   paste(unique(x[!is.na(x) & nzchar(x)]), collapse = ";")
 }
 
-mode_first <- function(values, source_order) {
-  frequencies <- table(values)
-  candidates <- as.numeric(names(frequencies)[frequencies == max(frequencies)])
-  positions <- which(values %in% candidates)
-  values[positions[which.min(source_order[positions])]]
-}
-
 assign_block <- function(year) {
   dplyr::case_when(
     year <= 1500L ~ "1368-1500",
@@ -95,15 +88,11 @@ temperature <- temp_sheet %>%
     is.finite(long), is.finite(lat)
   )
 
+# Site-year keys only determine eligibility for one inferred zero.
+# All original temperature records, including repeated site-years and
+# recorded zeros, remain separate observations.
 temperature_site_year <- temperature %>%
-  group_by(year, long, lat) %>%
-  summarise(
-    level = mode_first(level, source_order),
-    number_of_temperature_records = n(),
-    temperature_text_ids = first_nonempty_unique(temperature_text_id),
-    temperature_event_ids = first_nonempty_unique(temperature_event_id),
-    .groups = "drop"
-  )
+  distinct(year, long, lat)
 
 precipitation <- precip_sheet %>%
   transmute(
@@ -139,22 +128,24 @@ inferred_site_year <- precipitation_site_year %>%
   )
 
 augmented <- bind_rows(
-  temperature_site_year %>%
+  temperature %>%
     transmute(
-      year, long, lat, level,
+      source_order, year, long, lat, level,
       source_type = "observed_temperature",
       is_inferred_zero = FALSE,
-      number_of_source_records = number_of_temperature_records,
-      number_of_temperature_records,
+      number_of_source_records = 1L,
+      number_of_temperature_records = 1L,
       number_of_precipitation_records = NA_integer_,
       supporting_event_types = "temperature",
-      temperature_text_ids, temperature_event_ids,
+      temperature_text_ids = as.character(temperature_text_id),
+      temperature_event_ids = as.character(temperature_event_id),
       precipitation_text_ids = NA_character_,
       precipitation_event_ids = NA_character_,
       precipitation_event_codes = NA_character_
     ),
   inferred_site_year %>%
     transmute(
+      source_order = NA_integer_,
       year, long, lat, level = 0L,
       source_type = "inferred_zero_precipitation",
       is_inferred_zero = TRUE,
@@ -168,36 +159,40 @@ augmented <- bind_rows(
       precipitation_event_codes
     )
 ) %>%
-  arrange(year, long, lat)
+  arrange(year, long, lat, is_inferred_zero, source_order)
 
-# Validate that all observed temperature site-years are preserved
-# and that no undocumented site-year was filled.
+# A recorded temperature of zero blocks imputation just like any other
+# observed category. Duplicate originals are allowed; inferred zeros are not.
 key_columns <- c("year", "long", "lat")
 if (anyDuplicated(temperature_site_year[key_columns]) ||
-    anyDuplicated(precipitation_site_year[key_columns])) {
-  stop("Input site-year keys must be unique after coordinate normalization.")
+    anyDuplicated(precipitation_site_year[key_columns]) ||
+    anyDuplicated(inferred_site_year[key_columns])) {
+  stop("The source site-year key indexes must be unique.")
 }
-if (anyDuplicated(augmented[key_columns])) {
-  stop("Duplicated site-year keys in the augmented dataset.")
+inferred_check <- augmented %>% filter(is_inferred_zero)
+if (anyDuplicated(inferred_check[key_columns]) ||
+    nrow(semi_join(inferred_check, temperature_site_year,
+                   by = key_columns)) != 0L) {
+  stop("Inferred zeros must be unique and have no recorded temperature.")
 }
 observed_check <- augmented %>%
   filter(!is_inferred_zero) %>%
-  select(year, long, lat, level) %>%
-  arrange(year, long, lat)
-original_check <- temperature_site_year %>%
-  select(year, long, lat, level) %>%
-  arrange(year, long, lat)
-if (!isTRUE(all.equal(
-  as.data.frame(observed_check),
-  as.data.frame(original_check),
-  check.attributes = FALSE
-))) stop("Original temperature indices changed unexpectedly.")
-if (nrow(augmented) !=
-    nrow(temperature_site_year) + nrow(inferred_site_year)) {
-  stop("Augmented site-year totals are inconsistent.")
+  select(source_order, year, long, lat, level) %>%
+  arrange(source_order)
+original_check <- temperature %>%
+  select(source_order, year, long, lat, level) %>%
+  arrange(source_order)
+if (!identical(as.data.frame(observed_check),
+               as.data.frame(original_check))) {
+  stop("Original temperature observations were dropped or altered.")
 }
-if (any(augmented$is_inferred_zero & augmented$level != 0L)) {
-  stop("An inferred observation has a nonzero temperature category.")
+if (nrow(augmented) != nrow(temperature) + nrow(inferred_site_year) ||
+    any(augmented$is_inferred_zero & augmented$level != 0L) ||
+    any(augmented$is_inferred_zero &
+        augmented$number_of_source_records != 0L) ||
+    any(!augmented$is_inferred_zero &
+        augmented$number_of_source_records != 1L)) {
+  stop("Augmented record counts or inferred-zero values are invalid.")
 }
 
 output_file <- file.path(output_dir, "temperature_site_year_augmented.csv")
@@ -216,9 +211,12 @@ summary_by_block <- augmented %>%
   ) %>%
   group_by(block) %>%
   summarise(
-    observed_temperature_site_years = sum(is_observed),
+    observed_temperature_records = sum(is_observed),
+    observed_temperature_site_years =
+      n_distinct(year[is_observed], long[is_observed], lat[is_observed]),
     inferred_zero_site_years = sum(is_inferred_zero),
-    augmented_site_years = n(),
+    augmented_temperature_records = n(),
+    augmented_site_years = n_distinct(year, long, lat),
     informative_years = n_distinct(year),
     .groups = "drop"
   ) %>%
@@ -255,10 +253,13 @@ metadata <- tibble::tibble(
   source = "annual_precipitation_documentary_availability",
   temperature_file = temperature_file,
   precipitation_file = precip_file,
+  observed_temperature_records = nrow(temperature),
   observed_temperature_site_years = nrow(temperature_site_year),
   precipitation_site_years = nrow(precipitation_site_year),
   inferred_zero_site_years = nrow(inferred_site_year),
-  augmented_site_years = nrow(augmented),
+  augmented_temperature_records = nrow(augmented),
+  augmented_site_years = nrow(temperature_site_year) +
+    nrow(inferred_site_year),
   observed_informative_years = n_distinct(temperature_site_year$year),
   augmented_informative_years = n_distinct(augmented$year)
 )

@@ -169,29 +169,30 @@ if (!file.exists(temperature_source_file)) {
 }
 
 if (temperature_input_mode == "augmented") {
-  # The augmented input has one row per site-year.
+  # Keep one row per original temperature record, plus at most one
+  # inferred zero per site-year lacking any recorded temperature.
   augmented_input <- readr::read_csv(
     temperature_source_file, show_col_types = FALSE
   )
   required_columns <- c(
-    "level", "year", "long", "lat", "number_of_source_records"
+    "level", "year", "long", "lat", "number_of_source_records",
+    "source_order", "source_type", "is_inferred_zero"
   )
   if (!all(required_columns %in% names(augmented_input))) {
     stop("Missing augmented temperature columns: ",
          paste(setdiff(required_columns, names(augmented_input)),
                collapse = ", "))
   }
-  if (anyDuplicated(augmented_input[c("year", "long", "lat")])) {
-    stop("Duplicated site-year keys in the augmented input.")
-  }
   temperature_raw <- augmented_input %>%
     transmute(
-      source_order = row_number(),
+      source_order = as.integer(source_order),
       level = as.numeric(level),
       year = as.integer(year),
       long = as.numeric(long),
       lat = as.numeric(lat),
-      number_of_source_records = as.integer(number_of_source_records)
+      number_of_source_records = as.integer(number_of_source_records),
+      source_type = as.character(source_type),
+      is_inferred_zero = as.logical(is_inferred_zero)
     )
   invalid_input <- is.na(temperature_raw$year) |
     !between(temperature_raw$year, 1368L, 1911L) |
@@ -199,13 +200,33 @@ if (temperature_input_mode == "augmented") {
     !temperature_raw$level %in% ordinal_values |
     !is.finite(temperature_raw$long) |
     !is.finite(temperature_raw$lat) |
-    is.na(temperature_raw$number_of_source_records)
-  if (any(invalid_input, na.rm = TRUE)) {
-    stop("The augmented input contains invalid site-year records.")
+    is.na(temperature_raw$number_of_source_records) |
+    is.na(temperature_raw$is_inferred_zero) |
+    (temperature_raw$is_inferred_zero &
+       (temperature_raw$level != 0 |
+        temperature_raw$number_of_source_records != 0L |
+        temperature_raw$source_type != "inferred_zero_precipitation" |
+        !is.na(temperature_raw$source_order))) |
+    (!temperature_raw$is_inferred_zero &
+       (temperature_raw$number_of_source_records != 1L |
+        temperature_raw$source_type != "observed_temperature" |
+        is.na(temperature_raw$source_order)))
+  if (any(invalid_input, na.rm = TRUE) ||
+      anyNA(temperature_raw$source_type)) {
+    stop("The augmented input contains invalid observation records.")
+  }
+  recorded_input <- temperature_raw %>% filter(!is_inferred_zero)
+  inferred_input <- temperature_raw %>% filter(is_inferred_zero)
+  keys <- c("year", "long", "lat")
+  if (anyDuplicated(recorded_input$source_order) ||
+      anyDuplicated(inferred_input[keys]) ||
+      nrow(semi_join(inferred_input, recorded_input, by = keys)) != 0L) {
+    stop("Duplicate inferred zeros or inferred zeros on recorded site-years.")
   }
 } else {
   temperature_raw <- readxl::read_excel(
     temperature_source_file,
+    sheet = "全年溫度分級",
     col_types = c(
       "skip", "skip", "numeric", "numeric",
       "skip", "skip", "skip", "skip", "skip",
@@ -220,8 +241,8 @@ if (temperature_input_mode == "augmented") {
       source_order = row_number(),
       level = as.numeric(level),
       year = as.integer(year),
-      long = as.numeric(long),
-      lat = as.numeric(lat),
+      long = round(as.numeric(long), 8),
+      lat = round(as.numeric(lat), 8),
       number_of_source_records = 1L
     ) %>%
     filter(
@@ -233,60 +254,16 @@ if (temperature_input_mode == "augmented") {
     )
 }
 
-mode_first <- function(
-    values,
-    source_order) {
-
-  counts <- table(values)
-  maximum_count <- max(counts)
-
-  modal_values <- as.numeric(
-    names(
-      counts[
-        counts == maximum_count
-      ]
-    )
-  )
-
-  if (length(modal_values) == 1L) {
-    return(modal_values)
-  }
-
-  tied_rows <- which(
-    values %in% modal_values
-  )
-
-  values[tied_rows[which.min(source_order[tied_rows])]]
-}
-
-# The spatial model has one ordinal observation per site-year.
-# Repeated documentary entries at the same site and year are
-# therefore collapsed to their modal category.
+# Treat every source temperature record as a distinct ordinal observation.
+# The kriging covariance includes a nugget for collocated records.
 temp2 <- temperature_raw %>%
-  group_by(
-    year,
-    long,
-    lat
-  ) %>%
-  summarise(
-    level = mode_first(
-      level,
-      source_order
-    ),
-    number_of_source_records = sum(number_of_source_records),
-    .groups = "drop"
-  ) %>%
+  arrange(year, long, lat, source_order) %>%
   dplyr::select(
     level,
     year,
     long,
     lat,
     number_of_source_records
-  ) %>%
-  arrange(
-    year,
-    long,
-    lat
   )
 
 all_site_years <- if (is.null(cv_holdout)) NULL else temp2
@@ -299,7 +276,7 @@ if (!is.null(cv_holdout)) {
   message(
     "Training-only covariance fit: excluding ",
     cv_holdout[1L], "-", cv_holdout[2L],
-    "; remaining site-years = ", nrow(temp2)
+    "; remaining observations = ", nrow(temp2)
   )
 }
 

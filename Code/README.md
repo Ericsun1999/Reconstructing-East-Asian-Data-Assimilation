@@ -144,9 +144,12 @@ describe recorded REACHES temperature events; inferred-zero site-years
 should not be misinterpreted as directly observed temperature events.
 Figure 2 and Supplementary Figure S2 distinguish inferred zero
 site-years with outlined markers. The Original descriptive count
-plots use recorded documentary entries, while the inferred-zero
-version uses aggregated site-years; use the explicit site-year audit
-tables for a denominator-matched comparison of reporting density.
+plots use recorded documentary entries in both versions. Original
+temperature observations are never averaged or reduced to their modal
+category: each valid source record is retained. Inferred zeros are
+added at most once per site-year with precipitation but no temperature
+record (including no recorded zero). Record and site-year counts are
+reported separately in the augmentation audit tables.
 The supplementary spatial comparison aligns geographic locations
 even when Figure 6 cluster memberships change between versions.
 
@@ -425,7 +428,7 @@ They do not enter the main manuscript figure-generation pipeline.
 
 ### Preparing the documentary temperature input
 
-`Code/DataPreparation/prepare_precipitation_augmented_reaches.R` constructs an optional site-year temperature-index dataset from the annual temperature and precipitation worksheets. It preserves the recorded temperature category wherever one exists and assigns a working index of zero only to site-years with an annual precipitation record and no recorded temperature category. This is a documentary-availability assumption, not a direct temperature observation.
+`Code/DataPreparation/prepare_precipitation_augmented_reaches.R` constructs an optional site-year temperature-index dataset from the annual temperature and precipitation worksheets. It retains every original temperature observation as an individual record, including repeated site-years and recorded index-zero values, and adds exactly one working index of zero only for a site-year with annual precipitation but no recorded temperature observation. This is a documentary-availability assumption, not a direct temperature observation.
 
 The procedure keeps source flags, original text/event identifiers, and precipitation event codes. Annual precipitation records are used as evidence of documentary availability regardless of their rain/snow/hail or dry-weather classification. The original spreadsheets remain unchanged.
 
