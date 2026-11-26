@@ -71,7 +71,7 @@ if (any(!document_years %in% 1368:1911)) {
 summary_rows <- lapply(seq_len(nrow(covariance)), function(i) {
   row <- covariance[i, , drop = FALSE]
   fold <- as.character(row$fold)
-  held <- scores %>% filter(.data$fold == fold)
+  held <- scores %>% filter(.data$fold == .env$fold)
   a <- as.integer(row$holdout_start)
   b <- as.integer(row$holdout_end)
   if (nrow(held) < 2L || a > b ||
