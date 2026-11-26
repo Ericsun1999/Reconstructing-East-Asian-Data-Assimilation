@@ -152,6 +152,9 @@ record (including no recorded zero). Record and site-year counts are
 reported separately in the augmentation audit tables.
 The supplementary spatial comparison aligns geographic locations
 even when Figure 6 cluster memberships change between versions.
+Figure 2 draws inferred-zero markers behind recorded temperature points;
+observed index-zero records have a dark outline while inferred zeros
+have a light-gray outline, so neither is confused with the other.
 
 The legacy `run_all.R --only=<step>` entry point still supports
 individual workflow steps, which write to root-level `Output/`.
@@ -495,7 +498,18 @@ Output/Reconstructions/original/Output/Intermediate/ObservationVariance/original
   cv_score_curve.csv
   cv_score_by_fold.csv
   cv_score_by_city.csv
+  cv_fold_summary.csv
   cv_score_curve.png
+```
+
+The fold summary lists the individual-record training and validation counts,
+training date ranges, held-out dates and scored city-years, held-out scores at
+u=0 and the pooled selected u, and the training-only covariance estimates.
+If CV has already completed, create the same summary without recomputing CV:
+
+```bash
+cd Output/Reconstructions/original
+Rscript --vanilla Code/Analysis/summarize_cv_variance.R
 ```
 
 Both manuscript versions apply the same Original-input estimate to isolate
@@ -924,6 +938,11 @@ Output/Figure10/Figure10a.png
 Output/Figure10/Figure10b.png
 Output/Figure10/Figure10c.png
 Output/Figure10/Figure10_metrics.csv
+Output/Figure10/Figure10_reviewer_city_metrics.csv
+Output/Figure10/Figure10_reviewer_city_95pct.csv
+Output/Figure10/Figure10_reviewer_shared_years.csv
+Output/Figure10/Figure10_reviewer_shared_year_metrics.csv
+Output/Figure10/Figure10_reviewer_shared_year_95pct.csv
 ```
 
 The script compares the city-specific reconstructed temperatures with the GHCN instrumental records and reports:
@@ -933,6 +952,24 @@ The script compares the city-specific reconstructed temperatures with the GHCN i
 - root mean-square error;
 - anomaly correlation; and
 - anomaly root mean-square error.
+
+The additional reviewer tables compare Assimilated, REACHES, LME,
+and **prior-only** (the REACHES-independent unconditional state mean
+`prior_mean`) on identical GHCN years. City tables use four-product
+common years within each city; shared-year tables further restrict to
+the calendar-year intersection of Beijing, Shanghai, and Hong Kong.
+Conditional 95% state-interval coverage uses
+`smoothed_temperature_celsius +/- qnorm(0.975)*sqrt(smoothed_variance)`,
+with mean and median interval widths. These are latent-state intervals,
+not predictive intervals for noisy GHCN observations. The summary
+requires freshly generated `Figure9d.R` assimilation files.
+
+Plotting conventions across Figures 8–10 and Supplementary Figures
+S3–S5: REACHES = firebrick/dashed; LME = deepskyblue/dotted;
+Assimilated = black/solid; GHCN = green points where shown.
+Figure 10 correlation labels appear in the lower-right corner.
+Figure 6 and Figure S1 already hold a fixed y-axis range across
+clusters **within each data product**.
 
 ## Supplementary Figure Scripts
 

@@ -78,10 +78,11 @@ method_levels <- c(
   "REACHES"
 )
 
+# Match the source colours used in Figure 8 and Figure S3.
 method_colors <- c(
-  "Assimilated" = "#F8766D",
-  "LME" = "#00BA38",
-  "REACHES" = "#619CFF"
+  "Assimilated" = "black",
+  "LME" = "deepskyblue",
+  "REACHES" = "firebrick"
 )
 
 method_shapes <- c(
@@ -389,7 +390,18 @@ read_validation_data <- function(
         ),
         LME = as.numeric(
           lme_ensemble_mean_celsius
-        )
+        ),
+        Prior_only = if ("prior_mean" %in% names(validation_data)) {
+          as.numeric(prior_mean)
+        } else {
+          NA_real_
+        },
+        Conditional_variance =
+          if ("smoothed_variance" %in% names(validation_data)) {
+            as.numeric(smoothed_variance)
+          } else {
+            NA_real_
+          }
       )
 
   } else if (all(
@@ -418,7 +430,9 @@ read_validation_data <- function(
         ),
         LME = as.numeric(
           LME
-        )
+        ),
+        Prior_only = NA_real_,
+        Conditional_variance = NA_real_
       )
 
   } else {
@@ -670,22 +684,9 @@ make_correlation_labels <- function(
           digits = 2
         )
       ),
-      x =
-        plot_limits[
-          1
-        ] +
-        0.03 *
-          plot_span,
-      y =
-        plot_limits[
-          2
-        ] -
-        c(
-          0.05,
-          0.12,
-          0.19
-        ) *
-          plot_span
+      # Position all correlation labels in the lower-right corner.
+      x = plot_limits[2] - 0.03 * plot_span,
+      y = plot_limits[1] + c(0.05, 0.12, 0.19) * plot_span
     )
 }
 
@@ -724,7 +725,7 @@ make_scatter_plot <- function(
       ),
       inherit.aes = FALSE,
       show.legend = FALSE,
-      hjust = 0,
+      hjust = 1,
       size = correlation_text_size
     ) +
     scale_colour_manual(
@@ -809,6 +810,11 @@ names(
   city_config
 )
 
+# Retain exact annual comparisons for the additional reviewer tables.
+common_year_tables <- setNames(
+  vector("list", length(city_config)), names(city_config)
+)
+
 for (
   city_name in names(
     city_config
@@ -838,6 +844,8 @@ for (
       ghcn_data = ghcn_city,
       city_name = city_name
     )
+
+  common_year_tables[[city_name]] <- common_data
 
   plot_data <- make_long_plot_data(
     common_data = common_data,
@@ -946,6 +954,142 @@ readr::write_csv(
     "Figure10_plot_data.csv"
   )
 )
+
+# ------------------------------------------------------------
+# 7. Reviewer validation summary: four products and state intervals
+# ------------------------------------------------------------
+
+# The "prior-only" mean is the unconditional state mean prior_mean
+# from Figure9d.R, not dynamic_prior_prediction (which already uses
+# previous REACHES updates). The 95% interval is the conditional
+# *latent-state* interval, not a GHCN predictive interval.
+reviewer_metrics <- function(data, scope) {
+  if (nrow(data) < 2L) return(NULL)
+  products <- c(
+    "Assimilated" = "Assimilated",
+    "REACHES" = "REACHES",
+    "LME" = "LME",
+    "Prior-only" = "Prior_only"
+  )
+  do.call(rbind, lapply(names(products), function(product) {
+    estimate <- data[[products[[product]]]]
+    data.frame(
+      scope = scope,
+      city = unique(data$city),
+      product = product,
+      n_years = nrow(data),
+      first_year = min(data$year),
+      last_year = max(data$year),
+      bias_estimate_minus_GHCN = mean(estimate - data$GHCN),
+      RMSE = sqrt(mean((estimate - data$GHCN)^2)),
+      correlation = stats::cor(estimate, data$GHCN)
+    )
+  }))
+}
+
+reviewer_coverage <- function(data, scope) {
+  if (nrow(data) < 1L) return(NULL)
+  half_width <- stats::qnorm(0.975) *
+    sqrt(data$Conditional_variance)
+  data.frame(
+    scope = scope,
+    city = unique(data$city),
+    interval = "conditional_latent_state_95",
+    n_years = nrow(data),
+    first_year = min(data$year),
+    last_year = max(data$year),
+    GHCN_inside_95pct = mean(
+      data$GHCN >= data$Assimilated - half_width &
+      data$GHCN <= data$Assimilated + half_width
+    ),
+    mean_interval_width_celsius = mean(2 * half_width),
+    median_interval_width_celsius = median(2 * half_width)
+  )
+}
+
+complete_reviewer_rows <- function(data, city_name) {
+  missing_columns <- setdiff(
+    c("Prior_only", "Conditional_variance"), names(data)
+  )
+  if (length(missing_columns) > 0L) {
+    stop("Missing reviewer metrics for ", city_name,
+         ": ", paste(missing_columns, collapse = ", "))
+  }
+  data %>%
+    filter(
+      is.finite(Prior_only),
+      is.finite(Conditional_variance),
+      Conditional_variance >= 0
+    ) %>%
+    mutate(city = city_name)
+}
+
+reviewer_by_city <- Map(
+  complete_reviewer_rows,
+  common_year_tables, names(common_year_tables)
+)
+if (any(vapply(reviewer_by_city, nrow, integer(1L)) < 2L)) {
+  warning(
+    "Some city data lack prior_mean or smoothed_variance. ",
+    "Recreate all city assimilation files with Code/Figure9d.R ",
+    "before producing the reviewer validation summaries."
+  )
+} else {
+  # Within each city, all four products use exactly the same years.
+  city_metrics <- dplyr::bind_rows(
+    Map(function(z, city) reviewer_metrics(z, "matched_within_city"),
+        reviewer_by_city, names(reviewer_by_city))
+  )
+  city_coverage <- dplyr::bind_rows(
+    Map(function(z, city) reviewer_coverage(z, "matched_within_city"),
+        reviewer_by_city, names(reviewer_by_city))
+  )
+  readr::write_csv(
+    city_metrics,
+    file.path(output_dir, "Figure10_reviewer_city_metrics.csv")
+  )
+  readr::write_csv(
+    city_coverage,
+    file.path(output_dir, "Figure10_reviewer_city_95pct.csv")
+  )
+
+  # Also enforce the same calendar years across Beijing, Shanghai,
+  # and Hong Kong, when at least two such years are available.
+  shared_years <- sort(Reduce(
+    intersect, lapply(reviewer_by_city, function(z) z$year)
+  ))
+  readr::write_csv(
+    data.frame(year = shared_years),
+    file.path(output_dir, "Figure10_reviewer_shared_years.csv")
+  )
+  if (length(shared_years) >= 2L) {
+    shared_by_city <- lapply(
+      reviewer_by_city,
+      function(z) z %>% filter(year %in% shared_years)
+    )
+    shared_metrics <- dplyr::bind_rows(
+      lapply(shared_by_city,
+             function(z) reviewer_metrics(z, "same_years_all_cities"))
+    )
+    shared_coverage <- dplyr::bind_rows(
+      lapply(shared_by_city,
+             function(z) reviewer_coverage(z, "same_years_all_cities"))
+    )
+    readr::write_csv(
+      shared_metrics,
+      file.path(output_dir, "Figure10_reviewer_shared_year_metrics.csv")
+    )
+    readr::write_csv(
+      shared_coverage,
+      file.path(output_dir, "Figure10_reviewer_shared_year_95pct.csv")
+    )
+  } else {
+    warning(
+      "Fewer than two validation years are shared by all three cities. ",
+      "City-matched summaries were produced instead."
+    )
+  }
+}
 
 message(
   "Completed Figure 10(a), Figure 10(b), and Figure 10(c)."

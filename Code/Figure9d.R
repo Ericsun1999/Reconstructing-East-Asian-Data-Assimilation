@@ -2599,7 +2599,8 @@ process_city <- function(
       fill = "grey30"
     ) +
     geom_line(
-      colour = "red"
+      colour = "black",
+      linetype = "solid"
     ) +
     labs(
       x = "Year",

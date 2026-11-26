@@ -1317,7 +1317,8 @@ save_png(
       fill = "grey30"
     ) +
     geom_line(
-      colour = "red"
+      colour = "firebrick",
+      linetype = "dashed"
     ) +
     labs(
       x = "Year",
@@ -1359,7 +1360,8 @@ make_figure8_city_plot <- function(
         y =
           reaches_temperature_celsius
       ),
-      colour = "palevioletred1",
+      colour = "firebrick",
+      linetype = "dashed",
       alpha = 0.75
     ) +
     geom_smooth(
@@ -1384,7 +1386,8 @@ make_figure8_city_plot <- function(
         y =
           lme_temperature_celsius
       ),
-      colour = "skyblue1",
+      colour = "deepskyblue",
+      linetype = "dotted",
       alpha = 0.75
     ) +
     geom_smooth(
@@ -1399,7 +1402,7 @@ make_figure8_city_plot <- function(
       se = FALSE,
       linewidth = 1.1,
       colour = "deepskyblue",
-      linetype = "dashed"
+      linetype = "dotted"
     ) +
     labs(
       x = "Year",

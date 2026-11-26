@@ -497,9 +497,42 @@ for (k in seq_len(nrow(active_folds))) {
     }
   }
   fold_observations[[k]] <- bind_rows(city_results)
+  # The observation counts are individual documentary records, not
+  # collapsed site-years. Training covers the other four time blocks.
+  training_intervals <- character()
+  if (fold$start > min(years)) {
+    training_intervals <- c(
+      training_intervals,
+      paste0(min(years), "-", fold$start - 1L)
+    )
+  }
+  if (fold$end < max(years)) {
+    training_intervals <- c(
+      training_intervals,
+      paste0(fold$end + 1L, "-", max(years))
+    )
+  }
+  n_heldout_records <- sum(between(
+    fit$all_site_years$year, fold$start, fold$end
+  ))
+  if (nrow(fit$temp2) + n_heldout_records !=
+      nrow(fit$all_site_years)) {
+    stop("Training and validation record counts do not partition ",
+         fold$fold)
+  }
   fold_covariance[[k]] <- data.frame(
-    fold = fold$fold, holdout_start = fold$start,
-    holdout_end = fold$end, n_train = nrow(fit$temp2),
+    fold = fold$fold,
+    train_ranges = paste(training_intervals, collapse = "; "),
+    holdout_start = fold$start,
+    holdout_end = fold$end,
+    n_train = nrow(fit$temp2),
+    n_heldout_records = n_heldout_records,
+    n_training_document_years = n_distinct(fit$temp2$year),
+    n_heldout_document_years = n_distinct(
+      fit$all_site_years$year[
+        between(fit$all_site_years$year, fold$start, fold$end)
+      ]
+    ),
     n_all = nrow(fit$all_site_years),
     process_variance = variance_process,
     nugget_variance = variance_nugget,
@@ -641,6 +674,33 @@ if (is_partial_run) {
   readr::write_csv(score_by_city,
                    file.path(output_dir, "cv_score_by_city.csv"))
   readr::write_csv(selected, file.path(output_dir, "selected_u.csv"))
+
+  # Concise reviewer-facing per-fold audit. The same pooled u is used
+  # for both reconstruction versions; no separate u is fitted by fold.
+  fold_audit <- dplyr::bind_rows(lapply(seq_len(nrow(folds)), function(i) {
+    fold_name <- as.character(folds$fold[i])
+    z <- all_scores %>% filter(.data$fold == fold_name)
+    covariance <- covariance_table %>% filter(.data$fold == fold_name)
+    if (nrow(covariance) != 1L || nrow(z) < 2L) {
+      stop("Incomplete score or covariance audit: ", fold_name)
+    }
+    covariance %>%
+      mutate(
+        n_scored_heldout_city_years = nrow(z),
+        pooled_selected_u_celsius2 = u_opt,
+        predictive_log_score_u0 = predictive_log_score(
+          z$predictive_residual,
+          z$baseline_predictive_variance, 0
+        ),
+        predictive_log_score_selected_u = predictive_log_score(
+          z$predictive_residual,
+          z$baseline_predictive_variance, u_opt
+        )
+      )
+  }))
+  readr::write_csv(
+    fold_audit, file.path(output_dir, "cv_fold_summary.csv")
+  )
 
   plot <- ggplot(cv_grid, aes(x = u, y = predictive_log_score)) +
     geom_line(linewidth = 0.7) +

@@ -148,14 +148,27 @@ plot_originREACHES_map <- function(
       fill = NA,
       colour = "grey30"
     ) +
-    geom_point(
-      aes(colour = level),
-      cex = 1
-    ) +
+    # Draw inferred zeros first so their outlines cannot obscure
+    # documentary temperature observations from other years.
     geom_point(
       data = function(d) d[d$is_inferred_zero, , drop = FALSE],
-      shape = 21, fill = NA, colour = "grey40",
-      size = 1, stroke = 0.35, show.legend = FALSE
+      shape = 21, fill = "grey94", colour = "grey55",
+      size = 1.6, stroke = 0.25, alpha = 0.75,
+      show.legend = FALSE
+    ) +
+    geom_point(
+      data = function(d) d[!d$is_inferred_zero & d$level != 0, ,
+                           drop = FALSE],
+      aes(colour = level),
+      size = 1, alpha = 0.9
+    ) +
+    # Observed index-zero records must remain distinguishable from
+    # precipitation-inferred zeros: a dark outline marks true zeros.
+    geom_point(
+      data = function(d) d[!d$is_inferred_zero & d$level == 0, ,
+                           drop = FALSE],
+      shape = 21, fill = "white", colour = "grey15",
+      stroke = 0.4, size = 1.3, show.legend = FALSE
     ) +
     coord_map(
       xlim = c(98, 124.5),
