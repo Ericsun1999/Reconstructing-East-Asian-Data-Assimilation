@@ -168,8 +168,11 @@ Set `REPRODUCTION_MODE=full` for manuscript results; smoke mode is only
 a pipeline test (using `u=0` by default rather than full CV) and must not
 be used for manuscript figures. Use `--rebuild-shared` deliberately if
 the independent LME/prior inputs or code change, and then rerun *both*
-documentary versions. Existing snapshots are protected against silent
-replacement.
+documentary versions. By default, rerunning `--all` replaces the previous
+`original` and `inferred-zero` generated outputs and their snapshots,
+then refreshes `Comparison/`. The shared LME/Prior are **not** deleted or
+recalculated when their fingerprints match. The Original-input CV results
+are retained and reused if their source/method fingerprints still match.
 
 The coverage/population and interval-compatibility diagnostics still
 describe recorded REACHES temperature events; inferred-zero site-years

@@ -136,8 +136,11 @@ Set `REPRODUCTION_MODE=full` for manuscript results; smoke mode is only
 a pipeline test and uses `u=0` by default to avoid the costly five-block
 CV. In full mode, no separate CV command is required.
 Use `--rebuild-shared` deliberately if the independent LME/prior inputs
-or code change, and then rerun *both* documentary versions. Existing
-snapshots are protected against silent replacement.
+or code change, and then rerun *both* documentary versions. Repeating
+`--all` clears and regenerates both version-specific workspaces and the
+Comparison outputs, including previous snapshots. The shared LME/Prior
+and compatible Original-input CV files are preserved. `--variant=...`
+clears and rebuilds only the requested documentary version.
 
 The coverage/population and interval-compatibility diagnostics still
 describe recorded REACHES temperature events; inferred-zero site-years
@@ -193,8 +196,9 @@ a matching `REPRODUCTION_MODE`. Reuse **does not rerun the Prior search**
 under the newly selected mode. For an independent smoke Prior test, use
 a separate workspace. Avoid switching modes in a workspace containing
 manuscript results because rerunning `--all` can overwrite earlier
-version-specific outputs. If only one late workflow step failed, rerun
-that step's script in the existing version workspace.
+version-specific outputs (but not the shared LME/Prior). If only one
+late workflow step failed, rerun that step's script in the existing
+version workspace.
 For example, to test Figure S1 after an inferred-zero run:
 
 ```bash

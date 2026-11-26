@@ -36,6 +36,9 @@ if (any(grepl("^--only=", legacy_arguments)) ||
 # In full mode, u is estimated from Original-only blocked CV, automatically
 # after the shared LME/prior preparation. Smoke mode uses u=0 by default
 # and must not be used for manuscript results.
+# A --all or --variant run replaces that version's generated outputs
+# (including snapshots) while preserving shared LME/Prior and the verified
+# Original-input observation-variance CV cache.
 # This controller does not change the statistical methods.
 
 arguments <- commandArgs(trailingOnly = TRUE)
@@ -473,22 +476,64 @@ resolve_variance <- function() {
           signif(fixed_u, 7), " Celsius^2.")
 }
 
+# Remove only generated version-specific outputs, not linked shared data.
+clear_generated_contents <- function(path, preserve = character()) {
+  if (!dir.exists(path)) return(invisible(NULL))
+  if (is_link(path)) stop("Refusing to clear linked directory: ", path)
+  entries <- list.files(path, all.files = TRUE, no.. = TRUE,
+                        full.names = TRUE)
+  to_remove <- entries[!basename(entries) %in% preserve]
+  if (any(vapply(to_remove, is_link, logical(1)))) {
+    stop("Refusing to clear symlinked output under: ", path)
+  }
+  for (entry in to_remove) {
+    unlink(entry, recursive = TRUE, force = TRUE)
+    if (file.exists(entry) || dir.exists(entry) || is_link(entry)) {
+      stop("Could not replace generated output: ", entry)
+    }
+  }
+  invisible(NULL)
+}
+
+reset_variant_outputs <- function(name) {
+  if (!name %in% c("original", "inferred-zero")) {
+    stop("Unknown reconstruction version: ", name)
+  }
+  workspace <- prepare_workspace(name)
+  output_dir <- file.path(workspace, "Output")
+  intermediate_dir <- file.path(output_dir, "Intermediate")
+  if (is_link(output_dir) || is_link(intermediate_dir)) {
+    stop("Refusing to clear a linked version output: ", workspace)
+  }
+  # LME and Prior are links to the shared workspace. Keep both links.
+  # Original observation-variance CV, including selected_u.csv, also
+  # remains available to be verified/reused on the next full run.
+  clear_generated_contents(
+    intermediate_dir,
+    preserve = c("LME", "Prior",
+                 if (name == "original") "ObservationVariance"
+                 else character())
+  )
+  clear_generated_contents(output_dir, preserve = "Intermediate")
+  manifest <- file.path(workspace, "version_manifest.csv")
+  if (is_link(manifest)) {
+    stop("Refusing to remove linked version manifest: ", manifest)
+  }
+  if (file.exists(manifest)) {
+    unlink(manifest)
+    if (file.exists(manifest)) {
+      stop("Could not replace version manifest: ", manifest)
+    }
+  }
+  message("Replacing generated ", name, " outputs; shared LME/Prior ",
+          "and Original observation-variance CV remain available.")
+  invisible(NULL)
+}
+
 run_variant <- function(name) {
   check_shared()
   temperature_mode <- if (name == "inferred-zero") "augmented" else "original"
   workspace <- prepare_workspace(name)
-  for (stage in c("city", "grid")) {
-    existing <- file.path(
-      workspace, "Output", "Intermediate",
-      "AugmentationSensitivity", temperature_mode, stage,
-      "snapshot_manifest.csv"
-    )
-    if (file.exists(existing)) {
-      stop("A previous completed snapshot exists at: ", existing,
-           ". Archive or explicitly remove that previous version ",
-           "before starting another full run.")
-    }
-  }
   Sys.setenv(
     REPRODUCTION_MODE = reproduction_mode,
     REACHES_VERSIONED_RUN = name,
@@ -526,16 +571,6 @@ run_variant <- function(name) {
 
   # Full-grid snapshot also contains all three city reconstructions.
   for (stage in c("city", "grid")) {
-    saved <- file.path(
-      workspace, "Output", "Intermediate",
-      "AugmentationSensitivity", temperature_mode, stage,
-      "snapshot_manifest.csv"
-    )
-    if (file.exists(saved)) {
-      # Re-running should never silently overwrite an older snapshot.
-      stop("Existing ", name, " snapshot blocks replacement: ",
-           saved, ". Archive the old snapshot first.")
-    }
     run_script_in_workspace(
       workspace,
       "Code/Analysis/snapshot_augmentation_reconstruction.R",
@@ -568,6 +603,12 @@ compare_versions <- function() {
     stop("Version manifests are not compatible; the two runs must ",
          "use the same LME/prior, fixed u, projection and mode.")
   }
+  # Replace the previous comparison outputs, not the shared reconstruction.
+  comparison_dir <- file.path(reconstruction_root, "Comparison")
+  if (is_link(comparison_dir)) {
+    stop("Refusing to clear linked comparison output: ", comparison_dir)
+  }
+  clear_generated_contents(comparison_dir)
   Sys.setenv(REACHES_COMPARISON_VERSION_ROOT = reconstruction_root)
   for (stage in c("city", "grid")) {
     message("\nComparing ", stage, " reconstructions ...")
@@ -606,10 +647,15 @@ if (actions["compare_only"]) {
   prepare_shared(rebuild = "--rebuild-shared" %in% arguments)
   if (actions["all"] || actions["variant"]) resolve_variance()
   if (actions["all"]) {
+    # Clear both variants before rebuilding either, so failed reruns do
+    # not leave an old version appearing comparable to a new one.
+    reset_variant_outputs("inferred-zero")
+    reset_variant_outputs("original")
     run_variant("inferred-zero")
     run_variant("original")
     compare_versions()
   } else if (actions["variant"]) {
+    reset_variant_outputs(requested_variant)
     run_variant(requested_variant)
   }
 }
