@@ -988,17 +988,29 @@ year_ticks <- seq(
   by = 100
 )
 
-ylim_R <- c(
-  -1.7,
-  0.3
-)
-
-ytick_R <- c(
-  -1.5,
-  -1,
-  -0.5,
-  0
-)
+# Keep the same vertical scale for every cluster within a version.
+# The inferred-zero curves occupy a narrower range than the original
+# reconstruction, so use a shared data-derived range with a small margin.
+# Preserve the manuscript-era scale for the original version.
+if (identical(Sys.getenv("REACHES_TEMPERATURE_INPUT", unset = "original"),
+              "augmented")) {
+  fitted_range <- range(eval_R, finite = TRUE)
+  if (any(!is.finite(fitted_range))) {
+    stop("Invalid fitted REACHES index range for Figure 6.")
+  }
+  padding_R <- max(0.05, diff(fitted_range) * 0.08)
+  ylim_R <- c(
+    floor((fitted_range[1L] - padding_R) * 10) / 10,
+    ceiling((fitted_range[2L] + padding_R) * 10) / 10
+  )
+  ytick_R <- pretty(ylim_R, n = 5)
+  ytick_R <- ytick_R[
+    ytick_R >= ylim_R[1L] & ytick_R <= ylim_R[2L]
+  ]
+} else {
+  ylim_R <- c(-1.7, 0.3)
+  ytick_R <- c(-1.5, -1, -0.5, 0)
+}
 
 draw_reaches_cluster <- function(k) {
 

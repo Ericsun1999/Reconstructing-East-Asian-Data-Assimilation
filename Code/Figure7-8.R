@@ -1376,7 +1376,7 @@ make_figure8_city_plot <- function(
       se = FALSE,
       linewidth = 1.1,
       colour = "firebrick",
-      linetype = "dashed",
+      linetype = "solid",
       span = 0.75
     ) +
     geom_line(
@@ -1402,7 +1402,7 @@ make_figure8_city_plot <- function(
       se = FALSE,
       linewidth = 1.1,
       colour = "deepskyblue",
-      linetype = "dotted"
+      linetype = "solid"
     ) +
     labs(
       x = "Year",
