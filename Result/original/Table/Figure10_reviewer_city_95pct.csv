@@ -1,0 +1,4 @@
+scope,city,interval,n_years,first_year,last_year,GHCN_inside_95pct,mean_interval_width_celsius,median_interval_width_celsius
+matched_within_city,Beijing,conditional_latent_state_95,47,1841,1911,0.8936170212765957,1.6874174883125452,1.7107193633509785
+matched_within_city,Shanghai,conditional_latent_state_95,57,1848,1911,0.6842105263157895,1.3633265848618041,1.331706216704963
+matched_within_city,HongKong,conditional_latent_state_95,46,1855,1911,0.7608695652173914,1.278238401807231,1.303109053339103
