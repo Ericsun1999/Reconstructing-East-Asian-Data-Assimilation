@@ -1374,7 +1374,7 @@ make_figure8_city_plot <- function(
       method = "loess",
       formula = y ~ x,
       se = FALSE,
-      linewidth = 1.1,
+      linewidth = 0.8,
       colour = "firebrick",
       linetype = "solid",
       span = 0.75
@@ -1400,7 +1400,7 @@ make_figure8_city_plot <- function(
       method = "loess",
       formula = y ~ x,
       se = FALSE,
-      linewidth = 1.1,
+      linewidth = 0.8,
       colour = "deepskyblue",
       linetype = "solid"
     ) +
